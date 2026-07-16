@@ -407,6 +407,8 @@ export default function TradingTerminalPage() {
   const botLearningsRef = useRef(botLearnings);
   const subWalletsRef = useRef(subWallets);
   const tradingModeRef = useRef(tradingMode);
+  const balanceRef = useRef(balance);
+  const solanaBalanceRef = useRef(solanaBalance);
   // Function refs so intervals always call the latest version (avoids stale closure)
   const closePositionByIdRef = useRef<(posId: string, exitPrice: number, reason: string) => void>(() => {});
   const addBotLogRef = useRef<(botId: string, botName: string, message: string, type: 'info' | 'trade' | 'error') => void>(() => {});
@@ -418,6 +420,8 @@ export default function TradingTerminalPage() {
     botLearningsRef.current = botLearnings;
     subWalletsRef.current = subWallets;
     tradingModeRef.current = tradingMode;
+    balanceRef.current = balance;
+    solanaBalanceRef.current = solanaBalance;
   });
 
   // Client-side WebSocket Connection to Pump.fun API Provider (pumpdev.io)
@@ -729,6 +733,22 @@ export default function TradingTerminalPage() {
                 const cleanPair = targetPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
                 addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage] Signal ${signal} sur ${cleanPair} BLOQUÉ : Évite de reproduire une perte passée (${learningReason}).`, 'info');
                 continue;
+              }
+
+              // Validate account balance before opening a position
+              const cleanPair = targetPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+              if (tradingModeRef.current === 'DEMO') {
+                const globalBal = balanceRef.current;
+                if (globalBal <= 0) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde insuffisant (0.00 $). Veuillez effectuer un dépôt pour continuer.`, 'error');
+                  continue;
+                }
+              } else {
+                const solBal = solanaBalanceRef.current;
+                if (solBal === null || solBal <= 0.001) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL insuffisant. Veuillez ajouter des SOL.`, 'error');
+                  continue;
+                }
               }
 
               const orderId = 'pos_' + Math.random().toString(36).substring(2, 9);
