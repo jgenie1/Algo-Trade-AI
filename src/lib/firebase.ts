@@ -25,6 +25,8 @@ export interface AppState {
   closedPositions: any[];
   bots: any[];
   transactions?: any[];
+  botLearnings?: any[];
+  botLogs?: any[];
 }
 
 export const defaultState: AppState = {
@@ -33,7 +35,9 @@ export const defaultState: AppState = {
   positions: [],
   closedPositions: [],
   bots: [],
-  transactions: []
+  transactions: [],
+  botLearnings: [],
+  botLogs: []
 };
 
 // Save partial state to Firestore (with sanitization for undefined values and error catching)

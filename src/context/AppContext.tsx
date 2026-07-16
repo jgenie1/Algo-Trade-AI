@@ -18,6 +18,10 @@ interface AppContextType {
   setBots: React.Dispatch<React.SetStateAction<any[]>>;
   transactions: any[];
   setTransactions: React.Dispatch<React.SetStateAction<any[]>>;
+  botLearnings: any[];
+  setBotLearnings: React.Dispatch<React.SetStateAction<any[]>>;
+  botLogs: any[];
+  setBotLogs: React.Dispatch<React.SetStateAction<any[]>>;
   isLoading: boolean;
 }
 
@@ -30,6 +34,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const [closedPositions, setClosedPositions] = useState<any[]>([]);
   const [bots, setBots] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [botLearnings, setBotLearnings] = useState<any[]>([]);
+  const [botLogs, setBotLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // A ref to prevent sending local updates to Firestore during the onSnapshot load
@@ -43,6 +49,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       const closed = localStorage.getItem('trade_closed');
       const runningBots = localStorage.getItem('trade_bots');
       const txs = localStorage.getItem('trade_transactions');
+      const learnings = localStorage.getItem('trade_learnings');
+      const logs = localStorage.getItem('trade_logs');
 
       if (mode === 'REAL' || mode === 'DEMO') setTradingMode(mode);
       if (bal) setBalance(parseFloat(bal));
@@ -57,6 +65,12 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       }
       if (txs) {
         try { setTransactions(JSON.parse(txs)); } catch(e) {}
+      }
+      if (learnings) {
+        try { setBotLearnings(JSON.parse(learnings)); } catch(e) {}
+      }
+      if (logs) {
+        try { setBotLogs(JSON.parse(logs)); } catch(e) {}
       }
   }, []);
 
@@ -106,6 +120,14 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           setTransactions(data.transactions);
           localStorage.setItem('trade_transactions', JSON.stringify(data.transactions));
         }
+        if (data.botLearnings !== undefined) {
+          setBotLearnings(data.botLearnings);
+          localStorage.setItem('trade_learnings', JSON.stringify(data.botLearnings));
+        }
+        if (data.botLogs !== undefined) {
+          setBotLogs(data.botLogs);
+          localStorage.setItem('trade_logs', JSON.stringify(data.botLogs));
+        }
         
         setTimeout(() => {
           isIncomingSync.current = false;
@@ -131,6 +153,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     localStorage.setItem('trade_closed', JSON.stringify(closedPositions));
     localStorage.setItem('trade_bots', JSON.stringify(bots));
     localStorage.setItem('trade_transactions', JSON.stringify(transactions));
+    localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
+    localStorage.setItem('trade_logs', JSON.stringify(botLogs));
 
     // Debounce save to Firestore slightly
     const timer = setTimeout(() => {
@@ -140,12 +164,14 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         positions: activePositions,
         closedPositions,
         bots,
-        transactions
+        transactions,
+        botLearnings,
+        botLogs
       });
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [tradingMode, balance, activePositions, closedPositions, bots, transactions, isLoading]);
+  }, [tradingMode, balance, activePositions, closedPositions, bots, transactions, botLearnings, botLogs, isLoading]);
 
   return (
     <AppContext.Provider value={{
@@ -161,6 +187,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       setBots,
       transactions,
       setTransactions,
+      botLearnings,
+      setBotLearnings,
+      botLogs,
+      setBotLogs,
       isLoading
     }}>
       {children}

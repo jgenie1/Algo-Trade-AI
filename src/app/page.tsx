@@ -136,12 +136,14 @@ export default function TradingTerminalPage() {
     closedPositions,
     setClosedPositions,
     bots,
-    setBots
+    setBots,
+    botLogs,
+    setBotLogs,
+    botLearnings,
+    setBotLearnings
   } = useAppState();
   
   const [equity, setEquity] = useState<number>(10000);
-  const [botLogs, setBotLogs] = useState<BotLog[]>([]);
-  const [botLearnings, setBotLearnings] = useState<BotLearning[]>([]);
 
   // Manual Order Form State
   const [selectedPair, setSelectedPair] = useState<string>('FX:EURUSD');
@@ -204,18 +206,7 @@ export default function TradingTerminalPage() {
         });
       };
 
-      if (storedLogs) {
-        try {
-          const parsed = JSON.parse(storedLogs);
-          setBotLogs(deduplicateById(parsed));
-        } catch (e) {}
-      }
-      if (storedLearnings) {
-        try {
-          const parsed = JSON.parse(storedLearnings);
-          setBotLearnings(deduplicateById(parsed));
-        } catch (e) {}
-      }
+      // Logs and learnings are now fully synchronized via AppContext and Firebase.
 
       const storedSubs = localStorage.getItem('trade_sub_wallets');
       if (storedSubs) {
@@ -243,13 +234,7 @@ export default function TradingTerminalPage() {
   // Save to LocalStorage whenever states change
 
 
-  useEffect(() => {
-    localStorage.setItem('trade_logs', JSON.stringify(botLogs));
-  }, [botLogs]);
-
-  useEffect(() => {
-    localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
-  }, [botLearnings]);
+  // Local storage persistence is managed by AppContext.
 
 
 
