@@ -894,8 +894,8 @@ export default function TradingTerminalPage() {
               // Validate account balance before opening a position
               const cleanPair = targetPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
               if (tradingModeRef.current === 'DEMO') {
-                const globalBal = balanceRef.current;
-                if (globalBal <= 0) {
+                const totalFunds = balanceRef.current + bot.capital;
+                if (totalFunds <= 0) {
                   addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde insuffisant (0.00 $). Veuillez effectuer un dépôt pour continuer.`, 'error');
                   continue;
                 }

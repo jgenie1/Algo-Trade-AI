@@ -130,18 +130,23 @@ function generateFallbackCandles(pairName: string): Candle[] {
   const now = Math.floor(Date.now() / 1000);
   
   for (let i = 0; i < 30; i++) {
-    const change = (Math.sin(i * 0.5) * 0.002 + (Math.cos(i * 0.8) * 0.001)) * basePrice;
+    // Inject standard random walk volatility to simulate market noise
+    const noise = (Math.random() - 0.5) * 0.015; // 1.5% volatility noise
+    const wave = Math.sin(i * 0.4) * 0.005;
+    const change = (wave + noise) * basePrice;
+    
     const open = currentPrice;
     const close = currentPrice + change;
-    const high = Math.max(open, close) + Math.abs(change) * 0.3;
-    const low = Math.min(open, close) - Math.abs(change) * 0.3;
+    const high = Math.max(open, close) + Math.abs(change) * (0.1 + Math.random() * 0.5);
+    const low = Math.min(open, close) - Math.abs(change) * (0.1 + Math.random() * 0.5);
+    
     candles.push({
       time: now - (30 - i) * 900,
       open,
       high,
       low,
       close,
-      volume: Math.floor(Math.random() * 5000) + 1000
+      volume: Math.floor(Math.random() * 8000) + 2000
     });
     currentPrice = close;
   }
