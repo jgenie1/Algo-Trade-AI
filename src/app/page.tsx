@@ -140,7 +140,8 @@ export default function TradingTerminalPage() {
     botLogs,
     setBotLogs,
     botLearnings,
-    setBotLearnings
+    setBotLearnings,
+    isLoading: isAppLoading
   } = useAppState();
   
   const [equity, setEquity] = useState<number>(10000);
@@ -1633,7 +1634,12 @@ export default function TradingTerminalPage() {
           {tradingMode === 'DEMO' ? "Positions Ouvertes Démo" : "Positions Ouvertes Réelles (SOL)"} ({activePositions.filter(p => tradingMode === 'REAL' ? p.pair.startsWith('SOL:') : !p.pair.startsWith('SOL:')).length})
         </h2>
 
-        {activePositions.filter(p => tradingMode === 'REAL' ? p.pair.startsWith('SOL:') : !p.pair.startsWith('SOL:')).length === 0 ? (
+        {isAppLoading ? (
+          <div className="border border-white/5 rounded-xl p-6 flex items-center gap-3">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
+            <span className="text-xs text-white/30 font-body">Chargement des positions depuis Firebase...</span>
+          </div>
+        ) : activePositions.filter(p => tradingMode === 'REAL' ? p.pair.startsWith('SOL:') : !p.pair.startsWith('SOL:')).length === 0 ? (
           <div className="border border-dashed border-white/10 rounded-xl p-8 text-center text-white/30 font-body text-xs">
             {tradingMode === 'DEMO' ? "Aucune position démo ouverte actuellement. Utilisez le panneau de gauche pour initier un trade." : "Aucun snipe SOL actif actuellement."}
           </div>
@@ -2619,7 +2625,12 @@ export default function TradingTerminalPage() {
               {tradingMode === 'DEMO' ? "Historique des Clôtures Démo" : "Historique des Clôtures Réelles (SOL)"} ({closedPositions.filter(h => tradingMode === 'REAL' ? h.pair.startsWith('SOL:') : !h.pair.startsWith('SOL:')).length})
             </h2>
 
-            {closedPositions.filter(h => tradingMode === 'REAL' ? h.pair.startsWith('SOL:') : !h.pair.startsWith('SOL:')).length === 0 ? (
+            {isAppLoading ? (
+              <div className="border border-white/5 rounded-xl p-4 flex items-center gap-3">
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
+                <span className="text-xs text-white/30 font-body">Chargement de l'historique...</span>
+              </div>
+            ) : closedPositions.filter(h => tradingMode === 'REAL' ? h.pair.startsWith('SOL:') : !h.pair.startsWith('SOL:')).length === 0 ? (
               <div className="border border-dashed border-white/10 rounded-xl p-6 text-center text-white/30 font-body text-xs">
                 Aucune transaction clôturée pour le moment.
               </div>

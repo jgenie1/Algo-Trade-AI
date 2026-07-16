@@ -36,13 +36,31 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [botLearnings, setBotLearnings] = useState<any[]>([]);
   const [botLogs, setBotLogs] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // A ref to prevent sending local updates to Firestore during the onSnapshot load
+  // Prevents sending local updates to Firestore during an onSnapshot load
   const isIncomingSync = useRef(false);
+  // CRITICAL: Gates ALL Firestore saves until initial data load is done.
+  // Without this, the save effect fires on mount with empty arrays and
+  // overwrites existing Firestore data before the snapshot arrives.
+  const isInitialized = useRef(false);
 
-  // 1. Initial Load from LocalStorage
+  // 1. Firebase Anonymous Authentication
   useEffect(() => {
+    signInAnonymously(auth)
+      .then(() => {
+        console.log("Firebase Auth: Connected anonymously");
+      })
+      .catch((error) => {
+        console.warn("Firebase Auth: Anonymous login not allowed/configured. Continuing in local-only mode.", error);
+      });
+  }, []);
+
+  // 2. Real-time Subscription to Firebase Firestore (primary source of truth)
+  useEffect(() => {
+    const docRef = doc(db, 'erp', DEFAULT_USER);
+
+    const loadFromLocalStorage = () => {
       const mode = localStorage.getItem('trade_mode') as 'DEMO' | 'REAL';
       const bal = localStorage.getItem('trade_balance');
       const pos = localStorage.getItem('trade_positions');
@@ -54,46 +72,18 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
       if (mode === 'REAL' || mode === 'DEMO') setTradingMode(mode);
       if (bal) setBalance(parseFloat(bal));
-      if (pos) {
-        try { setActivePositions(JSON.parse(pos)); } catch(e) {}
-      }
-      if (closed) {
-        try { setClosedPositions(JSON.parse(closed)); } catch(e) {}
-      }
-      if (runningBots) {
-        try { setBots(JSON.parse(runningBots)); } catch(e) {}
-      }
-      if (txs) {
-        try { setTransactions(JSON.parse(txs)); } catch(e) {}
-      }
-      if (learnings) {
-        try { setBotLearnings(JSON.parse(learnings)); } catch(e) {}
-      }
-      if (logs) {
-        try { setBotLogs(JSON.parse(logs)); } catch(e) {}
-      }
-  }, []);
-
-  // 1.5. Firebase Anonymous Authentication
-  useEffect(() => {
-    signInAnonymously(auth)
-      .then(() => {
-        console.log("Firebase Auth: Connected anonymously");
-      })
-      .catch((error) => {
-        console.warn("Firebase Auth: Anonymous login not allowed/configured. Continuing in local-only mode if permissions fail.", error);
-      });
-  }, []);
-
-  // 2. Real-time Subscription to Firebase Firestore
-  useEffect(() => {
-    const docRef = doc(db, 'erp', DEFAULT_USER);
+      if (pos) { try { setActivePositions(JSON.parse(pos)); } catch(e) {} }
+      if (closed) { try { setClosedPositions(JSON.parse(closed)); } catch(e) {} }
+      if (runningBots) { try { setBots(JSON.parse(runningBots)); } catch(e) {} }
+      if (txs) { try { setTransactions(JSON.parse(txs)); } catch(e) {} }
+      if (learnings) { try { setBotLearnings(JSON.parse(learnings)); } catch(e) {} }
+      if (logs) { try { setBotLogs(JSON.parse(logs)); } catch(e) {} }
+    };
     
     const unsubscribe = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as Partial<AppState>;
         
-        // Prevent trigger loop by flagging incoming sync
         isIncomingSync.current = true;
         
         if (data.tradeMode !== undefined) {
@@ -132,21 +122,33 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         setTimeout(() => {
           isIncomingSync.current = false;
         }, 50);
+      } else {
+        // No Firestore document yet: fall back to LocalStorage
+        loadFromLocalStorage();
       }
+
+      // Mark initialization as complete — saves are now allowed
+      isInitialized.current = true;
       setIsLoading(false);
     }, (error) => {
       console.error("Firebase ERP Sync Error:", error);
+      // On Firebase error: fall back to LocalStorage and allow saves
+      loadFromLocalStorage();
+      isInitialized.current = true;
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 3. Save to Firestore whenever states change (excluding incoming syncs and initial load)
+  // 3. Save to Firestore whenever states change
+  // CRITICAL: Only runs after isInitialized.current = true, which is set only
+  // after the first Firestore snapshot (or localStorage fallback) completes.
+  // This prevents the race condition where empty state overwrites real data on mount.
   useEffect(() => {
-    if (isLoading || isIncomingSync.current) return;
+    if (!isInitialized.current || isIncomingSync.current) return;
 
-    // Persist local copies immediately
+    // Persist to LocalStorage immediately
     localStorage.setItem('trade_mode', tradingMode);
     localStorage.setItem('trade_balance', balance.toString());
     localStorage.setItem('trade_positions', JSON.stringify(activePositions));
@@ -156,7 +158,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
     localStorage.setItem('trade_logs', JSON.stringify(botLogs));
 
-    // Debounce save to Firestore slightly
+    // Debounce Firestore save to 500ms to avoid excessive writes
     const timer = setTimeout(() => {
       saveFullState({
         tradeMode: tradingMode,
@@ -168,10 +170,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         botLearnings,
         botLogs
       });
-    }, 100);
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [tradingMode, balance, activePositions, closedPositions, bots, transactions, botLearnings, botLogs, isLoading]);
+  }, [tradingMode, balance, activePositions, closedPositions, bots, transactions, botLearnings, botLogs]);
 
   return (
     <AppContext.Provider value={{
