@@ -87,6 +87,7 @@ interface TradingBot {
   pumpMode?: 'PRECOCE' | 'MOMENTUM' | 'RAYDIUM';
   priorityFee?: number;
   autoVolume?: boolean;
+  mode?: 'DEMO' | 'REAL';
 }
 
 interface BotLog {
@@ -246,14 +247,7 @@ export default function TradingTerminalPage() {
     localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
   }, [botLearnings]);
 
-  // Sync bot strategy selection on trading mode change
-  useEffect(() => {
-    if (tradingMode === 'DEMO') {
-      setBotStrategy('AI Autopilot (Machine à Cash)');
-    } else {
-      setBotStrategy('Pump.fun Sniper Bot');
-    }
-  }, [tradingMode]);
+
 
   // Periodic Solana Balance & Node status sync
   useEffect(() => {
@@ -412,6 +406,7 @@ export default function TradingTerminalPage() {
   const liveWsCoinsRef = useRef<any[]>([]);
   const botLearningsRef = useRef(botLearnings);
   const subWalletsRef = useRef(subWallets);
+  const tradingModeRef = useRef(tradingMode);
   // Function refs so intervals always call the latest version (avoids stale closure)
   const closePositionByIdRef = useRef<(posId: string, exitPrice: number, reason: string) => void>(() => {});
   const addBotLogRef = useRef<(botId: string, botName: string, message: string, type: 'info' | 'trade' | 'error') => void>(() => {});
@@ -422,6 +417,7 @@ export default function TradingTerminalPage() {
     livePricesRef.current = livePrices;
     botLearningsRef.current = botLearnings;
     subWalletsRef.current = subWallets;
+    tradingModeRef.current = tradingMode;
   });
 
   // Client-side WebSocket Connection to Pump.fun API Provider (pumpdev.io)
@@ -491,7 +487,10 @@ export default function TradingTerminalPage() {
   // Auto Bot Tick execution simulation loop
   useEffect(() => {
     const botTick = async () => {
-      const runningBots = botsRef.current.filter(b => b.status === 'RUNNING');
+      const runningBots = botsRef.current.filter(b => 
+        b.status === 'RUNNING' && 
+        (b.mode === tradingModeRef.current || (b.mode === undefined && (tradingModeRef.current === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot')))
+      );
       if (runningBots.length === 0) return;
 
       for (const bot of runningBots) {
@@ -786,7 +785,8 @@ export default function TradingTerminalPage() {
                   : undefined
               };
 
-              if (bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
+              const isBotReal = bot.mode === 'REAL' || (bot.mode === undefined && tradingModeRef.current === 'REAL');
+              if (isBotReal && bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
                 // Execute real transaction on Solana Mainnet
                 const priority = bot.priorityFee || 0.005;
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi de la transaction d'achat réelle sur Solana pour $${targetCoinData.symbol}... (Frais: +${priority} SOL)`, 'info');
@@ -961,7 +961,8 @@ export default function TradingTerminalPage() {
     });
     
     if (p.botId) {
-      if (p.pair.startsWith('SOL:')) {
+      const isRealPosition = !!p.txHash || (tradingModeRef.current === 'REAL' && p.pair.startsWith('SOL:'));
+      if (isRealPosition && p.pair.startsWith('SOL:')) {
         const parts = p.pair.split(':');
         const mintAddress = parts[1];
         const botConfig = botsRef.current.find(b => b.id === p.botId);
@@ -1262,7 +1263,8 @@ export default function TradingTerminalPage() {
       riskProfile: botStrategy === 'AI Autopilot (Machine à Cash)' ? botRiskProfile : undefined,
       pumpMode: botStrategy === 'Pump.fun Sniper Bot' ? pumpSniperMode : undefined,
       priorityFee: botStrategy === 'Pump.fun Sniper Bot' ? priorityFee : undefined,
-      autoVolume: botStrategy === 'Pump.fun Sniper Bot' ? autoVolume : undefined
+      autoVolume: botStrategy === 'Pump.fun Sniper Bot' ? autoVolume : undefined,
+      mode: tradingMode
     };
 
     setBots(prev => {
@@ -1792,17 +1794,27 @@ export default function TradingTerminalPage() {
           {/* TAB 2: AUTOMATIC TRADING BOTS */}
           {activeTab === 'bots' && (
             <div className="bg-[#14101a] border border-white/10 rounded-2xl p-5 space-y-5">
-              {/* Dynamic Strategy Header based on mode */}
-              <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between">
-                <span className="text-xs text-white/50 font-body">Stratégie active :</span>
-                <span className={cn(
-                  "px-3 py-1 text-[10px] font-bold uppercase rounded-lg font-headline border",
-                  tradingMode === 'DEMO'
-                    ? "bg-amber-500/10 text-amber-300 border-amber-500/25"
-                    : "bg-purple-600/25 text-purple-300 border-purple-500/25"
-                )}>
-                  {tradingMode === 'DEMO' ? "🤖 IA Autopilot (Démo)" : "🎯 Sniper Solana (Réel)"}
-                </span>
+              {/* Strategy Selector Dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-white/40 uppercase font-headline">Sélectionner une Stratégie</label>
+                <select
+                  value={botStrategy}
+                  onChange={(e) => setBotStrategy(e.target.value as any)}
+                  className="w-full h-11 bg-[#14101a] border border-white/10 rounded-xl px-3 text-xs focus:outline-none text-white font-body"
+                >
+                  {tradingMode === 'DEMO' ? (
+                    <>
+                      <option value="AI Autopilot (Machine à Cash)">🤖 IA Autopilot (Machine à Cash)</option>
+                      <option value="Pump.fun Sniper Bot">🎯 Pump.fun Sniper Bot (Démo Solana)</option>
+                      <option value="RSI Pullback">📈 RSI Pullback Reversal</option>
+                      <option value="EMA Cross">📉 EMA Golden Cross Trend</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Pump.fun Sniper Bot">🎯 Pump.fun Sniper Bot (Solana Réel)</option>
+                    </>
+                  )}
+                </select>
               </div>
 
               {botStrategy === 'AI Autopilot (Machine à Cash)' ? (
@@ -2180,17 +2192,17 @@ export default function TradingTerminalPage() {
           <div className="bg-[#14101a] border border-white/10 rounded-2xl p-5">
             <h2 className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline mb-4 flex items-center gap-2">
               <Bot className="h-4 w-4 text-[#c2ff0c]" />
-              {tradingMode === 'DEMO' ? "Mes Bots Démo" : "Mes Snipers SOL Réels"} ({bots.filter(b => tradingMode === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot').length})
+              {tradingMode === 'DEMO' ? "Mes Bots Démo" : "Mes Snipers SOL Réels"} ({bots.filter(b => b.mode === tradingMode || (b.mode === undefined && (tradingMode === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot'))).length})
             </h2>
 
-            {bots.filter(b => tradingMode === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot').length === 0 ? (
+            {bots.filter(b => b.mode === tradingMode || (b.mode === undefined && (tradingMode === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot'))).length === 0 ? (
               <div className="border border-dashed border-white/10 rounded-xl p-8 text-center text-white/30 font-body text-xs">
                 {tradingMode === 'DEMO' ? "Aucun bot démo configuré." : "Aucun sniper SOL configuré actuellement."}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {bots
-                  .filter(b => tradingMode === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot')
+                  .filter(b => b.mode === tradingMode || (b.mode === undefined && (tradingMode === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot')))
                   .map((b) => (
                   <div key={b.id} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 relative overflow-hidden group">
                     {/* Glowing indicator */}
