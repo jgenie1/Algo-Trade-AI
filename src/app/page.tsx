@@ -39,6 +39,8 @@ interface Position {
   entryEmaTrend?: 'ABOVE' | 'BELOW';
   bondingCurveProgress?: number;
   replyCount?: number;
+  highestPrice?: number;
+  dcaCount?: number;
 }
 
 interface ClosedPosition {
@@ -88,6 +90,7 @@ interface TradingBot {
   priorityFee?: number;
   autoVolume?: boolean;
   mode?: 'DEMO' | 'REAL';
+  customRules?: string;
 }
 
 interface BotLog {
@@ -163,6 +166,7 @@ export default function TradingTerminalPage() {
   const [pumpSniperMode, setPumpSniperMode] = useState<'PRECOCE' | 'MOMENTUM' | 'RAYDIUM'>('PRECOCE');
   const [priorityFee, setPriorityFee] = useState<number>(0.005);
   const [autoVolume, setAutoVolume] = useState<boolean>(false);
+  const [botCustomRules, setBotCustomRules] = useState<string>('');
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
@@ -595,11 +599,49 @@ export default function TradingTerminalPage() {
                   customPrivateKey: subWalletsRef.current[subWallet - 1]?.privateKey
                 }).then((res) => {
                   if (res.success && res.txHash) {
-                    addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé ! Hash: ${res.txHash.slice(0, 10)}... Jeton Bumpé.`, 'info');
+                     addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé ! Hash: ${res.txHash.slice(0, 10)}... Jeton Bumpé.`, 'info');
                   } else {
-                    addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Échec] ${res.error || 'Erreur réseau Solana.'}`, 'error');
+                     addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Échec] ${res.error || 'Erreur réseau Solana.'}`, 'error');
                   }
                 });
+              }
+            }
+
+            // Check for DCA Accumulation Entry (tranches 2/3 and 3/3)
+            const maxDcaEntries = 3;
+            const currentEntries = botPosition.dcaCount || 1;
+            const targetAllocated = bot.capital;
+            
+            // Only perform DCA if we haven't reached full capital allocation and the strategy is not meme sniper
+            if (bot.strategy !== 'Pump.fun Sniper Bot' && currentEntries < maxDcaEntries && botPosition.amount < targetAllocated) {
+              const currentPrice = lastClose;
+              const dcaThreshold = 0.98; // Trigger entry on 2% price drop
+              
+              if (currentPrice <= botPosition.entryPrice * dcaThreshold) {
+                const newEntryCount = currentEntries + 1;
+                const chunkAmount = targetAllocated / maxDcaEntries;
+                const newAmount = botPosition.amount + chunkAmount;
+                const newAvgEntry = ((botPosition.entryPrice * botPosition.amount) + (currentPrice * chunkAmount)) / newAmount;
+                
+                // Update position state
+                setActivePositions(prev => prev.map(p => {
+                  if (p.id === botPosition.id) {
+                    const slDistance = 0.02;
+                    const tpDistance = 0.04;
+                    return {
+                      ...p,
+                      amount: newAmount,
+                      entryPrice: newAvgEntry,
+                      dcaCount: newEntryCount,
+                      sl: p.type === 'BUY' ? parseFloat((newAvgEntry * (1 - slDistance)).toFixed(5)) : parseFloat((newAvgEntry * (1 + slDistance)).toFixed(5)),
+                      tp: p.type === 'BUY' ? parseFloat((newAvgEntry * (1 + tpDistance)).toFixed(5)) : parseFloat((newAvgEntry * (1 - tpDistance)).toFixed(5))
+                    };
+                  }
+                  return p;
+                }));
+                
+                const cleanPair = targetPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+                addBotLogRef.current(bot.id, bot.strategy, `[DCA Accumulation ${newEntryCount}/${maxDcaEntries}] Position renforcée sur ${cleanPair} à ${currentPrice.toFixed(5)} (P.R.U recalculé: ${newAvgEntry.toFixed(5)})`, 'trade');
               }
             }
             continue;
@@ -701,8 +743,50 @@ export default function TradingTerminalPage() {
               const isVolumeSpiking = lastVol > avgVol * 1.25;
               const agentMomentumScore = (priceTrend > 0 ? 25 : -25) + (isVolumeSpiking ? 25 : 0);
 
-              // 3. Agent Risk (selectivity consensus)
-              const finalScore = (agentMathScore * 0.5 + agentMomentumScore * 0.5) / mult;
+              // 3. Agent Custom (Vibe-Trading Prompt parsing)
+              let agentCustomScore = 0;
+              let customLog = "";
+              if (bot.customRules) {
+                const rules = bot.customRules.toLowerCase();
+                let matches = 0;
+                
+                if (rules.includes('rsi') && lastRsi !== 0) {
+                  const hasLt = rules.includes('<') || rules.includes('inférieur') || rules.includes('sous');
+                  const hasGt = rules.includes('>') || rules.includes('supérieur') || rules.includes('sur');
+                  
+                  if (hasLt && lastRsi < 35) {
+                    agentCustomScore += 35;
+                    matches++;
+                  } else if (hasGt && lastRsi > 65) {
+                    agentCustomScore -= 35;
+                    matches++;
+                  }
+                }
+                
+                if (rules.includes('volume') || rules.includes('vol')) {
+                  if (isVolumeSpiking) {
+                    agentCustomScore += 30;
+                    matches++;
+                  }
+                }
+
+                if (rules.includes('ema') || rules.includes('trend')) {
+                  if (isBullishEma) {
+                    agentCustomScore += 25;
+                    matches++;
+                  } else {
+                    agentCustomScore -= 25;
+                    matches++;
+                  }
+                }
+                
+                if (matches > 0) {
+                  customLog = ` • Règle Vibe-Trading complétée (Score: ${agentCustomScore > 0 ? '+' : ''}${agentCustomScore})`;
+                }
+              }
+
+              // 4. Agent Risk (selectivity consensus)
+              const finalScore = (agentMathScore * 0.4 + agentMomentumScore * 0.4 + (bot.customRules ? agentCustomScore * 0.2 : 0)) / mult;
               const risk = bot.riskProfile || 'MODERATE';
               const reqScore = risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25;
 
@@ -710,12 +794,12 @@ export default function TradingTerminalPage() {
 
               if (finalScore > reqScore) {
                 signal = 'BUY';
-                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% > ${reqScore}%] Autopilot haussier sur ${assetLabel}. Agent Math: ${agentMathScore > 0 ? 'Bullish' : 'Bearish'}, Agent Momentum: ${agentMomentumScore > 0 ? 'Favorable' : 'Faible'}.`;
+                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% > ${reqScore}%] Autopilot haussier sur ${assetLabel}. Agent Math: ${agentMathScore > 0 ? 'Bullish' : 'Bearish'}, Agent Momentum: ${agentMomentumScore > 0 ? 'Favorable' : 'Faible'}${customLog}.`;
               } else if (finalScore < -reqScore) {
                 signal = 'SELL';
-                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% < -${reqScore}%] Autopilot baissier sur ${assetLabel}. Agent Math: ${agentMathScore < 0 ? 'Bearish' : 'Bullish'}, Agent Momentum: ${agentMomentumScore < 0 ? 'Défavorable' : 'Fort'}.`;
+                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% < -${reqScore}%] Autopilot baissier sur ${assetLabel}. Agent Math: ${agentMathScore < 0 ? 'Bearish' : 'Bullish'}, Agent Momentum: ${agentMomentumScore < 0 ? 'Défavorable' : 'Fort'}${customLog}.`;
               } else {
-                addBotLogRef.current(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${reqScore}%). Aucun signal fort.`, 'info');
+                addBotLogRef.current(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${reqScore}%)${customLog}. Aucun signal fort.`, 'info');
               }
             } else if (bot.strategy === 'Pump.fun Sniper Bot') {
               if (targetCoinData) {
@@ -857,7 +941,7 @@ export default function TradingTerminalPage() {
                 type: signal,
                 entryPrice: lastClose,
                 currentPrice: lastClose,
-                amount: bot.capital,
+                amount: bot.strategy === 'Pump.fun Sniper Bot' ? bot.capital : (bot.capital / 3),
                 leverage: bot.strategy === 'AI Autopilot (Machine à Cash)'
                   ? (bot.riskProfile === 'CONSERVATIVE' ? 5 : bot.riskProfile === 'AGGRESSIVE' ? 20 : 10)
                   : bot.strategy === 'Pump.fun Sniper Bot' ? 1 : 10,
@@ -865,6 +949,8 @@ export default function TradingTerminalPage() {
                 tp: parseFloat(tpPrice.toFixed(5)),
                 timestamp: Date.now(),
                 botId: bot.id,
+                highestPrice: lastClose,
+                dcaCount: 1,
                 
                 // Store indicators for self-learning
                 entryRsi: lastRsi !== 0 ? lastRsi : undefined,
@@ -946,13 +1032,39 @@ export default function TradingTerminalPage() {
         const current = livePricesRef.current[p.pair];
         if (!current) return;
 
+        // Dynamic Trailing Stop Loss (TSL) tracking
+        if (p.type === 'BUY') {
+          const currentHighest = p.highestPrice || p.entryPrice;
+          if (current > currentHighest) {
+            p.highestPrice = current;
+            const trailingPct = p.pair.startsWith('SOL:') ? 0.15 : 0.02; // 15% for meme coins, 2% for Forex
+            const newSl = parseFloat((current * (1 - trailingPct)).toFixed(5));
+            if (!p.sl || newSl > p.sl) {
+              p.sl = newSl;
+              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: current, sl: newSl } : item));
+            }
+          }
+        } else {
+          // For SELL (Short) positions: track lowest price and move SL down
+          const currentLowest = p.highestPrice || p.entryPrice;
+          if (current < currentLowest) {
+            p.highestPrice = current;
+            const trailingPct = 0.02;
+            const newSl = parseFloat((current * (1 + trailingPct)).toFixed(5));
+            if (!p.sl || newSl < p.sl) {
+              p.sl = newSl;
+              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: current, sl: newSl } : item));
+            }
+          }
+        }
+
         let shouldClose = false;
         let closeReason = '';
 
         if (p.type === 'BUY') {
           if (p.sl && current <= p.sl) {
             shouldClose = true;
-            closeReason = `Stop Loss déclenché (${current.toFixed(5)} <= ${p.sl})`;
+            closeReason = `Stop Loss suiveur (Trailing SL) déclenché (${current.toFixed(5)} <= ${p.sl})`;
           } else if (p.tp && current >= p.tp) {
             shouldClose = true;
             closeReason = `Take Profit déclenché (${current.toFixed(5)} >= ${p.tp})`;
@@ -960,7 +1072,7 @@ export default function TradingTerminalPage() {
         } else {
           if (p.sl && current >= p.sl) {
             shouldClose = true;
-            closeReason = `Stop Loss déclenché (${current.toFixed(5)} >= ${p.sl})`;
+            closeReason = `Stop Loss suiveur (Trailing SL) déclenché (${current.toFixed(5)} >= ${p.sl})`;
           } else if (p.tp && current <= p.tp) {
             shouldClose = true;
             closeReason = `Take Profit déclenché (${current.toFixed(5)} <= ${p.tp})`;
@@ -1356,13 +1468,16 @@ export default function TradingTerminalPage() {
       pumpMode: botStrategy === 'Pump.fun Sniper Bot' ? pumpSniperMode : undefined,
       priorityFee: botStrategy === 'Pump.fun Sniper Bot' ? priorityFee : undefined,
       autoVolume: botStrategy === 'Pump.fun Sniper Bot' ? autoVolume : undefined,
-      mode: tradingMode
+      mode: tradingMode,
+      customRules: botCustomRules || undefined
     };
 
     setBots(prev => {
       if (prev.some(x => x.id === newBot.id)) return prev;
       return [...prev, newBot];
     });
+
+    setBotCustomRules('');
 
     if (tradingMode === 'REAL') {
       setSolanaBalance(bal => bal !== null ? bal - botCapital : null);
@@ -2004,6 +2119,21 @@ export default function TradingTerminalPage() {
                       >
                         {timeframes.map(t => <option key={t.value} value={t.value} className="bg-[#14101a]">{t.label}</option>)}
                       </select>
+                    </div>
+
+                    {/* Custom Rules / Vibe-Trading Prompt */}
+                    <div className="space-y-1.5 animate-in fade-in duration-200">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-bold text-white/40 uppercase font-headline">Consignes de Vibe-Trading Personnalisées (Optionnel)</label>
+                        <span className="text-[8px] text-[#c2ff0c] font-bold tracking-wider font-headline uppercase">Consensus IA Personnalisé</span>
+                      </div>
+                      <textarea
+                        value={botCustomRules}
+                        onChange={(e) => setBotCustomRules(e.target.value)}
+                        placeholder="Ex: Acheter uniquement si RSI < 35 et EMA haussière, ou s'il y a du volume..."
+                        rows={2}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:ring-[#c2ff0c] focus:outline-none text-white font-body placeholder:text-white/20 resize-none"
+                      />
                     </div>
                   </>
                 ) : (
