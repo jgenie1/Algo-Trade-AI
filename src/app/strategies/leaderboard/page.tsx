@@ -26,7 +26,7 @@ interface LeaderboardEntry {
 
 export default function LeaderboardPage() {
   const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
-  const [isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(true);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 

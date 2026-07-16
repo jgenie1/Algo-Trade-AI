@@ -55,7 +55,7 @@ export default function Header() {
     setTransactions 
   } = useAppState();
 
-  const [isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(true);
 
   // Settings State (persisted locally)
   const [rpcUrl, setRpcUrl] = useState('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');
@@ -99,7 +99,7 @@ export default function Header() {
   };
 
   if (!isMounted) {
-    return null;
+    return <div className="h-14 w-full" />;
   }
 
   // Construct dynamic notification list from real-time events

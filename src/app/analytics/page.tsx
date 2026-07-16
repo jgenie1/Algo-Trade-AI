@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 
 export default function AnalyticsPage() {
   const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
-  const [isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(true);
   const [activePositions, setActivePositions] = useState<any[]>([]);
   const [closedPositions, setClosedPositions] = useState<any[]>([]);
 

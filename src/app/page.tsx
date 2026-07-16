@@ -186,7 +186,7 @@ export default function TradingTerminalPage() {
   }
 
   const [subWallets, setSubWallets] = useState<SubWallet[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(true);
 
   // Load data from LocalStorage on mount (only for items not shared by AppContext)
   useEffect(() => {
@@ -1504,9 +1504,14 @@ export default function TradingTerminalPage() {
   };
 
   if (!isMounted) {
-    // Return null during SSR to avoid hydration mismatch.
-    // The client will mount immediately after hydration via the useEffect.
-    return null;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
+          <span className="text-sm text-white/50 font-body">Chargement du terminal...</span>
+        </div>
+      </div>
+    );
   }
 
   const activePairPrice = livePrices[selectedPair] || 0;
