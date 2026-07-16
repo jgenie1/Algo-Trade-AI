@@ -954,7 +954,7 @@ export default function TradingTerminalPage() {
                 
                 // Store indicators for self-learning
                 entryRsi: lastRsi !== 0 ? lastRsi : undefined,
-                entryEmaTrend: emaValues.length > 0 ? (lastClose > emaValues[emaValues.length - 1] ? 'ABOVE' : 'BELOW') : undefined,
+                entryEmaTrend: emaValues && emaValues.length > 0 ? (lastClose > emaValues[emaValues.length - 1] ? 'ABOVE' : 'BELOW') : undefined,
                 bondingCurveProgress: bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData
                   ? Math.max(0, Math.min(100, (((targetCoinData.virtual_sol_reserves / 1e9) - 30) / 55) * 100))
                   : undefined,
