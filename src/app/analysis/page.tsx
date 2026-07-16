@@ -24,6 +24,8 @@ import { getForexAnalysis } from '@/ai/flows/get-forex-analysis-flow';
 import type { GetForexAnalysisInput, GetForexAnalysisOutput } from '@/ai/schemas';
 import TrendingTokensCard from '@/components/TrendingTokensCard';
 import { cn } from '@/lib/utils';
+import { useAppState } from '@/context/AppContext';
+import { getRealSolanaBalance } from '@/services/pumpFunService';
 
 const TVWidget = dynamic(
   () => import('@/components/TradingViewWidget').then((mod) => mod.default),
@@ -62,6 +64,7 @@ interface PastTrade {
 }
 
 export default function ForexAnalysisPage() {
+    const { tradingMode, balance, closedPositions, bots } = useAppState();
     const [pair, setPair] = useState(currencyPairs[0].value);
     const [timeframe, setTimeframe] = useState(timeframes[2].value);
     const [selectedIndicators, setSelectedIndicators] = useState<string[]>(["RSI", "SMA", "Volume Profile (POC)"]);
@@ -77,47 +80,21 @@ export default function ForexAnalysisPage() {
     const [walletAsset, setWalletAsset] = useState("SOL");
     const [walletAction, setWalletAction] = useState("Exchange");
     const [walletAmount, setWalletAmount] = useState(45);
-    const [walletBalance] = useState({
-      SOL: 234.42,
-      ETH: 12.84,
-      BNB: 4.5,
-      USDT: 1340.00
-    });
+    const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
 
-    // History log state
-    const [tradeHistory, setTradeHistory] = useState<PastTrade[]>([
-      {
-        date: "14 Juil 2026, 21:30",
-        pair: "EUR/USD",
-        trend: "HAUSSIÈRE",
-        signal: "ACHAT",
-        justification: "Rebond solide sur la moyenne mobile à 50 périodes et RSI sortant de la zone de survente.",
-        value: "$34,879.00 USD",
-        status: "Gagné"
-      },
-      {
-        date: "14 Juil 2026, 18:15",
-        pair: "GBP/USD",
-        trend: "BAISSIÈRE",
-        signal: "VENTE",
-        justification: "Structure de retournement en double sommet validée sous la résistance des 1.2850.",
-        value: "$12,450.00 USD",
-        status: "Gagné"
-      },
-      {
-        date: "13 Juil 2026, 14:00",
-        pair: "USD/JPY",
-        trend: "NEUTRE",
-        signal: "NEUTRE",
-        justification: "Marché en range sans dynamique claire, volatilité extrêmement réduite.",
-        value: "$0.00 USD",
-        status: "En cours"
-      }
-    ]);
+    // History log state for analysis requests made in the current session
+    const [tradeHistory, setTradeHistory] = useState<PastTrade[]>([]);
 
     useEffect(() => {
         setIsClient(true);
-    }, []);
+        if (tradingMode === 'REAL') {
+          getRealSolanaBalance().then(res => {
+            if (res.success && res.balance !== undefined) {
+              setSolanaBalance(res.balance);
+            }
+          });
+        }
+    }, [tradingMode]);
     
     const handleAnalysis = async () => {
         const chart = chartApiRef.current;
@@ -216,12 +193,36 @@ export default function ForexAnalysisPage() {
     };
 
     const handleExchange = () => {
-      // Simple simulated action
       alert(`Transaction effectuée: ${walletAction} de ${walletAmount}% en ${walletAsset}`);
     };
 
+    // Calculate live learning statistics from closedPositions
+    const botTrades = closedPositions.filter(p => p.wasBot);
+    const winRate = botTrades.length > 0
+      ? `${Math.round((botTrades.filter(t => t.profit >= 0).length / botTrades.length) * 100)}%`
+      : "0%";
+    
+    // Average profit calculation
+    const totalAllocatedCapital = bots.reduce((sum, b) => sum + (b.capital || 0), 0);
+    const totalProfitVal = botTrades.reduce((sum, t) => sum + t.profit, 0);
+    let avgProfitText = "0.0%";
+    if (totalAllocatedCapital > 0) {
+      const avgPct = (totalProfitVal / totalAllocatedCapital) * 100;
+      avgProfitText = avgPct >= 0 ? `+${avgPct.toFixed(1)}%` : `${avgPct.toFixed(1)}%`;
+    }
+    
+    const wonCount = botTrades.filter(t => t.profit >= 0).length;
+    const lostCount = botTrades.filter(t => t.profit < 0).length;
+
+    const walletBalance = {
+      SOL: solanaBalance !== null ? `${solanaBalance.toFixed(4)}` : '0.0000',
+      USDT: balance.toFixed(2),
+      ETH: '0.0000',
+      BNB: '0.0000'
+    };
+
     return (
-        <div className="space-y-6 pb-12">
+        <div className="space-y-6 pb-12" suppressHydrationWarning>
             {/* Top Overview Section */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -239,8 +240,15 @@ export default function ForexAnalysisPage() {
                   <TrendingUp className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Solde Total</p>
-                  <p className="text-lg font-bold font-mono text-white leading-none mt-1">$43,242.00</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold">
+                    {tradingMode === 'REAL' ? 'Solde SOL Réel' : 'Solde Démo USD'}
+                  </p>
+                  <p className="text-lg font-bold font-mono text-white leading-none mt-1">
+                    {tradingMode === 'REAL' 
+                      ? `${solanaBalance !== null ? solanaBalance.toFixed(3) : '0.000'} SOL`
+                      : `${balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
+                    }
+                  </p>
                 </div>
               </div>
             </div>
@@ -365,7 +373,7 @@ export default function ForexAnalysisPage() {
                         <div className="flex-1 flex flex-col justify-center min-h-[160px] p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-3">
                             {error && <p className="text-red-400 text-sm text-center font-body">{error}</p>}
                             
-                            {/* Dialogue/Debate Log (HKUDS AI-Trader inspired) */}
+                            {/* Dialogue/Debate Log */}
                             {debateLogs.length > 0 && (
                               <div className="border border-white/5 bg-[#0e0a12]/70 rounded-xl p-3 font-mono text-[9px] space-y-1.5 max-h-[140px] overflow-y-auto">
                                 <div className="text-[8px] uppercase tracking-wider font-bold text-white/30 font-headline mb-1 flex items-center justify-between">
@@ -440,7 +448,9 @@ export default function ForexAnalysisPage() {
                       <Wallet className="h-5 w-5 text-[#c2ff0c]" />
                       <span>Votre Portefeuille</span>
                     </CardTitle>
-                    <CardDescription className="text-white/40 text-xs font-body">Portefeuille de trading simulé</CardDescription>
+                    <CardDescription className="text-white/40 text-xs font-body">
+                      {tradingMode === 'REAL' ? 'Fonds blockchain réels' : 'Portefeuille de trading simulé'}
+                    </CardDescription>
                   </div>
                   {/* Action tabs */}
                   <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/10">
@@ -469,7 +479,11 @@ export default function ForexAnalysisPage() {
                       </div>
                       <div>
                         <p className="text-[10px] text-white/40 uppercase font-bold font-headline">Actif à échanger</p>
-                        <span className="text-sm font-bold text-white leading-none mt-1 block">Solana (SOL)</span>
+                        <span className="text-sm font-bold text-white leading-none mt-1 block">
+                          {walletAsset === 'SOL' ? 'Solana (SOL)' : 
+                           walletAsset === 'USDT' ? 'Tether USD (USDT)' :
+                           walletAsset === 'ETH' ? 'Ethereum (ETH)' : 'Binance Coin (BNB)'}
+                        </span>
                       </div>
                     </div>
                     
@@ -545,19 +559,19 @@ export default function ForexAnalysisPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 text-center">
                       <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider font-headline">Taux de Réussite</p>
-                      <p className="text-xl font-bold font-mono text-green-400 mt-1">78.4%</p>
+                      <p className="text-xl font-bold font-mono text-green-400 mt-1">{winRate}</p>
                     </div>
                     <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 text-center">
                       <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider font-headline">Profit Moyen</p>
-                      <p className="text-xl font-bold font-mono text-[#c2ff0c] mt-1">+14.2%</p>
+                      <p className="text-xl font-bold font-mono text-[#c2ff0c] mt-1">{avgProfitText}</p>
                     </div>
                     <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 text-center">
                       <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider font-headline">Trades Gagnés</p>
-                      <p className="text-xl font-bold font-mono text-white mt-1">112</p>
+                      <p className="text-xl font-bold font-mono text-white mt-1">{wonCount}</p>
                     </div>
                     <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 text-center">
                       <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider font-headline">Trades Perdus</p>
-                      <p className="text-xl font-bold font-mono text-white/50 mt-1">31</p>
+                      <p className="text-xl font-bold font-mono text-white/50 mt-1">{lostCount}</p>
                     </div>
                   </div>
 
@@ -579,7 +593,7 @@ export default function ForexAnalysisPage() {
                       <span>Historique des Signaux & Trades</span>
                     </CardTitle>
                     <CardDescription className="text-white/40 text-xs font-body">
-                      Journal des signaux générés et résultats simulés
+                      Journal des signaux générés et résultats en direct
                     </CardDescription>
                   </div>
                   {/* Filters */}
@@ -601,47 +615,87 @@ export default function ForexAnalysisPage() {
                           <th className="py-4 px-6">Tendance</th>
                           <th className="py-4 px-6">Signal</th>
                           <th className="py-4 px-6">Justification</th>
-                          <th className="py-4 px-6">Valeur simulée</th>
+                          <th className="py-4 px-6">Profit / Valeur</th>
                           <th className="py-4 px-6 text-right">Statut</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {tradeHistory.map((trade, i) => (
-                          <tr 
-                            key={i} 
-                            className="hover:bg-white/[0.02] transition-colors duration-200"
-                          >
-                            <td className="py-4 px-6 font-mono text-xs text-white/70">{trade.date}</td>
-                            <td className="py-4 px-6 font-bold text-white font-body">{trade.pair}</td>
-                            <td className="py-4 px-6">
-                              <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-white/5 border border-white/10 text-white/80 font-headline">
-                                {trade.trend}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className={cn(
-                                "px-2.5 py-0.5 rounded text-[10px] font-black font-headline",
-                                trade.signal === 'ACHAT' ? "bg-green-500/10 text-green-400 border border-green-500/20" :
-                                trade.signal === 'VENTE' ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-white/10 text-white/50 border border-white/10"
-                              )}>
-                                {trade.signal}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6 max-w-xs truncate text-xs text-white/60 font-body" title={trade.justification}>
-                              {trade.justification}
-                            </td>
-                            <td className="py-4 px-6 font-mono text-xs text-white/80">{trade.value}</td>
-                            <td className="py-4 px-6 text-right">
-                              <span className={cn(
-                                "inline-flex items-center text-xs font-bold font-headline",
-                                trade.status === 'Gagné' ? "text-green-400" :
-                                trade.status === 'Perdu' ? "text-red-400" : "text-amber-400 animate-pulse"
-                              )}>
-                                {trade.status}
-                              </span>
+                        {[
+                          ...tradeHistory,
+                          ...closedPositions.map(p => ({
+                            date: new Date(p.timestamp).toLocaleString('fr-FR', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }),
+                            pair: p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', ''),
+                            trend: p.type === 'BUY' ? 'HAUSSIÈRE' : 'BAISSIÈRE',
+                            signal: p.type === 'BUY' ? 'ACHAT' as const : 'VENTE' as const,
+                            justification: p.wasBot ? 'Exécuté par bot de trading.' : 'Ordre placé manuellement.',
+                            value: `${p.profit >= 0 ? '+' : ''}${p.profit.toFixed(2)} ${p.pair.startsWith('SOL:') ? 'SOL' : '$'}`,
+                            status: (p.profit >= 0 ? 'Gagné' : 'Perdu') as 'Gagné' | 'Perdu'
+                          }))
+                        ].length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-xs text-white/30 font-body">
+                              Aucun signal ou trade récent enregistré. Lancez l'analyse IA ou ouvrez une position.
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          [
+                            ...tradeHistory,
+                            ...closedPositions.map(p => ({
+                              date: new Date(p.timestamp).toLocaleString('fr-FR', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }),
+                              pair: p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', ''),
+                              trend: p.type === 'BUY' ? 'HAUSSIÈRE' : 'BAISSIÈRE',
+                              signal: p.type === 'BUY' ? 'ACHAT' as const : 'VENTE' as const,
+                              justification: p.wasBot ? 'Exécuté par bot de trading.' : 'Ordre placé manuellement.',
+                              value: `${p.profit >= 0 ? '+' : ''}${p.profit.toFixed(2)} ${p.pair.startsWith('SOL:') ? 'SOL' : '$'}`,
+                              status: (p.profit >= 0 ? 'Gagné' : 'Perdu') as 'Gagné' | 'Perdu'
+                            }))
+                          ].map((trade, i) => (
+                            <tr 
+                              key={i} 
+                              className="hover:bg-white/[0.02] transition-colors duration-200"
+                            >
+                              <td className="py-4 px-6 font-mono text-xs text-white/70">{trade.date}</td>
+                              <td className="py-4 px-6 font-bold text-white font-body">{trade.pair}</td>
+                              <td className="py-4 px-6">
+                                <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-white/5 border border-white/10 text-white/80 font-headline">
+                                  {trade.trend}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6">
+                                <span className={cn(
+                                  "px-2.5 py-0.5 rounded text-[10px] font-black font-headline",
+                                  trade.signal === 'ACHAT' ? "bg-green-500/10 text-green-400 border border-green-500/20" :
+                                  trade.signal === 'VENTE' ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-white/10 text-white/50 border border-white/10"
+                                )}>
+                                  {trade.signal}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 max-w-xs truncate text-xs text-white/60 font-body" title={trade.justification}>
+                                {trade.justification}
+                              </td>
+                              <td className="py-4 px-6 font-mono text-xs text-white/80">{trade.value}</td>
+                              <td className="py-4 px-6 text-right">
+                                <span className={cn(
+                                  "inline-flex items-center text-xs font-bold font-headline",
+                                  trade.status === 'Gagné' ? "text-green-400" :
+                                  trade.status === 'Perdu' ? "text-red-400" : "text-amber-400 animate-pulse"
+                                )}>
+                                  {trade.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>

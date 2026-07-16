@@ -150,7 +150,7 @@ export default function LeaderboardPage() {
             <Trophy className="h-8 w-8 text-[#c2ff0c]" />
             Classement & Copy-Trading
           </h1>
-          <p className="text-sm text-white/40 mt-1 font-body">Suivez et copiez les meilleurs traders et configurations de robots du réseau AlgoTradeAI.</p>
+          <p className="text-sm text-white/40 mt-1 font-body">Suivez et copiez les configurations réelles des meilleurs robots algorithmiques du réseau décentralisé AlgoTradeAI.</p>
         </div>
 
         {/* Mode Selector */}
