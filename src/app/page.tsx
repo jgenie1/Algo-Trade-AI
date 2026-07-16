@@ -562,16 +562,16 @@ export default function TradingTerminalPage() {
             }
           } else {
             const fetchedCandles = await fetchLiveMarketData(targetPair, bot.timeframe);
-            if (fetchedCandles.length < 15) continue;
+            if (!fetchedCandles || fetchedCandles.length < 15) continue;
             candles = fetchedCandles;
 
-            const indicators = calculateIndicators(candles, ['RSI', 'EMA']);
+            const indicators = calculateIndicators(candles, ['RSI', 'EMA']) || {};
             const rsiValues = indicators.rsi || [];
-            if (rsiValues.length === 0) continue;
+            if (!rsiValues || rsiValues.length === 0) continue;
 
             lastRsi = rsiValues[rsiValues.length - 1];
             emaValues = indicators.ema || [];
-            lastClose = candles[candles.length - 1].close;
+            lastClose = candles[candles.length - 1]?.close || 0;
           }
 
           // Check if bot already has an active position for this pair
@@ -711,8 +711,8 @@ export default function TradingTerminalPage() {
                 reason = `Crossover baissier EMA 9/20 confirmé par pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)`;
               }
             } else if (bot.strategy === 'BB Mean Reversion') {
-              const bbInds = calculateIndicators(candles, ['Bollinger Bands']);
-              if (bbInds.bollingerBands && closes.length >= 2) {
+              const bbInds = calculateIndicators(candles, ['Bollinger Bands']) || {};
+              if (bbInds.bollingerBands && bbInds.bollingerBands.lower && bbInds.bollingerBands.upper && closes.length >= 2) {
                 const lower = bbInds.bollingerBands.lower[bbInds.bollingerBands.lower.length - 1];
                 const upper = bbInds.bollingerBands.upper[bbInds.bollingerBands.upper.length - 1];
                 
@@ -730,8 +730,8 @@ export default function TradingTerminalPage() {
             } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
               // Multi-Agent Quantitative Debate Engine
               // 1. Agent Math (calculates structural score based on RSI & EMA)
-              const ema20 = calculateIndicators(candles, ['EMA']).ema || [];
-              const lastEma = ema20[ema20.length - 1] || lastClose;
+              const ema20 = (calculateIndicators(candles, ['EMA']) || {}).ema || [];
+              const lastEma = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;
               const rsiDeviation = Math.abs(50 - lastRsi);
               const isBullishEma = lastClose > lastEma;
               const agentMathScore = (isBullishEma ? 30 : -30) + (lastRsi < 40 ? 40 : lastRsi > 60 ? -40 : 0);
