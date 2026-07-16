@@ -55,7 +55,7 @@ export default function Header() {
     setTransactions 
   } = useAppState();
 
-  const [isMounted, setIsMounted] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Settings State (persisted locally)
   const [rpcUrl, setRpcUrl] = useState('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');

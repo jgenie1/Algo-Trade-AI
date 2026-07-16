@@ -27,7 +27,7 @@ export default function WithdrawPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [txHash, setTxHash] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [isMounted, setIsMounted] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Standard fee estimates
   const solanaNetworkFee = 0.00005; 

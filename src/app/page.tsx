@@ -186,7 +186,7 @@ export default function TradingTerminalPage() {
   }
 
   const [subWallets, setSubWallets] = useState<SubWallet[]>([]);
-  const [isMounted, setIsMounted] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Load data from LocalStorage on mount (only for items not shared by AppContext)
   useEffect(() => {

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -32,7 +32,7 @@ function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", classNa
 
 export default function AnalyticsPage() {
   const { tradingMode, setTradingMode, activePositions, closedPositions, bots } = useAppState();
-  const [isMounted, setIsMounted] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
   if (!isMounted) return (

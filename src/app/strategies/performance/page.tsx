@@ -15,7 +15,7 @@ import { useAppState } from '@/context/AppContext';
 
 export default function PerformancePage() {
   const { tradingMode, setTradingMode, bots, closedPositions } = useAppState();
-  const [isMounted, setIsMounted] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);

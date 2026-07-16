@@ -27,7 +27,7 @@ export default function DepositPage() {
   const [isCopied, setIsCopied] = useState(false);
   const [depositAmount, setDepositAmount] = useState<string>('1000');
   const [isLoading, setIsLoading] = useState(false);
-  const [isMounted, setIsMounted] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
   const [activeGuideTab, setActiveGuideTab] = useState<'exchanges' | 'wallets' | 'security'>('exchanges');
 
   useEffect(() => {
