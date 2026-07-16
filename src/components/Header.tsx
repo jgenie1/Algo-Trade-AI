@@ -106,12 +106,15 @@ export default function Header() {
   const notifications: { id: string; type: 'info' | 'success' | 'warning'; text: string; time: string }[] = [];
 
   // 1. Check running bots
-  bots.forEach(b => {
+  (bots || []).forEach(b => {
+    if (!b) return;
     if (b.status === 'RUNNING') {
+      const pairStr = b.pair || '';
+      const splitPair = pairStr.split(':');
       notifications.push({
         id: `bot_${b.id}`,
         type: 'info',
-        text: `Robot "${b.pair.split(':')[2] || b.strategy}" en cours d'exécution.`,
+        text: `Robot "${splitPair[2] || b.strategy || 'Inconnu'}" en cours d'exécution.`,
         time: 'En direct'
       });
     }
@@ -119,21 +122,28 @@ export default function Header() {
 
   // 2. Check recent transactions
   (transactions || []).slice(0, 3).forEach(tx => {
+    if (!tx) return;
+    const txTime = tx.timestamp ? new Date(tx.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'Récemment';
     notifications.push({
-      id: tx.id,
+      id: tx.id || `tx_${Math.random()}`,
       type: 'success',
-      text: `${tx.type === 'DEPOSIT' ? 'Dépôt' : 'Retrait'} de ${tx.amount} ${tx.currency} complété.`,
-      time: new Date(tx.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      text: `${tx.type === 'DEPOSIT' ? 'Dépôt' : 'Retrait'} de ${tx.amount || 0} ${tx.currency || ''} complété.`,
+      time: txTime
     });
   });
 
   // 3. Check closed positions
-  closedPositions.slice(0, 3).forEach(pos => {
+  (closedPositions || []).slice(0, 3).forEach(pos => {
+    if (!pos) return;
+    const pairStr = pos.pair || '';
+    const profitVal = pos.profit || 0;
+    const isSol = pairStr.startsWith('SOL:');
+    const posTime = pos.timestamp ? new Date(pos.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'Récemment';
     notifications.push({
-      id: pos.id,
-      type: pos.profit >= 0 ? 'success' : 'warning',
-      text: `Position close ${pos.pair.replace('SOL:', '').replace('FX:', '')} : ${pos.profit >= 0 ? '+' : ''}${pos.profit.toFixed(2)} ${pos.pair.startsWith('SOL:') ? 'SOL' : '$'}`,
-      time: new Date(pos.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      id: pos.id || `pos_${Math.random()}`,
+      type: profitVal >= 0 ? 'success' : 'warning',
+      text: `Position close ${pairStr.replace('SOL:', '').replace('FX:', '')} : ${profitVal >= 0 ? '+' : ''}${profitVal.toFixed(2)} ${isSol ? 'SOL' : '$'}`,
+      time: posTime
     });
   });
 
