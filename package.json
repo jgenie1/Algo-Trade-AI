@@ -61,6 +61,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "autoprefixer": "^10.5.4",
     "genkit-cli": "^1.8.0",
     "postcss": "^8",
     "raw-loader": "^4.0.2",
