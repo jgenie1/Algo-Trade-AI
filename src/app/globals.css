@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -24,14 +24,14 @@
     --input: 274 17% 14%;
     --ring: 74 100% 53%;
     --radius: 1rem;
-    --sidebar-background: rgba(14, 11, 18, 0.6);
-    --sidebar-foreground: hsl(var(--foreground));
-    --sidebar-primary: hsl(var(--primary));
-    --sidebar-primary-foreground: hsl(var(--primary-foreground));
-    --sidebar-accent: rgba(194, 255, 12, 0.15);
-    --sidebar-accent-foreground: hsl(var(--primary));
-    --sidebar-border: rgba(255, 255, 255, 0.08);
-    --sidebar-ring: hsl(var(--ring));
+    --sidebar-background: 274 25% 8%;
+    --sidebar-foreground: 270 25% 95%;
+    --sidebar-primary: 74 100% 53%;
+    --sidebar-primary-foreground: 74 100% 5%;
+    --sidebar-accent: 74 80% 40%;
+    --sidebar-accent-foreground: 74 100% 53%;
+    --sidebar-border: 274 17% 16%;
+    --sidebar-ring: 74 100% 53%;
     --chart-1: 74 100% 53%;
     --chart-2: 182 99% 75%;
     --chart-3: 270 15% 92%;
