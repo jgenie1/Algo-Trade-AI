@@ -1,5 +1,4 @@
-
-import type {Metadata} from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk, Source_Code_Pro } from 'next/font/google';
 import './globals.css';
 import AppLayout from '@/components/AppLayout';
@@ -31,6 +30,15 @@ export const metadata: Metadata = {
   title: 'AlgoTradeAI - Analyse Forex & Memecoins',
   description: 'Analyse du marché Forex avec IA & Sniper Solana Pump.fun',
   manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'AlgoTradeAI'
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: '#c2ff0c'
 };
 
 export default function RootLayout({
@@ -40,13 +48,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="dark" suppressHydrationWarning={true}>
-      <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="AlgoTradeAI" />
-        <meta name="theme-color" content="#c2ff0c" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
       <body
         className={cn(
           "font-body antialiased bg-background text-foreground min-h-screen flex flex-col",
