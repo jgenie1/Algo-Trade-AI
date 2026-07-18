@@ -99,7 +99,7 @@ export async function executeRealPumpTrade(params: {
     let signer: any;
     try {
       if (customPrivateKey) {
-        const secretKeyUint8 = new Uint8Array(Buffer.from(customPrivateKey, 'base64'));
+        const secretKeyUint8 = base64ToUint8Array(customPrivateKey);
         signer = Keypair.fromSecretKey(secretKeyUint8);
       } else {
         signer = Keypair.fromSecretKey(bs58.decode(solanaPrivateKey));
@@ -328,7 +328,7 @@ export async function generateSubWalletsServer(): Promise<{
     const { Keypair } = await import('@solana/web3.js');
     const wallets = Array.from({ length: 5 }).map(() => {
       const kp = Keypair.generate();
-      const secretKeyBase64 = Buffer.from(kp.secretKey).toString('base64');
+      const secretKeyBase64 = uint8ArrayToBase64(kp.secretKey);
       return {
         publicKey: kp.publicKey.toBase58(),
         privateKey: secretKeyBase64,
@@ -346,5 +346,21 @@ export async function generateSubWalletsServer(): Promise<{
       error: err.message || "Failed to generate sub-wallets."
     };
   }
+}
+
+// Helpers for browser-compatible base64 encoding/decoding without Node.js Buffer
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function uint8ArrayToBase64(arr: Uint8Array): string {
+  const binString = Array.from(arr).map(val => String.fromCharCode(val)).join('');
+  return btoa(binString);
 }
 
