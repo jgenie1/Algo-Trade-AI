@@ -318,3 +318,33 @@ export async function withdrawSolana(params: {
     };
   }
 }
+
+export async function generateSubWalletsServer(): Promise<{
+  success: boolean;
+  wallets?: Array<{ publicKey: string; privateKey: string; balance: number }>;
+  error?: string;
+}> {
+  try {
+    const { Keypair } = await import('@solana/web3.js');
+    const wallets = Array.from({ length: 5 }).map(() => {
+      const kp = Keypair.generate();
+      const secretKeyBase64 = Buffer.from(kp.secretKey).toString('base64');
+      return {
+        publicKey: kp.publicKey.toBase58(),
+        privateKey: secretKeyBase64,
+        balance: 0
+      };
+    });
+    return {
+      success: true,
+      wallets
+    };
+  } catch (err: any) {
+    console.error("Error generating sub-wallets:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to generate sub-wallets."
+    };
+  }
+}
+

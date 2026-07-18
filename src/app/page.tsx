@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity,
   Zap,
@@ -16,9 +16,24 @@ import MultiWalletsManager from '@/components/MultiWalletsManager';
 import PositionDetailsModal from '@/components/PositionDetailsModal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const TVWidget = dynamic(
+  () => import('@/components/TradingViewWidget').then((mod) => mod.default),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-full w-full bg-white/5" />,
+  }
+);
 
 export default function TradingTerminalPage() {
   const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'wallets'>('manual');
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   const {
     isMounted,
@@ -255,13 +270,17 @@ export default function TradingTerminalPage() {
           </div>
 
           {/* Right Column: Information/Charts */}
-          <div className="lg:col-span-7 bg-[#14101a] border border-white/10 rounded-2xl p-6 h-[500px] flex items-center justify-center text-center text-white/40 font-body text-xs">
-            <div className="space-y-3">
-              <Activity className="h-10 w-10 text-[#c2ff0c] mx-auto animate-pulse" />
-              <p className="font-semibold text-white/60">Graphique en direct ({selectedPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')})</p>
-              <p className="max-w-md">Sélectionnez une autre paire ou configurez vos bots sur la gauche. Les cours et les données se mettent à jour automatiquement via WebSocket et Yahoo Finance.</p>
+          <Card className="lg:col-span-7 glass-panel border-white/5 shadow-xl h-[500px] flex flex-col overflow-hidden">
+            <div className="p-0 flex-grow relative">
+              {isClient && (
+                <TVWidget 
+                  symbol={selectedPair} 
+                  interval="15" 
+                  indicators={["RSI", "SMA"]}
+                />
+              )}
             </div>
-          </div>
+          </Card>
         </div>
       </Tabs>
 

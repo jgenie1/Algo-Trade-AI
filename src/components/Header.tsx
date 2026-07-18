@@ -136,7 +136,8 @@ export default function Header() {
   (closedPositions || []).slice(0, 3).forEach(pos => {
     if (!pos) return;
     const pairStr = pos.pair || '';
-    const profitVal = pos.profit || 0;
+    const rawProfit = pos.profit;
+    const profitVal = typeof rawProfit === 'number' ? rawProfit : parseFloat(rawProfit) || 0;
     const isSol = pairStr.startsWith('SOL:');
     const posTime = pos.timestamp ? new Date(pos.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'Récemment';
     notifications.push({

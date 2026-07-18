@@ -30,13 +30,62 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppContextProvider({ children }: { children: React.ReactNode }) {
   const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
   const [balance, setBalance] = useState<number>(10000);
-  const [activePositions, setActivePositions] = useState<any[]>([]);
-  const [closedPositions, setClosedPositions] = useState<any[]>([]);
-  const [bots, setBots] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [botLearnings, setBotLearnings] = useState<any[]>([]);
-  const [botLogs, setBotLogs] = useState<any[]>([]);
+  const [activePositionsState, setActivePositionsState] = useState<any[]>([]);
+  const [closedPositionsState, setClosedPositionsState] = useState<any[]>([]);
+  const [botsState, setBotsState] = useState<any[]>([]);
+  const [transactionsState, setTransactionsState] = useState<any[]>([]);
+  const [botLearningsState, setBotLearningsState] = useState<any[]>([]);
+  const [botLogsState, setBotLogsState] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const setActivePositions = React.useCallback((val: any) => {
+    setActivePositionsState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
+
+  const setClosedPositions = React.useCallback((val: any) => {
+    setClosedPositionsState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
+
+  const setBots = React.useCallback((val: any) => {
+    setBotsState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
+
+  const setTransactions = React.useCallback((val: any) => {
+    setTransactionsState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
+
+  const setBotLearnings = React.useCallback((val: any) => {
+    setBotLearningsState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
+
+  const setBotLogs = React.useCallback((val: any) => {
+    setBotLogsState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return Array.isArray(next) ? next : [];
+    });
+  }, []);
+
+  const activePositions = activePositionsState;
+  const closedPositions = closedPositionsState;
+  const bots = botsState;
+  const transactions = transactionsState;
+  const botLearnings = botLearningsState;
+  const botLogs = botLogsState;
 
   // Prevents sending local updates to Firestore during an onSnapshot load
   const isIncomingSync = useRef(false);
@@ -80,7 +129,18 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (logs) { try { setBotLogs(JSON.parse(logs)); } catch(e) {} }
     };
     
+    // Timeout fallback (2.5 seconds) in case Firestore hangs or is offline
+    const timeoutId = setTimeout(() => {
+      if (!isInitialized.current) {
+        console.warn("Firebase connection timeout. Falling back to LocalStorage.");
+        loadFromLocalStorage();
+        isInitialized.current = true;
+        setIsLoading(false);
+      }
+    }, 2500);
+
     const unsubscribe = onSnapshot(docRef, (snapshot) => {
+      clearTimeout(timeoutId);
       if (snapshot.exists()) {
         const data = snapshot.data() as Partial<AppState>;
         
@@ -95,28 +155,34 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           localStorage.setItem('trade_balance', data.balance.toString());
         }
         if (data.positions !== undefined) {
-          setActivePositions(data.positions);
-          localStorage.setItem('trade_positions', JSON.stringify(data.positions));
+          const arr = Array.isArray(data.positions) ? data.positions : [];
+          setActivePositions(arr);
+          localStorage.setItem('trade_positions', JSON.stringify(arr));
         }
         if (data.closedPositions !== undefined) {
-          setClosedPositions(data.closedPositions);
-          localStorage.setItem('trade_closed', JSON.stringify(data.closedPositions));
+          const arr = Array.isArray(data.closedPositions) ? data.closedPositions : [];
+          setClosedPositions(arr);
+          localStorage.setItem('trade_closed', JSON.stringify(arr));
         }
         if (data.bots !== undefined) {
-          setBots(data.bots);
-          localStorage.setItem('trade_bots', JSON.stringify(data.bots));
+          const arr = Array.isArray(data.bots) ? data.bots : [];
+          setBots(arr);
+          localStorage.setItem('trade_bots', JSON.stringify(arr));
         }
         if (data.transactions !== undefined) {
-          setTransactions(data.transactions);
-          localStorage.setItem('trade_transactions', JSON.stringify(data.transactions));
+          const arr = Array.isArray(data.transactions) ? data.transactions : [];
+          setTransactions(arr);
+          localStorage.setItem('trade_transactions', JSON.stringify(arr));
         }
         if (data.botLearnings !== undefined) {
-          setBotLearnings(data.botLearnings);
-          localStorage.setItem('trade_learnings', JSON.stringify(data.botLearnings));
+          const arr = Array.isArray(data.botLearnings) ? data.botLearnings : [];
+          setBotLearnings(arr);
+          localStorage.setItem('trade_learnings', JSON.stringify(arr));
         }
         if (data.botLogs !== undefined) {
-          setBotLogs(data.botLogs);
-          localStorage.setItem('trade_logs', JSON.stringify(data.botLogs));
+          const arr = Array.isArray(data.botLogs) ? data.botLogs : [];
+          setBotLogs(arr);
+          localStorage.setItem('trade_logs', JSON.stringify(arr));
         }
         
         setTimeout(() => {

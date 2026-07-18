@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
-import { fetchLatestPumpCoins, fetchPumpCoin, getPumpFunWsUrl, executeRealPumpTrade, getRealSolanaBalance, checkSolanaNetworkHealth, getMultipleSolanaBalances, disperseSolToSubWallets } from '@/services/pumpFunService';
+import { fetchLatestPumpCoins, fetchPumpCoin, getPumpFunWsUrl, executeRealPumpTrade, getRealSolanaBalance, checkSolanaNetworkHealth, getMultipleSolanaBalances, disperseSolToSubWallets, generateSubWalletsServer } from '@/services/pumpFunService';
 import { cn } from '@/lib/utils';
 
 interface Position {
@@ -236,19 +236,11 @@ export default function TradingTerminalPage() {
           setSubWallets(JSON.parse(storedSubs));
         } catch (e) {}
       } else {
-        import('@solana/web3.js').then(({ Keypair }) => {
-          const defaultSubs = Array.from({ length: 5 }).map(() => {
-            const kp = Keypair.generate();
-            // Spread the key into String.fromCharCode for base64 encoding without Buffer
-            const secretKeyBase64 = btoa(String.fromCharCode(...Array.from(kp.secretKey)));
-            return {
-              publicKey: kp.publicKey.toBase58(),
-              privateKey: secretKeyBase64,
-              balance: 0
-            };
-          });
-          localStorage.setItem('trade_sub_wallets', JSON.stringify(defaultSubs));
-          setSubWallets(defaultSubs);
+        generateSubWalletsServer().then(res => {
+          if (res.success && res.wallets) {
+            localStorage.setItem('trade_sub_wallets', JSON.stringify(res.wallets));
+            setSubWallets(res.wallets);
+          }
         });
       }
     }

@@ -13,6 +13,15 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { 
+  Table, 
+  TableHeader, 
+  TableBody, 
+  TableRow, 
+  TableCell, 
+  TableHead 
+} from '@/components/ui/table';
 
 interface LeaderboardEntry {
   rank: number;
@@ -155,28 +164,30 @@ export default function LeaderboardPage() {
 
         {/* Mode Selector */}
         <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-xl gap-1 shrink-0">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setTradingMode('DEMO')}
             className={cn(
-              "px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5",
+              "h-auto px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
               tradingMode === 'DEMO'
                 ? "bg-amber-500/25 text-amber-300 border border-amber-500/20"
                 : "text-white/40 hover:text-white/80"
             )}
           >
             Mode Démo (Simulé)
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setTradingMode('REAL')}
             className={cn(
-              "px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5",
+              "h-auto px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
               tradingMode === 'REAL'
                 ? "bg-purple-600/25 text-purple-300 border border-purple-500/20"
                 : "text-white/40 hover:text-white/80"
             )}
           >
             Mode Réel (Solana)
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -190,42 +201,42 @@ export default function LeaderboardPage() {
           <span className="text-[10px] text-white/40 font-body">Mise à jour toutes les 24h</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-white/5 text-white/40 font-headline">
-                <th className="py-2.5 w-12 text-center">Rang</th>
-                <th className="py-2.5">Nom de l'Agent</th>
-                <th className="py-2.5">Stratégie Ciblée</th>
-                <th className="py-2.5 text-right">Rendement global</th>
-                <th className="py-2.5 text-center">Win Rate</th>
-                <th className="py-2.5 text-center">Abonnés</th>
-                <th className="py-2.5 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="rounded-md border border-white/5 overflow-hidden">
+          <Table>
+            <TableHeader className="bg-white/[0.02] border-b border-white/5">
+              <TableRow className="border-b border-white/5 hover:bg-transparent">
+                <TableHead className="py-2.5 w-12 text-center text-white/40 font-headline">Rang</TableHead>
+                <TableHead className="py-2.5 text-white/40 font-headline">Nom de l'Agent</TableHead>
+                <TableHead className="py-2.5 text-white/40 font-headline">Stratégie Ciblée</TableHead>
+                <TableHead className="py-2.5 text-right text-white/40 font-headline">Rendement global</TableHead>
+                <TableHead className="py-2.5 text-center text-white/40 font-headline">Win Rate</TableHead>
+                <TableHead className="py-2.5 text-center text-white/40 font-headline">Abonnés</TableHead>
+                <TableHead className="py-2.5 text-center text-white/40 font-headline">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {leaderboard.map((entry) => {
                 return (
-                  <tr 
+                  <TableRow 
                     key={entry.rank}
-                    className="border-b border-white/5 hover:bg-white/[0.03] transition-all duration-150 font-body"
+                    className="border-b border-white/5 hover:bg-white/[0.03] transition-all duration-150"
                   >
-                    <td className="py-3.5 text-center font-bold font-headline">
+                    <TableCell className="py-3.5 text-center font-bold font-headline border-none">
                       {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : `#${entry.rank}`}
-                    </td>
-                    <td className="py-3.5 font-bold text-white flex items-center gap-2">
+                    </TableCell>
+                    <TableCell className="py-3.5 font-bold text-white flex items-center gap-2 border-none">
                       <span className="h-2 w-2 rounded-full bg-[#c2ff0c] animate-pulse" />
                       {entry.name}
-                    </td>
-                    <td className="py-3.5 text-white/60">{entry.strategy}</td>
-                    <td className="py-3.5 text-right font-extrabold text-[#c2ff0c]">{entry.pnl}</td>
-                    <td className="py-3.5 text-center font-bold text-emerald-400">{entry.winRate}</td>
-                    <td className="py-3.5 text-center text-white/50">{entry.followers.toLocaleString()}</td>
-                    <td className="py-3.5 text-center">
-                      <button
+                    </TableCell>
+                    <TableCell className="py-3.5 text-white/60 border-none">{entry.strategy}</TableCell>
+                    <TableCell className="py-3.5 text-right font-extrabold text-[#c2ff0c] border-none">{entry.pnl}</TableCell>
+                    <TableCell className="py-3.5 text-center font-bold text-emerald-400 border-none">{entry.winRate}</TableCell>
+                    <TableCell className="py-3.5 text-center text-white/50 border-none">{entry.followers.toLocaleString()}</TableCell>
+                    <TableCell className="py-3.5 text-center border-none">
+                      <Button
                         onClick={() => handleCopyTrader(entry.rank)}
                         className={cn(
-                          "px-3 py-1 text-[10px] font-bold rounded-lg font-headline transition-all duration-300 flex items-center justify-center gap-1.5 mx-auto",
+                          "px-3 py-1 text-[10px] font-bold rounded-lg font-headline transition-all duration-300 flex items-center justify-center gap-1.5 mx-auto border-none",
                           entry.isCopied 
                             ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
                             : "bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90 hover:shadow-[0_0_10px_rgba(194,255,12,0.25)]"
@@ -242,13 +253,13 @@ export default function LeaderboardPage() {
                             Copier
                           </>
                         )}
-                      </button>
-                    </td>
-                  </tr>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 

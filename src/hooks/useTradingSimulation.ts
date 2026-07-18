@@ -12,7 +12,8 @@ import {
   getRealSolanaBalance, 
   checkSolanaNetworkHealth, 
   getMultipleSolanaBalances, 
-  disperseSolToSubWallets 
+  disperseSolToSubWallets,
+  generateSubWalletsServer
 } from '@/services/pumpFunService';
 
 const currencyPairs = [
@@ -131,18 +132,11 @@ export function useTradingSimulation() {
           setSubWallets(JSON.parse(storedSubs));
         } catch (e) {}
       } else {
-        import('@solana/web3.js').then(({ Keypair }) => {
-          const defaultSubs = Array.from({ length: 5 }).map(() => {
-            const kp = Keypair.generate();
-            const secretKeyBase64 = btoa(String.fromCharCode(...Array.from(kp.secretKey)));
-            return {
-              publicKey: kp.publicKey.toBase58(),
-              privateKey: secretKeyBase64,
-              balance: 0
-            };
-          });
-          localStorage.setItem('trade_sub_wallets', JSON.stringify(defaultSubs));
-          setSubWallets(defaultSubs);
+        generateSubWalletsServer().then(res => {
+          if (res.success && res.wallets) {
+            localStorage.setItem('trade_sub_wallets', JSON.stringify(res.wallets));
+            setSubWallets(res.wallets);
+          }
         });
       }
     }

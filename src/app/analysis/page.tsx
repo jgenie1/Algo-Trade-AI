@@ -6,6 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Table, 
+  TableHeader, 
+  TableBody, 
+  TableRow, 
+  TableCell, 
+  TableHead 
+} from "@/components/ui/table";
 import { 
   BrainCircuit, 
   TrendingUp, 
@@ -329,18 +338,18 @@ export default function ForexAnalysisPage() {
                                 { id: 'Volume Profile (POC)', label: 'Profil de Volume (POC)' },
                                 { id: 'Candlestick Patterns', label: 'Modèles de Bougies' }
                               ].map((ind) => (
-                                <label key={ind.id} className="flex items-center gap-2 text-xs font-body text-white/80 cursor-pointer select-none py-1 hover:text-white transition-colors">
-                                  <input 
-                                    type="checkbox"
+                                <label key={ind.id} htmlFor={ind.id} className="flex items-center gap-2 text-xs font-body text-white/80 cursor-pointer select-none py-1 hover:text-white transition-colors">
+                                  <Checkbox 
+                                    id={ind.id}
                                     checked={selectedIndicators.includes(ind.id)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
                                         setSelectedIndicators(prev => [...prev, ind.id]);
                                       } else {
                                         setSelectedIndicators(prev => prev.filter(x => x !== ind.id));
                                       }
                                     }}
-                                    className="accent-[#c2ff0c] rounded border-white/20 bg-white/5 h-3.5 w-3.5"
+                                    className="border-white/20 data-[state=checked]:bg-[#c2ff0c] data-[state=checked]:text-black h-4 w-4"
                                   />
                                   <span>{ind.label}</span>
                                 </label>
@@ -452,21 +461,21 @@ export default function ForexAnalysisPage() {
                       {tradingMode === 'REAL' ? 'Fonds blockchain réels' : 'Portefeuille de trading simulé'}
                     </CardDescription>
                   </div>
-                  {/* Action tabs */}
                   <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/10">
                     {["Achat", "Vente", "Exchange"].map((act) => (
-                      <button
+                      <Button
                         key={act}
+                        variant="ghost"
                         onClick={() => setWalletAction(act)}
                         className={cn(
-                          "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all duration-200 font-headline",
+                          "h-auto px-2.5 py-1 text-[10px] font-bold rounded-md transition-all duration-200 font-headline border-none",
                           walletAction === act 
-                            ? "bg-[#c2ff0c] text-black" 
+                            ? "bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90" 
                             : "text-white/60 hover:text-white"
                         )}
                       >
                         {act}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </CardHeader>
@@ -599,27 +608,34 @@ export default function ForexAnalysisPage() {
                   {/* Filters */}
                   <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/10 text-xs">
                     {["Tous", "1D", "1W", "1M"].map((f) => (
-                      <button key={f} className={cn("px-3 py-1 font-semibold rounded-md font-headline", f === "Tous" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/80")}>
+                      <Button
+                        key={f}
+                        variant="ghost"
+                        className={cn(
+                          "h-auto px-3 py-1 font-semibold rounded-md font-headline border-none",
+                          f === "Tous" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/80"
+                        )}
+                      >
                         {f}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-white/5 text-white/40 font-bold text-xs uppercase bg-white/[0.01] font-headline">
-                          <th className="py-4 px-6">Date & Heure</th>
-                          <th className="py-4 px-6">Paire</th>
-                          <th className="py-4 px-6">Tendance</th>
-                          <th className="py-4 px-6">Signal</th>
-                          <th className="py-4 px-6">Justification</th>
-                          <th className="py-4 px-6">Profit / Valeur</th>
-                          <th className="py-4 px-6 text-right">Statut</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
+                  <div className="rounded-md border border-white/5 overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-white/[0.01] border-b border-white/5">
+                        <TableRow className="hover:bg-transparent border-b border-white/5">
+                          <TableHead className="py-4 px-6 text-white/40 font-bold text-xs uppercase font-headline">Date & Heure</TableHead>
+                          <TableHead className="py-4 px-6 text-white/40 font-bold text-xs uppercase font-headline">Paire</TableHead>
+                          <TableHead className="py-4 px-6 text-white/40 font-bold text-xs uppercase font-headline">Tendance</TableHead>
+                          <TableHead className="py-4 px-6 text-white/40 font-bold text-xs uppercase font-headline">Signal</TableHead>
+                          <TableHead className="py-4 px-6 text-white/40 font-bold text-xs uppercase font-headline">Justification</TableHead>
+                          <TableHead className="py-4 px-6 text-white/40 font-bold text-xs uppercase font-headline">Profit / Valeur</TableHead>
+                          <TableHead className="py-4 px-6 text-right text-white/40 font-bold text-xs uppercase font-headline">Statut</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {[
                           ...tradeHistory,
                           ...closedPositions.map(p => ({
@@ -637,11 +653,11 @@ export default function ForexAnalysisPage() {
                             status: (p.profit >= 0 ? 'Gagné' : 'Perdu') as 'Gagné' | 'Perdu'
                           }))
                         ].length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="py-8 text-center text-xs text-white/30 font-body">
+                          <TableRow>
+                            <TableCell colSpan={7} className="py-8 text-center text-xs text-white/30 font-body border-none">
                               Aucun signal ou trade récent enregistré. Lancez l'analyse IA ou ouvrez une position.
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ) : (
                           [
                             ...tradeHistory,
@@ -660,18 +676,18 @@ export default function ForexAnalysisPage() {
                               status: (p.profit >= 0 ? 'Gagné' : 'Perdu') as 'Gagné' | 'Perdu'
                             }))
                           ].map((trade, i) => (
-                            <tr 
+                            <TableRow 
                               key={i} 
-                              className="hover:bg-white/[0.02] transition-colors duration-200"
+                              className="hover:bg-white/[0.02] border-b border-white/5 transition-colors duration-200"
                             >
-                              <td className="py-4 px-6 font-mono text-xs text-white/70">{trade.date}</td>
-                              <td className="py-4 px-6 font-bold text-white font-body">{trade.pair}</td>
-                              <td className="py-4 px-6">
+                              <TableCell className="py-4 px-6 font-mono text-xs text-white/70 border-none">{trade.date}</TableCell>
+                              <TableCell className="py-4 px-6 font-bold text-white font-body border-none">{trade.pair}</TableCell>
+                              <TableCell className="py-4 px-6 border-none">
                                 <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-white/5 border border-white/10 text-white/80 font-headline">
                                   {trade.trend}
                                 </span>
-                              </td>
-                              <td className="py-4 px-6">
+                              </TableCell>
+                              <TableCell className="py-4 px-6 border-none">
                                 <span className={cn(
                                   "px-2.5 py-0.5 rounded text-[10px] font-black font-headline",
                                   trade.signal === 'ACHAT' ? "bg-green-500/10 text-green-400 border border-green-500/20" :
@@ -679,12 +695,12 @@ export default function ForexAnalysisPage() {
                                 )}>
                                   {trade.signal}
                                 </span>
-                              </td>
-                              <td className="py-4 px-6 max-w-xs truncate text-xs text-white/60 font-body" title={trade.justification}>
+                              </TableCell>
+                              <TableCell className="py-4 px-6 max-w-xs truncate text-xs text-white/60 font-body border-none" title={trade.justification}>
                                 {trade.justification}
-                              </td>
-                              <td className="py-4 px-6 font-mono text-xs text-white/80">{trade.value}</td>
-                              <td className="py-4 px-6 text-right">
+                              </TableCell>
+                              <TableCell className="py-4 px-6 font-mono text-xs text-white/80 border-none">{trade.value}</TableCell>
+                              <TableCell className="py-4 px-6 text-right border-none">
                                 <span className={cn(
                                   "inline-flex items-center text-xs font-bold font-headline",
                                   trade.status === 'Gagné' ? "text-green-400" :
@@ -692,12 +708,12 @@ export default function ForexAnalysisPage() {
                                 )}>
                                   {trade.status}
                                 </span>
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ))
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </CardContent>
             </Card>

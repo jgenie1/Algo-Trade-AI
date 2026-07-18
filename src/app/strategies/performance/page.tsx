@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
+import { Button } from '@/components/ui/button';
 
 export default function PerformancePage() {
   const { tradingMode, setTradingMode, bots, closedPositions } = useAppState();
@@ -167,33 +168,35 @@ export default function PerformancePage() {
             <TrendingUp className="h-8 w-8 text-[#c2ff0c]" />
             Comparatif des Performances
           </h1>
-          <p className="text-sm text-white/40 mt-1 font-body">Analysez et comparez l'efficacité de vos différentes stratégies de trading automatique configurées.</p>
+          <p className="text-sm text-white/40 mt-1 font-body">Suivez et comparez l'efficacité de vos différentes stratégies de trading automatique configurées.</p>
         </div>
 
         {/* Mode Selector */}
         <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-xl gap-1 shrink-0">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setTradingMode('DEMO')}
             className={cn(
-              "px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5",
+              "h-auto px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
               tradingMode === 'DEMO'
                 ? "bg-amber-500/25 text-amber-300 border border-amber-500/20"
                 : "text-white/40 hover:text-white/80"
             )}
           >
             Mode Démo (Simulé)
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setTradingMode('REAL')}
             className={cn(
-              "px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5",
+              "h-auto px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
               tradingMode === 'REAL'
                 ? "bg-purple-600/25 text-purple-300 border border-purple-500/20"
                 : "text-white/40 hover:text-white/80"
             )}
           >
             Mode Réel (Solana)
-          </button>
+          </Button>
         </div>
       </div>
 

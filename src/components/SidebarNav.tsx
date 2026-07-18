@@ -36,53 +36,72 @@ export default function SidebarNav() {
     const Icon = item.icon;
     const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href) && item.href.length > 1);
     
-    const content = (
-      <SidebarMenuButton
-        asChild={false}
-        isActive={isActive}
-        disabled={item.disabled}
-        className={cn(
-          "w-full justify-start font-medium py-6 px-3 rounded-xl transition-all duration-300 gap-3 group/btn mb-1",
-          isActive 
-            ? "bg-white/5 border border-white/10 text-white font-semibold" 
-            : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
-        )}
-        tooltip={{
-          children: item.label, 
-          side: "right", 
-          className: "bg-popover text-popover-foreground border border-white/10 shadow-md font-body"
-        }}
-      >
-        <div className={cn(
-          "p-2 rounded-lg transition-colors duration-300 shrink-0",
-          isActive 
-            ? "bg-[#c2ff0c] text-black" 
-            : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
-        )}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <span className="font-body text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
-        {item.disabled && (
-          <span className="text-[10px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded ml-auto group-data-[collapsible=icon]:hidden">
-            Bientôt
-          </span>
-        )}
-      </SidebarMenuButton>
-    );
-
     if (item.disabled) {
       return (
         <SidebarMenuItem key={item.label} className="opacity-70 cursor-not-allowed">
-          {content}
+          <SidebarMenuButton
+            asChild={false}
+            isActive={isActive}
+            disabled={item.disabled}
+            className={cn(
+              "w-full justify-start font-medium py-6 px-3 rounded-xl transition-all duration-300 gap-3 group/btn mb-1",
+              isActive 
+                ? "bg-white/5 border border-white/10 text-white font-semibold" 
+                : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+            )}
+            tooltip={{
+              children: item.label, 
+              side: "right", 
+              className: "bg-popover text-popover-foreground border border-white/10 shadow-md font-body"
+            }}
+          >
+            <div className={cn(
+              "p-2 rounded-lg transition-colors duration-300 shrink-0",
+              isActive 
+                ? "bg-[#c2ff0c] text-black" 
+                : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
+            )}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <span className="font-body text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
+            <span className="text-[10px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded ml-auto group-data-[collapsible=icon]:hidden">
+              Bientôt
+            </span>
+          </SidebarMenuButton>
         </SidebarMenuItem>
       );
     }
 
     return (
       <SidebarMenuItem key={item.label}>
-        <Link href={item.href} className="w-full">
-          {content}
-        </Link>
+        <SidebarMenuButton
+          asChild={true}
+          isActive={isActive}
+          disabled={item.disabled}
+          className={cn(
+            "w-full justify-start font-medium py-6 px-3 rounded-xl transition-all duration-300 gap-3 group/btn mb-1",
+            isActive 
+              ? "bg-white/5 border border-white/10 text-white font-semibold" 
+              : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+          )}
+          tooltip={{
+            children: item.label, 
+            side: "right", 
+            className: "bg-popover text-popover-foreground border border-white/10 shadow-md font-body"
+          }}
+        >
+          <Link href={item.href} className="w-full flex items-center gap-3">
+            <div className={cn(
+              "p-2 rounded-lg transition-colors duration-300 shrink-0",
+              isActive 
+                ? "bg-[#c2ff0c] text-black" 
+                : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
+            )}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <span className="font-body text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
+          </Link>
+        </SidebarMenuButton>
       </SidebarMenuItem>
     );
   };

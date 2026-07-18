@@ -304,19 +304,20 @@ export default function DepositPage() {
 
           <div className="flex border-b border-white/5 pb-2 gap-4 overflow-x-auto">
             {GUIDE_TABS.map(tab => (
-              <button
+              <Button
                 key={tab.id}
+                variant="ghost"
                 onClick={() => setActiveGuideTab(tab.id)}
                 className={cn(
-                  "pb-2 text-xs font-semibold font-headline transition-all relative whitespace-nowrap shrink-0",
-                  activeGuideTab === tab.id ? "text-[#c2ff0c]" : "text-white/40 hover:text-white/80"
+                  "pb-2 text-xs font-semibold font-headline transition-all relative whitespace-nowrap shrink-0 h-auto bg-transparent border-none px-0 hover:bg-transparent rounded-none",
+                  activeGuideTab === tab.id ? "text-[#c2ff0c] hover:text-[#c2ff0c]" : "text-white/40 hover:text-white/80"
                 )}
               >
                 {tab.label}
                 {activeGuideTab === tab.id && (
-                  <span className="absolute bottom-[-9px] left-0 right-0 h-[2px] bg-[#c2ff0c]" />
+                  <span className="absolute bottom-[-2px] left-0 right-0 h-[2px] bg-[#c2ff0c]" />
                 )}
-              </button>
+              </Button>
             ))}
           </div>
 
