@@ -68,6 +68,10 @@ export default function TradingTerminalPage() {
 
   const { setTradingMode } = useAppState();
 
+  const solPrice = livePrices['SOL'] || 140;
+  const solToUsd = (sol: number) => sol * solPrice;
+  const usdToHtg = (usd: number) => usd * 130;
+
   if (!isMounted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -157,17 +161,27 @@ export default function TradingTerminalPage() {
                   <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse inline-block" />
                   Solde Réel SOL
                 </div>
-                <div className="text-lg font-bold text-purple-300 font-body mt-0.5 flex items-center gap-1.5">
-                  <span>{solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : '0.000 SOL'}</span>
-                  {solanaPubKey && (
-                    <span className="text-[9px] text-white/40 font-mono">({solanaPubKey.slice(0, 4)}...{solanaPubKey.slice(-4)})</span>
+                <div className="text-lg font-bold text-purple-300 font-body mt-0.5 flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span>{solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : '0.000 SOL'}</span>
+                    {solanaPubKey && (
+                      <span className="text-[9px] text-white/40 font-mono">({solanaPubKey.slice(0, 4)}...{solanaPubKey.slice(-4)})</span>
+                    )}
+                  </div>
+                  {solanaBalance !== null && (
+                    <div className="text-[10px] text-purple-400/90 font-semibold font-body leading-none">
+                      ≈ ${solToUsd(solanaBalance).toFixed(2)} USD / {usdToHtg(solToUsd(solanaBalance)).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} HTG
+                    </div>
                   )}
                 </div>
               </div>
               <div className="px-3 border-r border-white/5">
                 <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Allocations Sniper</div>
-                <div className="text-lg font-bold text-violet-400 font-body mt-0.5">
-                  {activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0).toFixed(2)} SOL
+                <div className="text-lg font-bold text-violet-400 font-body mt-0.5 flex flex-col gap-0.5">
+                  <span>{activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0).toFixed(2)} SOL</span>
+                  <div className="text-[10px] text-violet-300/80 font-semibold font-body leading-none">
+                    ≈ ${solToUsd(activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0)).toFixed(2)} USD / {usdToHtg(solToUsd(activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0))).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} HTG
+                  </div>
                 </div>
               </div>
               <div className="px-3 border-r border-white/5">

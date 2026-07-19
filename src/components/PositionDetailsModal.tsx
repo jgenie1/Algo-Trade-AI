@@ -85,7 +85,20 @@ export default function PositionDetailsModal({
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Marge Engagée</span>
-            <span className="text-sm font-bold text-white font-body">{position.amount.toFixed(2)} $</span>
+            <span className="text-sm font-bold text-white font-body">
+              {isSol ? (
+                <span>
+                  {position.amount.toFixed(3)} SOL
+                  <span className="text-[10px] text-white/40 block font-normal mt-0.5 leading-tight">
+                    ≈ ${(position.amount * (livePrices['SOL'] || 140)).toFixed(2)} USD
+                    <br />
+                    {(position.amount * (livePrices['SOL'] || 140) * 130).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} HTG
+                  </span>
+                </span>
+              ) : (
+                `${position.amount.toFixed(2)} $`
+              )}
+            </span>
           </div>
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Levier configuré</span>
@@ -122,10 +135,21 @@ export default function PositionDetailsModal({
           <div>
             <span className="text-[10px] text-white/40 block uppercase font-headline">PnL en direct</span>
             <span className={cn(
-              "text-xl font-bold font-body",
+              "text-xl font-bold font-body block",
               isProfit ? "text-emerald-400" : "text-rose-400"
             )}>
-              {isProfit ? '+' : ''}{profit.toFixed(2)} $
+              {isSol ? (
+                <span className="block">
+                  {isProfit ? '+' : ''}{profit.toFixed(4)} SOL
+                  <span className="text-[10px] block font-normal text-white/40 mt-0.5 leading-tight">
+                    ≈ {isProfit ? '+' : ''}${(profit * (livePrices['SOL'] || 140)).toFixed(2)} USD
+                    <br />
+                    {isProfit ? '+' : ''}{(profit * (livePrices['SOL'] || 140) * 130).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} HTG
+                  </span>
+                </span>
+              ) : (
+                `${isProfit ? '+' : ''}${profit.toFixed(2)} $`
+              )}
             </span>
           </div>
           <div className="text-right">

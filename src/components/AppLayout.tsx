@@ -3,6 +3,7 @@ import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarInset }
 import Header from '@/components/Header';
 import SidebarNav from '@/components/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
+import MobileBottomNav from '@/components/MobileBottomNav';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -30,12 +31,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </Sidebar>
 
       {/* Main Content Area */}
-      <SidebarInset className="flex flex-col flex-1 bg-transparent border-none p-4 md:p-6 lg:p-8">
+      <SidebarInset className="flex flex-col flex-1 bg-transparent border-none p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
         <Header />
         <main className="flex-1 overflow-y-auto mt-6">
           {children}
         </main>
       </SidebarInset>
+
+      {/* Mobile Bottom Navigation Menu */}
+      <MobileBottomNav />
     </SidebarProvider>
   );
 }

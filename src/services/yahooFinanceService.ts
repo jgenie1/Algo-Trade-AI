@@ -27,6 +27,8 @@ const pairTickerMap: { [key: string]: string } = {
   'ETH': 'ETH-USD',
   'LINK': 'LINK-USD',
   'GOLD': 'GC=F',
+  'SOL': 'SOL-USD',
+  'SOL-USD': 'SOL-USD',
 };
 
 const timeframeMap: { [key: string]: { interval: string; range: string } } = {

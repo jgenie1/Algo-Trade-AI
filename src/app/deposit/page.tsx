@@ -258,9 +258,16 @@ export default function DepositPage() {
                 <div className="space-y-2">
                   <div className="text-3xl font-extrabold text-purple-300 font-body flex items-center gap-2">
                     <Coins className="h-7 w-7 text-purple-400" />
-                    <span>{solanaBalance !== null ? `${solanaBalance.toFixed(4)} SOL` : '0.0000 SOL'}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span>{solanaBalance !== null ? `${solanaBalance.toFixed(4)} SOL` : '0.0000 SOL'}</span>
+                      {solanaBalance !== null && (
+                        <span className="text-[10px] text-purple-400 font-semibold leading-none">
+                          ≈ ${(solanaBalance * 140).toFixed(2)} USD / {Math.round(solanaBalance * 140 * 130).toLocaleString('fr-FR')} HTG
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-white/30 font-body">Fonds on-chain réels reliés à votre clé privée.</div>
+                  <div className="text-[10px] text-white/30 font-body">Fonds on-chain réels reliés à votre clé privée. (Taux approximatif : 1 SOL = 140 USD / 18 200 HTG)</div>
                 </div>
               )}
               <div className="border-t border-white/5 pt-4 flex items-center gap-2.5 text-[10px] text-white/40 font-body leading-relaxed">

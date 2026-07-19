@@ -60,6 +60,7 @@ export default function ActivePositionsTable({
                   <TableHead className="py-2.5 text-white/40 font-headline">Actif</TableHead>
                   <TableHead className="py-2.5 text-white/40 font-headline">Type</TableHead>
                   <TableHead className="py-2.5 text-white/40 font-headline">Levier</TableHead>
+                  <TableHead className="py-2.5 text-white/40 font-headline">Taille</TableHead>
                   <TableHead className="py-2.5 text-white/40 font-headline">Prix Entrée</TableHead>
                   <TableHead className="py-2.5 text-white/40 font-headline">Prix Actuel</TableHead>
                   <TableHead className="py-2.5 text-right text-white/40 font-headline">PnL ({tradingMode === 'DEMO' ? 'USD' : 'SOL'})</TableHead>
@@ -73,6 +74,13 @@ export default function ActivePositionsTable({
                   const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
                   const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
                   const isProfit = profit >= 0;
+
+                  const solPrice = livePrices['SOL'] || 140;
+                  const sizeUsd = p.pair?.startsWith('SOL:') ? p.amount * solPrice : p.amount;
+                  const sizeHtg = sizeUsd * 130;
+                  
+                  const pnlUsd = p.pair?.startsWith('SOL:') ? profit * solPrice : profit;
+                  const pnlHtg = pnlUsd * 130;
 
                   return (
                     <TableRow
@@ -100,6 +108,18 @@ export default function ActivePositionsTable({
                       </TableCell>
                       <TableCell className="py-3 text-white/60 font-body border-none">{p.leverage}x</TableCell>
                       <TableCell className="py-3 text-white/80 font-body border-none">
+                        {p.pair?.startsWith('SOL:') ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-white">{p.amount.toFixed(2)} SOL</span>
+                            <span className="text-[9px] text-white/40 leading-none">
+                              ≈ ${sizeUsd.toFixed(1)} / {sizeHtg.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} G
+                            </span>
+                          </div>
+                        ) : (
+                          `${p.amount.toFixed(0)} $`
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3 text-white/80 font-body border-none">
                         {p.entryPrice.toFixed(p.entryPrice > 100 ? 2 : 5)}
                       </TableCell>
                       <TableCell className="py-3 font-bold text-white font-body border-none">
@@ -109,10 +129,24 @@ export default function ActivePositionsTable({
                         "py-3 text-right font-bold font-body border-none",
                         isProfit ? "text-emerald-400" : "text-rose-400"
                       )}>
-                        {isProfit ? '+' : ''}{profit.toFixed(2)} $
-                        <span className="text-[9px] block font-normal opacity-70">
-                          ({(pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100)).toFixed(2)}%)
-                        </span>
+                        {p.pair?.startsWith('SOL:') ? (
+                          <div className="flex flex-col gap-0.5 text-right items-end">
+                            <span className="font-bold">{isProfit ? '+' : ''}{profit.toFixed(4)} SOL</span>
+                            <span className="text-[9px] text-white/40 font-normal leading-none">
+                              ≈ {isProfit ? '+' : ''}${pnlUsd.toFixed(2)}
+                            </span>
+                            <span className="text-[8px] text-white/30 font-normal leading-none">
+                              {isProfit ? '+' : ''}{pnlHtg.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} G
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            {isProfit ? '+' : ''}{profit.toFixed(2)} $
+                            <span className="text-[9px] block font-normal opacity-70">
+                              ({(pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100)).toFixed(2)}%)
+                            </span>
+                          </>
+                        )}
                       </TableCell>
                       <TableCell className="py-3 text-center border-none" onClick={(e) => e.stopPropagation()}>
                         <Button

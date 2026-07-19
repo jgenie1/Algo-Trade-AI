@@ -410,6 +410,11 @@ export default function ManualOrderForm({
                   className="w-full h-11 bg-white/5 border border-white/10 rounded-xl pl-12 pr-3 text-sm focus:ring-[#c2ff0c] text-white font-body focus:outline-none"
                 />
               </div>
+              {orderAmount > 0 && (
+                <div className="text-[10px] text-purple-400 font-semibold font-body mt-1 text-right animate-in fade-in duration-200">
+                  ≈ ${(orderAmount * (livePrices['SOL'] || 140)).toFixed(2)} USD / {(orderAmount * (livePrices['SOL'] || 140) * 130).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} HTG
+                </div>
+              )}
             </div>
 
             {/* Disclaimer & Execution button */}

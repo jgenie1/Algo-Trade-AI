@@ -307,9 +307,16 @@ export default function WithdrawPage() {
                 <div className="space-y-1">
                   <div className="text-3xl font-extrabold text-purple-300 font-body flex items-center gap-2">
                     <Coins className="h-7 w-7 text-purple-400" />
-                    <span>{solanaBalance !== null ? `${solanaBalance.toFixed(4)} SOL` : '0.0000 SOL'}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span>{solanaBalance !== null ? `${solanaBalance.toFixed(4)} SOL` : '0.0000 SOL'}</span>
+                      {solanaBalance !== null && (
+                        <span className="text-[10px] text-purple-400 font-semibold leading-none">
+                          ≈ ${(solanaBalance * 140).toFixed(2)} USD / {Math.round(solanaBalance * 140 * 130).toLocaleString('fr-FR')} HTG
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-[10px] text-white/30 block">Fonds on-chain réels transférables</span>
+                  <span className="text-[10px] text-white/30 block">Fonds on-chain réels transférables. (Taux approx : 1 SOL = 140 USD / 18 200 HTG)</span>
                 </div>
               )}
             </div>

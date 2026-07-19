@@ -410,12 +410,21 @@ export function useTradingSimulation() {
             const mode = bot.pumpMode || 'PRECOCE';
             let matchingCoin: any = null;
 
+            // Détection préventive et filtrage des tokens suspects/arbaques
+            const isCoinSafe = (c: any) => {
+              const nameStr = (c.name || '').toLowerCase();
+              const descStr = (c.description || '').toLowerCase();
+              const isScam = /(scam|rug|hack|fake|free sol|airdrop|giveaway|test|reward)/i.test(nameStr + ' ' + descStr);
+              const isCreatorSafe = c.creator !== c.bonding_curve && c.creator !== '11111111111111111111111111111111';
+              return !isScam && isCreatorSafe;
+            };
+
             if (mode === 'PRECOCE') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) < 34.4);
+              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) < 34.4 && isCoinSafe(c));
             } else if (mode === 'MOMENTUM') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.reply_count || 0) >= 10 && (c.virtual_sol_reserves / 1e9) >= 34.4 && (c.virtual_sol_reserves / 1e9) < 65.7);
+              matchingCoin = latestCoins.find(c => !c.complete && (c.reply_count || 0) >= 8 && (c.virtual_sol_reserves / 1e9) >= 34.4 && (c.virtual_sol_reserves / 1e9) < 65.7 && isCoinSafe(c));
             } else if (mode === 'RAYDIUM') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 68.5);
+              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 68.5 && isCoinSafe(c));
             }
 
             if (!matchingCoin) {

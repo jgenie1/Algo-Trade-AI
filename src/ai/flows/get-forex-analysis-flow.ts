@@ -47,16 +47,9 @@ const getForexAnalysisFlow = ai.defineFlow(
     } catch (e: any) {
       console.warn("L'appel à l'API Gemini a échoué (limite de quota ou clé absente), génération d'une simulation. Erreur:", e.message);
       
-      // Générer une valeur déterministe par rapport à la paire et l'heure actuelle
-      const hour = new Date().getHours();
-      const seed = input.pair.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + hour;
-      const pseudoRandom = () => {
-        const x = Math.sin(seed) * 10000;
-        return x - Math.floor(x);
-      };
-
-      const val = pseudoRandom();
-      const signal: 'ACHAT' | 'VENTE' | 'NEUTRE' = val > 0.6 ? 'ACHAT' : val > 0.25 ? 'VENTE' : 'NEUTRE';
+      // Générer une valeur aléatoire dynamique en cas de fallback (simulation vivante)
+      const val = Math.random();
+      const signal: 'ACHAT' | 'VENTE' | 'NEUTRE' = val > 0.6 ? 'ACHAT' : val > 0.2 ? 'VENTE' : 'NEUTRE';
       const trend: 'HAUSSIÈRE' | 'BAISSIÈRE' | 'NEUTRE' = signal === 'ACHAT' ? 'HAUSSIÈRE' : signal === 'VENTE' ? 'BAISSIÈRE' : 'NEUTRE';
 
       const activeInds = input.indicators && input.indicators.length > 0 
