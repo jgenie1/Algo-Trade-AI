@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { db, DEFAULT_USER, saveFullState, AppState, auth } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
+import { getRealSolanaBalance } from '@/services/pumpFunService';
 
 interface AppContextType {
   tradingMode: 'DEMO' | 'REAL';
@@ -23,6 +24,12 @@ interface AppContextType {
   botLogs: any[];
   setBotLogs: React.Dispatch<React.SetStateAction<any[]>>;
   isLoading: boolean;
+  solanaBalance: number | null;
+  setSolanaBalance: React.Dispatch<React.SetStateAction<number | null>>;
+  solanaPubKey: string;
+  setSolanaPubKey: React.Dispatch<React.SetStateAction<string>>;
+  isSolanaWalletActive: boolean;
+  setIsSolanaWalletActive: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,6 +44,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const [botLearningsState, setBotLearningsState] = useState<any[]>([]);
   const [botLogsState, setBotLogsState] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
+  const [solanaPubKey, setSolanaPubKey] = useState<string>('');
+  const [isSolanaWalletActive, setIsSolanaWalletActive] = useState<boolean>(false);
 
   const setActivePositions = React.useCallback((val: any) => {
     setActivePositionsState(prev => {
@@ -207,6 +218,27 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     return () => unsubscribe();
   }, []);
 
+  // Solana Global Sync Loop
+  useEffect(() => {
+    const updateSolanaStatus = () => {
+      getRealSolanaBalance().then(res => {
+        if (res.success && res.balance !== undefined && res.publicKey) {
+          setSolanaBalance(res.balance);
+          setSolanaPubKey(res.publicKey);
+          setIsSolanaWalletActive(true);
+        } else {
+          setIsSolanaWalletActive(false);
+        }
+      }).catch(() => {
+        setIsSolanaWalletActive(false);
+      });
+    };
+
+    updateSolanaStatus();
+    const interval = setInterval(updateSolanaStatus, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   // 3. Save to Firestore whenever states change
   // CRITICAL: Only runs after isInitialized.current = true, which is set only
   // after the first Firestore snapshot (or localStorage fallback) completes.
@@ -259,7 +291,13 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       setBotLearnings,
       botLogs,
       setBotLogs,
-      isLoading
+      isLoading,
+      solanaBalance,
+      setSolanaBalance,
+      solanaPubKey,
+      setSolanaPubKey,
+      isSolanaWalletActive,
+      setIsSolanaWalletActive
     }}>
       {children}
     </AppContext.Provider>

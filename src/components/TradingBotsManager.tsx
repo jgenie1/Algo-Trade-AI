@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bot, 
   Play, 
@@ -87,6 +87,15 @@ export default function TradingBotsManager({
   const [priorityFee, setPriorityFee] = useState<number>(0.005);
   const [autoVolume, setAutoVolume] = useState<boolean>(false);
   const [botCustomRules, setBotCustomRules] = useState<string>('');
+
+  // Reset strategy selection on mode change to align state with visible options
+  useEffect(() => {
+    if (tradingMode === 'REAL') {
+      setBotStrategy('Pump.fun Sniper Bot');
+    } else {
+      setBotStrategy('AI Autopilot (Machine à Cash)');
+    }
+  }, [tradingMode]);
 
   const handleStartBot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -454,7 +463,7 @@ export default function TradingBotsManager({
                         <span className="text-[#c2ff0c] flex items-center gap-0.5">🤖 Scan Multi-Actifs</span>
                       ) : (
                         <>
-                          <span className="text-white/40">{b.pair.replace('FX:', '').replace('-USD', '').replace('=', '')}</span>
+                          <span className="text-white/40">{(b.pair || '').replace('FX:', '').replace('-USD', '').replace('=', '')}</span>
                           <span className="text-white/40">— {b.timeframe}m</span>
                         </>
                       )}
@@ -672,7 +681,7 @@ export default function TradingBotsManager({
                   <div key={h.id} className="bg-white/5 border border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
                     <div>
                       <div className="font-bold flex items-center gap-1.5">
-                        {h.pair.replace('FX:', '').replace('-USD', '').replace('=', '')}
+                        {(h.pair || '').replace('FX:', '').replace('-USD', '').replace('=', '')}
                         <Badge className={cn(
                           "text-[8px] font-bold px-1.5 py-0.5 rounded uppercase border-none",
                           h.type === 'BUY' ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"

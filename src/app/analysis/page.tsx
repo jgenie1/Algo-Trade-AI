@@ -34,7 +34,6 @@ import type { GetForexAnalysisInput, GetForexAnalysisOutput } from '@/ai/schemas
 import TrendingTokensCard from '@/components/TrendingTokensCard';
 import { cn } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import { getRealSolanaBalance } from '@/services/pumpFunService';
 
 const TVWidget = dynamic(
   () => import('@/components/TradingViewWidget').then((mod) => mod.default),
@@ -73,7 +72,7 @@ interface PastTrade {
 }
 
 export default function ForexAnalysisPage() {
-    const { tradingMode, balance, closedPositions, bots } = useAppState();
+    const { tradingMode, balance, closedPositions, bots, solanaBalance } = useAppState();
     const [pair, setPair] = useState(currencyPairs[0].value);
     const [timeframe, setTimeframe] = useState(timeframes[2].value);
     const [selectedIndicators, setSelectedIndicators] = useState<string[]>(["RSI", "SMA", "Volume Profile (POC)"]);
@@ -89,21 +88,13 @@ export default function ForexAnalysisPage() {
     const [walletAsset, setWalletAsset] = useState("SOL");
     const [walletAction, setWalletAction] = useState("Exchange");
     const [walletAmount, setWalletAmount] = useState(45);
-    const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
 
     // History log state for analysis requests made in the current session
     const [tradeHistory, setTradeHistory] = useState<PastTrade[]>([]);
 
     useEffect(() => {
         setIsClient(true);
-        if (tradingMode === 'REAL') {
-          getRealSolanaBalance().then(res => {
-            if (res.success && res.balance !== undefined) {
-              setSolanaBalance(res.balance);
-            }
-          });
-        }
-    }, [tradingMode]);
+    }, []);
     
     const handleAnalysis = async () => {
         const chart = chartApiRef.current;

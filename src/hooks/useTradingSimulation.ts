@@ -101,7 +101,13 @@ export function useTradingSimulation() {
     setBotLogs,
     botLearnings,
     setBotLearnings,
-    isLoading: isAppLoading
+    isLoading: isAppLoading,
+    solanaBalance,
+    setSolanaBalance,
+    solanaPubKey,
+    setSolanaPubKey,
+    isSolanaWalletActive,
+    setIsSolanaWalletActive
   } = useAppState();
 
   const [equity, setEquity] = useState<number>(10000);
@@ -110,9 +116,6 @@ export function useTradingSimulation() {
   const [priceDirections, setPriceDirections] = useState<{ [key: string]: 'up' | 'down' | 'flat' }>({});
   const [isLoadingPrice, setIsLoadingPrice] = useState<boolean>(false);
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
-  const [solanaPubKey, setSolanaPubKey] = useState<string>('');
-  const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
-  const [isSolanaWalletActive, setIsSolanaWalletActive] = useState<boolean>(false);
   const [rpcLatency, setRpcLatency] = useState<number | null>(null);
   const [nodeBlockHeight, setNodeBlockHeight] = useState<number | null>(null);
   const [disperseAmount, setDisperseAmount] = useState<number>(0.02);
@@ -142,21 +145,11 @@ export function useTradingSimulation() {
     }
   }, []);
 
-  // Solana Sync
+  // Solana Network Health & Sub-wallets Sync
   useEffect(() => {
     if (!isMounted) return;
     
-    const updateWalletAndStatus = () => {
-      getRealSolanaBalance().then(res => {
-        if (res.success && res.balance !== undefined && res.publicKey) {
-          setSolanaBalance(res.balance);
-          setSolanaPubKey(res.publicKey);
-          setIsSolanaWalletActive(true);
-        } else {
-          setIsSolanaWalletActive(false);
-        }
-      });
-
+    const updateNetworkAndSubWallets = () => {
       checkSolanaNetworkHealth().then(res => {
         if (res.success && res.latency !== undefined && res.blockHeight !== undefined) {
           setRpcLatency(res.latency);
@@ -186,8 +179,8 @@ export function useTradingSimulation() {
       }
     };
 
-    updateWalletAndStatus();
-    const interval = setInterval(updateWalletAndStatus, 12000);
+    updateNetworkAndSubWallets();
+    const interval = setInterval(updateNetworkAndSubWallets, 12000);
     return () => clearInterval(interval);
   }, [isMounted]);
 
@@ -291,6 +284,14 @@ export function useTradingSimulation() {
   }, [activePositions, livePrices, balance, bots]);
 
   // Refs for intervals
+  // Compute Available Solana Balance (subtracting capital allocated to active Real bots)
+  const runningRealBotsCapital = bots
+    .filter(b => b.mode === 'REAL' && b.status === 'RUNNING')
+    .reduce((sum, b) => sum + b.capital, 0);
+  const availableSolanaBalance = solanaBalance !== null 
+    ? Math.max(0, solanaBalance - runningRealBotsCapital) 
+    : null;
+
   const botsRef = useRef(bots);
   const activePositionsRef = useRef(activePositions);
   const livePricesRef = useRef(livePrices);
@@ -299,7 +300,7 @@ export function useTradingSimulation() {
   const subWalletsRef = useRef(subWallets);
   const tradingModeRef = useRef(tradingMode);
   const balanceRef = useRef(balance);
-  const solanaBalanceRef = useRef(solanaBalance);
+  const solanaBalanceRef = useRef(availableSolanaBalance);
 
   const closePositionByIdRef = useRef<(posId: string, exitPrice: number, reason: string) => void>(() => {});
   const addBotLogRef = useRef<(botId: string, botName: string, message: string, type: 'info' | 'trade' | 'error') => void>(() => {});
@@ -312,7 +313,7 @@ export function useTradingSimulation() {
     subWalletsRef.current = subWallets;
     tradingModeRef.current = tradingMode;
     balanceRef.current = balance;
-    solanaBalanceRef.current = solanaBalance;
+    solanaBalanceRef.current = availableSolanaBalance;
   });
 
   // Client-side WS
@@ -376,10 +377,10 @@ export function useTradingSimulation() {
   // Bot ticking simulation loop
   useEffect(() => {
     const botTick = async () => {
-      const runningBots = botsRef.current.filter(b => 
-        b.status === 'RUNNING' && 
-        (b.mode === tradingModeRef.current || (b.mode === undefined && (tradingModeRef.current === 'REAL' ? b.strategy === 'Pump.fun Sniper Bot' : b.strategy !== 'Pump.fun Sniper Bot')))
-      );
+      const runningBots = botsRef.current.filter(b => {
+        const botMode = b.mode || 'DEMO';
+        return b.status === 'RUNNING' && botMode === tradingModeRef.current;
+      });
       if (runningBots.length === 0) return;
 
       for (const bot of runningBots) {
@@ -454,23 +455,30 @@ export function useTradingSimulation() {
                 const subWallet = Math.floor(Math.random() * 5) + 1;
                 const fee = bot.priorityFee || 0.005;
 
-                addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel] Envoi transaction de micro-${action === 'buy' ? 'achat' : 'vente'} de ${microSol} SOL via sous-portefeuille #${subWallet}...`, 'info');
+                if (bot.mode === 'REAL') {
+                  addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel] Envoi transaction de micro-${action === 'buy' ? 'achat' : 'vente'} de ${microSol} SOL via sous-portefeuille #${subWallet}...`, 'info');
 
-                executeRealPumpTrade({
-                  action: action,
-                  mint: mintAddress,
-                  amount: action === 'buy' ? parseFloat(microSol) : '50%',
-                  denominatedInSol: action === 'buy',
-                  slippage: 15,
-                  priorityFee: fee,
-                  customPrivateKey: subWalletsRef.current[subWallet - 1]?.privateKey
-                }).then((res) => {
-                  if (res.success && res.txHash) {
-                     addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé ! Hash: ${res.txHash.slice(0, 10)}... Jeton Bumpé.`, 'info');
-                  } else {
-                     addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Échec] ${res.error || 'Erreur réseau Solana.'}`, 'error');
-                  }
-                });
+                  executeRealPumpTrade({
+                    action: action,
+                    mint: mintAddress,
+                    amount: action === 'buy' ? parseFloat(microSol) : '50%',
+                    denominatedInSol: action === 'buy',
+                    slippage: 15,
+                    priorityFee: fee,
+                    customPrivateKey: subWalletsRef.current[subWallet - 1]?.privateKey
+                  }).then((res) => {
+                    if (res.success && res.txHash) {
+                       addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé ! Hash: ${res.txHash.slice(0, 10)}... Jeton Bumpé.`, 'info');
+                    } else {
+                       addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Échec] ${res.error || 'Erreur réseau Solana.'}`, 'error');
+                    }
+                  });
+                } else {
+                  addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Démo] Simulation de micro-${action === 'buy' ? 'achat' : 'vente'} de ${microSol} SOL via sous-portefeuille #${subWallet}...`, 'info');
+                  setTimeout(() => {
+                    addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Démo Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé (Simulé) !`, 'info');
+                  }, 1000);
+                }
               }
             }
 
@@ -808,7 +816,7 @@ export function useTradingSimulation() {
                   : undefined
               };
 
-              const isBotReal = bot.mode === 'REAL' || (bot.mode === undefined && tradingModeRef.current === 'REAL');
+              const isBotReal = bot.mode === 'REAL';
               if (isBotReal && bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
                 const priority = bot.priorityFee || 0.005;
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${targetCoinData.symbol}...`, 'info');
@@ -1180,7 +1188,7 @@ export function useTradingSimulation() {
     selectedPosition,
     setSelectedPosition,
     solanaPubKey,
-    solanaBalance,
+    solanaBalance: availableSolanaBalance,
     setSolanaBalance,
     isSolanaWalletActive,
     rpcLatency,

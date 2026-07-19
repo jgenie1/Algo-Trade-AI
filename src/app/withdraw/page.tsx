@@ -11,7 +11,7 @@ import {
   History
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getRealSolanaBalance, withdrawSolana } from '@/services/pumpFunService';
+import { withdrawSolana } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,10 +22,18 @@ const SOLANA_NETWORK_FEE = 0.00005;
 const PRIORITY_FEE_ESTIMATE = 0.001;
 
 export default function WithdrawPage() {
-  const { tradingMode, setTradingMode, balance, setBalance, transactions, setTransactions } = useAppState();
-  const [solanaPubKey, setSolanaPubKey] = useState<string>('');
-  const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
-  const isSolanaWalletActive = !!solanaPubKey;
+  const { 
+    tradingMode, 
+    setTradingMode, 
+    balance, 
+    setBalance, 
+    transactions, 
+    setTransactions,
+    solanaPubKey,
+    solanaBalance,
+    setSolanaBalance,
+    isSolanaWalletActive
+  } = useAppState();
 
   const [recipientAddress, setRecipientAddress] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -35,16 +43,6 @@ export default function WithdrawPage() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => { setIsMounted(true); }, []);
-
-  useEffect(() => {
-    if (!isMounted || tradingMode !== 'REAL') return;
-    getRealSolanaBalance().then(res => {
-      if (res.success && res.balance !== undefined && res.publicKey) {
-        setSolanaBalance(res.balance);
-        setSolanaPubKey(res.publicKey);
-      }
-    });
-  }, [tradingMode, isMounted]);
 
   const handlePercentClick = (pct: number) => {
     const maxAvailable = tradingMode === 'REAL'

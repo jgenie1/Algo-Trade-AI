@@ -68,7 +68,7 @@ export default function ActivePositionsTable({
               </TableHeader>
               <TableBody>
                 {filteredPositions.map((p) => {
-                  const current = livePrices[p.pair] || p.entryPrice;
+                  const current = (p.pair ? livePrices[p.pair] : null) || p.entryPrice;
                   const priceDiff = current - p.entryPrice;
                   const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
                   const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
@@ -81,7 +81,7 @@ export default function ActivePositionsTable({
                       className="border-b border-white/5 hover:bg-white/[0.03] active:bg-white/[0.05] cursor-pointer transition-all duration-150"
                     >
                       <TableCell className="py-3 font-semibold font-body text-white flex items-center gap-1.5 border-none">
-                        {p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')}
+                        {(p.pair || '').replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')}
                         {p.botId && (
                           <Badge variant="secondary" className="text-[8px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-headline uppercase font-bold border-none">
                             Bot

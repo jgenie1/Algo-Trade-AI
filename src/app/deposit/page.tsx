@@ -14,7 +14,6 @@ import {
   Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,9 +29,16 @@ const GUIDE_TABS = [
 type GuideTab = typeof GUIDE_TABS[number]['id'];
 
 export default function DepositPage() {
-  const { tradingMode, setTradingMode, balance, setBalance, transactions, setTransactions } = useAppState();
-  const [solanaPubKey, setSolanaPubKey] = useState<string>('');
-  const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
+  const { 
+    tradingMode, 
+    setTradingMode, 
+    balance, 
+    setBalance, 
+    transactions, 
+    setTransactions,
+    solanaPubKey,
+    solanaBalance
+  } = useAppState();
   const [isCopied, setIsCopied] = useState(false);
   const [depositAmount, setDepositAmount] = useState<string>('1000');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,16 +46,6 @@ export default function DepositPage() {
   const [activeGuideTab, setActiveGuideTab] = useState<GuideTab>('exchanges');
 
   useEffect(() => { setIsMounted(true); }, []);
-
-  useEffect(() => {
-    if (!isMounted || tradingMode !== 'REAL') return;
-    getRealSolanaBalance().then(res => {
-      if (res.success && res.balance !== undefined && res.publicKey) {
-        setSolanaBalance(res.balance);
-        setSolanaPubKey(res.publicKey);
-      }
-    });
-  }, [tradingMode, isMounted]);
 
   const handleCopyAddress = () => {
     if (!solanaPubKey) return;
