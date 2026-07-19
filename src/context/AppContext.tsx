@@ -98,11 +98,28 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const botLearnings = botLearningsState;
   const botLogs = botLogsState;
 
+  // State refs to resolve stale closures and race conditions in onSnapshot subscription
+  const tradingModeRef = useRef(tradingMode);
+  const balanceRef = useRef(balance);
+  const activePositionsRef = useRef(activePositionsState);
+  const closedPositionsRef = useRef(closedPositionsState);
+  const botsRef = useRef(botsState);
+  const transactionsRef = useRef(transactionsState);
+  const botLearningsRef = useRef(botLearningsState);
+  const botLogsRef = useRef(botLogsState);
+
+  useEffect(() => { tradingModeRef.current = tradingMode; }, [tradingMode]);
+  useEffect(() => { balanceRef.current = balance; }, [balance]);
+  useEffect(() => { activePositionsRef.current = activePositionsState; }, [activePositionsState]);
+  useEffect(() => { closedPositionsRef.current = closedPositionsState; }, [closedPositionsState]);
+  useEffect(() => { botsRef.current = botsState; }, [botsState]);
+  useEffect(() => { transactionsRef.current = transactionsState; }, [transactionsState]);
+  useEffect(() => { botLearningsRef.current = botLearningsState; }, [botLearningsState]);
+  useEffect(() => { botLogsRef.current = botLogsState; }, [botLogsState]);
+
   // Prevents sending local updates to Firestore during an onSnapshot load
   const isIncomingSync = useRef(false);
   // CRITICAL: Gates ALL Firestore saves until initial data load is done.
-  // Without this, the save effect fires on mount with empty arrays and
-  // overwrites existing Firestore data before the snapshot arrives.
   const isInitialized = useRef(false);
 
   // 1. Firebase Anonymous Authentication
@@ -157,43 +174,55 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         
         isIncomingSync.current = true;
         
-        if (data.tradeMode !== undefined) {
+        if (data.tradeMode !== undefined && data.tradeMode !== tradingModeRef.current) {
           setTradingMode(data.tradeMode);
           localStorage.setItem('trade_mode', data.tradeMode);
         }
-        if (data.balance !== undefined) {
+        if (data.balance !== undefined && data.balance !== balanceRef.current) {
           setBalance(data.balance);
           localStorage.setItem('trade_balance', data.balance.toString());
         }
         if (data.positions !== undefined) {
           const arr = Array.isArray(data.positions) ? data.positions : [];
-          setActivePositions(arr);
-          localStorage.setItem('trade_positions', JSON.stringify(arr));
+          if (JSON.stringify(arr) !== JSON.stringify(activePositionsRef.current)) {
+            setActivePositions(arr);
+            localStorage.setItem('trade_positions', JSON.stringify(arr));
+          }
         }
         if (data.closedPositions !== undefined) {
           const arr = Array.isArray(data.closedPositions) ? data.closedPositions : [];
-          setClosedPositions(arr);
-          localStorage.setItem('trade_closed', JSON.stringify(arr));
+          if (JSON.stringify(arr) !== JSON.stringify(closedPositionsRef.current)) {
+            setClosedPositions(arr);
+            localStorage.setItem('trade_closed', JSON.stringify(arr));
+          }
         }
         if (data.bots !== undefined) {
           const arr = Array.isArray(data.bots) ? data.bots : [];
-          setBots(arr);
-          localStorage.setItem('trade_bots', JSON.stringify(arr));
+          if (JSON.stringify(arr) !== JSON.stringify(botsRef.current)) {
+            setBots(arr);
+            localStorage.setItem('trade_bots', JSON.stringify(arr));
+          }
         }
         if (data.transactions !== undefined) {
           const arr = Array.isArray(data.transactions) ? data.transactions : [];
-          setTransactions(arr);
-          localStorage.setItem('trade_transactions', JSON.stringify(arr));
+          if (JSON.stringify(arr) !== JSON.stringify(transactionsRef.current)) {
+            setTransactions(arr);
+            localStorage.setItem('trade_transactions', JSON.stringify(arr));
+          }
         }
         if (data.botLearnings !== undefined) {
           const arr = Array.isArray(data.botLearnings) ? data.botLearnings : [];
-          setBotLearnings(arr);
-          localStorage.setItem('trade_learnings', JSON.stringify(arr));
+          if (JSON.stringify(arr) !== JSON.stringify(botLearningsRef.current)) {
+            setBotLearnings(arr);
+            localStorage.setItem('trade_learnings', JSON.stringify(arr));
+          }
         }
         if (data.botLogs !== undefined) {
           const arr = Array.isArray(data.botLogs) ? data.botLogs : [];
-          setBotLogs(arr);
-          localStorage.setItem('trade_logs', JSON.stringify(arr));
+          if (JSON.stringify(arr) !== JSON.stringify(botLogsRef.current)) {
+            setBotLogs(arr);
+            localStorage.setItem('trade_logs', JSON.stringify(arr));
+          }
         }
         
         setTimeout(() => {
