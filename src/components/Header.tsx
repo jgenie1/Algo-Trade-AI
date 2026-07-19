@@ -153,9 +153,10 @@ export default function Header() {
 
   return (
     <header className="flex h-16 items-center justify-between bg-transparent border-none px-0 w-full mb-6 shrink-0" suppressHydrationWarning>
-      {/* Left side: Mobile trigger or search bar */}
       <div className="flex items-center gap-4 flex-1 max-w-md">
-        {isMobile && <SidebarTrigger className="text-white/60 hover:text-white mr-2" />}
+        <div className="block md:hidden">
+          <SidebarTrigger className="text-white/80 hover:text-[#c2ff0c] h-11 w-11 [&_svg]:h-5 [&_svg]:w-5 bg-white/5 border border-white/10 rounded-xl transition-all duration-200" />
+        </div>
         
         <div className="relative w-full hidden md:block">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />

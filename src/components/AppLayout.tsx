@@ -31,9 +31,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </Sidebar>
 
       {/* Main Content Area */}
-      <SidebarInset className="flex flex-col flex-1 bg-transparent border-none p-4 md:p-6 lg:p-8 pb-20 md:pb-8" suppressHydrationWarning={true}>
+      <SidebarInset className="flex flex-col flex-1 bg-transparent border-none p-4 md:p-6 lg:p-8" suppressHydrationWarning={true}>
         <Header />
-        <main className="flex-1 overflow-y-auto mt-6">
+        <main className="flex-1 overflow-y-auto mt-6 pb-28 md:pb-8">
           {children}
         </main>
       </SidebarInset>

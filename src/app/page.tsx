@@ -31,6 +31,8 @@ const TVWidget = dynamic(
 export default function TradingTerminalPage() {
   const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'wallets'>('manual');
   const [isClient, setIsClient] = useState(false);
+  const [mobileSubTab, setMobileSubTab] = useState<'trade' | 'chart'>('trade');
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -240,8 +242,38 @@ export default function TradingTerminalPage() {
           )}
         </TabsList>
 
+        {/* Mobile Sub-Navigation (Config vs Chart) */}
+        <div className="flex lg:hidden bg-white/5 border border-white/10 p-1 rounded-xl w-full gap-1 mb-5">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setMobileSubTab('trade')}
+            className={cn(
+              "flex-1 h-9 rounded-lg text-xs font-bold font-headline uppercase border-none",
+              mobileSubTab === 'trade'
+                ? "bg-[#c2ff0c]/10 text-[#c2ff0c] font-extrabold shadow-sm"
+                : "text-white/40 hover:text-white"
+            )}
+          >
+            ⚙️ Config & Ordre
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setMobileSubTab('chart')}
+            className={cn(
+              "flex-1 h-9 rounded-lg text-xs font-bold font-headline uppercase border-none",
+              mobileSubTab === 'chart'
+                ? "bg-[#c2ff0c]/10 text-[#c2ff0c] font-extrabold shadow-sm"
+                : "text-white/40 hover:text-white"
+            )}
+          >
+            📊 Graphique Live
+          </Button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-5">
+          <div className={cn("lg:col-span-5 w-full", mobileSubTab !== 'trade' && "hidden lg:block")}>
             <TabsContent value="manual" className="m-0">
               <ManualOrderForm
                 livePrices={livePrices}
@@ -284,7 +316,10 @@ export default function TradingTerminalPage() {
           </div>
 
           {/* Right Column: Information/Charts */}
-          <Card className="lg:col-span-7 glass-panel border-white/5 shadow-xl h-[500px] flex flex-col overflow-hidden">
+          <Card className={cn(
+            "lg:col-span-7 glass-panel border-white/5 shadow-xl h-[480px] flex flex-col overflow-hidden w-full",
+            mobileSubTab !== 'chart' && "hidden lg:flex"
+          )}>
             <div className="p-0 flex-grow relative">
               {isClient && (
                 <TVWidget 
