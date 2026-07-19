@@ -182,28 +182,18 @@ export default function TradingBotsManager({
                 <SelectValue placeholder="Choisir une stratégie" />
               </SelectTrigger>
               <SelectContent className="bg-[#14101a] border-white/10 text-white">
-                {tradingMode === 'DEMO' ? (
-                  <>
-                    <SelectItem value="AI Autopilot (Machine à Cash)" className="focus:bg-white/10 focus:text-white cursor-pointer">
-                      🤖 IA Autopilot (Machine à Cash)
-                    </SelectItem>
-                    <SelectItem value="Pump.fun Sniper Bot" className="focus:bg-white/10 focus:text-white cursor-pointer">
-                      🎯 Pump.fun Sniper Bot (Démo Solana)
-                    </SelectItem>
-                    <SelectItem value="RSI Pullback" className="focus:bg-white/10 focus:text-white cursor-pointer">
-                      📈 RSI Pullback Reversal
-                    </SelectItem>
-                    <SelectItem value="EMA Cross" className="focus:bg-white/10 focus:text-white cursor-pointer">
-                      📉 EMA Golden Cross Trend
-                    </SelectItem>
-                  </>
-                ) : (
-                  <>
-                    <SelectItem value="Pump.fun Sniper Bot" className="focus:bg-white/10 focus:text-white cursor-pointer">
-                      🎯 Pump.fun Sniper Bot (Solana Réel)
-                    </SelectItem>
-                  </>
-                )}
+                <SelectItem value="AI Autopilot (Machine à Cash)" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                  🤖 IA Autopilot (Machine à Cash)
+                </SelectItem>
+                <SelectItem value="Pump.fun Sniper Bot" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                  🎯 Pump.fun Sniper Bot (Solana)
+                </SelectItem>
+                <SelectItem value="RSI Pullback" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                  📈 RSI Pullback Reversal
+                </SelectItem>
+                <SelectItem value="EMA Cross" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                  📉 EMA Golden Cross Trend
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
