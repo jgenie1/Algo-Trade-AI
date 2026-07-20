@@ -43,16 +43,19 @@ const timeframeMap: { [key: string]: { interval: string; range: string } } = {
 export async function fetchLiveMarketData(pairName: string, timeframe: string): Promise<Candle[]> {
   const ticker = pairTickerMap[pairName] || 'EURUSD=X';
   const tfConfig = timeframeMap[timeframe] || { interval: '15m', range: '1d' };
-  
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${tfConfig.interval}&range=${tfConfig.range}`;
+
+  const isServer = typeof window === 'undefined';
+  const url = isServer
+    ? `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${tfConfig.interval}&range=${tfConfig.range}`
+    : `/api/yahoo-finance?ticker=${encodeURIComponent(ticker)}&interval=${tfConfig.interval}&range=${tfConfig.range}`;
   
   try {
     const response = await fetch(url, {
-      next: { revalidate: 60 } // Cache for 60 seconds
+      next: isServer ? { revalidate: 60 } : undefined // Cache only on server
     });
     
     if (!response.ok) {
-      throw new Error(`Yahoo Finance error: ${response.status} ${response.statusText}`);
+      throw new Error(`Yahoo Finance fetch failed: ${response.status}`);
     }
     
     const data = await response.json();

@@ -72,7 +72,7 @@ export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
 }
 
 export async function getPumpFunWsUrl(): Promise<string> {
-  return process.env.PUMPFUN_JWT_TOKEN || '';
+  return process.env.PUMPFUN_JWT_TOKEN || 'wss://pumpportal.fun/api/data';
 }
 
 export async function executeRealPumpTrade(params: {
