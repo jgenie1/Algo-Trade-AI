@@ -23,10 +23,10 @@ export interface IndicatorResults {
 
 export function calculateIndicators(candles: Candle[], activeIndicators: string[]): IndicatorResults {
   const result: IndicatorResults = {};
+  if (!candles || !Array.isArray(candles) || candles.length === 0) return result;
+  
   const closes = candles.map(c => c.close);
   const len = candles.length;
-
-  if (len === 0) return result;
 
   // 1. SMA (20 periods default)
   if (activeIndicators.includes('SMA')) {

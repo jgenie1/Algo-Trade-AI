@@ -63,7 +63,7 @@ const TradingViewWidget: React.FC<TradingViewWidgetProps> = ({
             const ctx = canvas.getContext('2d');
             if (ctx) {
               // 1. Fetch real market candles
-              const candles = await fetchLiveMarketData(symbol, interval);
+              const candles = (await fetchLiveMarketData(symbol, interval)) || [];
               
               // 2. Calculate real indicators
               const indicatorResults = calculateIndicators(candles, indicators);

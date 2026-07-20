@@ -580,7 +580,7 @@ export default function TradingTerminalPage() {
             }
           } else {
             const fetchedCandles = await fetchLiveMarketData(targetPair, bot.timeframe);
-            if (fetchedCandles.length < 15) continue;
+            if (!fetchedCandles || fetchedCandles.length < 15) continue;
             candles = fetchedCandles;
 
             const indicators = calculateIndicators(candles, ['RSI', 'EMA']);

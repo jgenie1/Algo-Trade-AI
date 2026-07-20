@@ -1,5 +1,3 @@
-'use server';
-
 export interface Candle {
   time: number; // timestamp in seconds
   open: number;
