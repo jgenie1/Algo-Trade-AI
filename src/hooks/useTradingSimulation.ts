@@ -538,9 +538,10 @@ export function useTradingSimulation() {
             const closes = candles.map(c => c.close);
             const volumes = candles.map(c => c.volume || 0);
 
+            const isDemo = bot.mode === 'DEMO' || !bot.mode;
             if (bot.strategy === 'RSI Pullback' && closes.length >= 2) {
-              const buyThreshold = 35 - (mult - 1.0) * 5;
-              const sellThreshold = 65 + (mult - 1.0) * 5;
+              const buyThreshold = isDemo ? 47 : (35 - (mult - 1.0) * 5);
+              const sellThreshold = isDemo ? 53 : (65 + (mult - 1.0) * 5);
               const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2];
               const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2];
 
@@ -580,7 +581,7 @@ export function useTradingSimulation() {
 
               const lastVol = volumes[lastIdx] || 0;
               const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
-              const volumeConfirm = lastVol > avgVol * 1.1;
+              const volumeConfirm = isDemo ? true : (lastVol > avgVol * 1.1);
 
               if (goldenCross && volumeConfirm && Math.random() < triggerChance) {
                 signal = 'BUY';
@@ -660,8 +661,9 @@ export function useTradingSimulation() {
               }
 
               const finalScore = (agentMathScore * 0.4 + agentMomentumScore * 0.4 + (bot.customRules ? agentCustomScore * 0.2 : 0)) / mult;
+              const isDemo = bot.mode === 'DEMO' || !bot.mode;
               const risk = bot.riskProfile || 'MODERATE';
-              const reqScore = risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25;
+              const reqScore = (risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25) / (isDemo ? 2.5 : 1.0);
 
               const assetLabel = currencyPairs.find(c => c.value === targetPair)?.label || targetPair;
 

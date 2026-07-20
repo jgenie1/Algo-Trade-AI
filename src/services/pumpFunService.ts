@@ -36,11 +36,15 @@ function getHeaders(): Record<string, string> {
 }
 
 export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
+  const isServer = typeof window === 'undefined';
+  const url = isServer
+    ? `${PUMPFUN_API_URL}/coins?offset=0&limit=12&sort=created_timestamp&order=DESC`
+    : `/api/pump-coins?limit=12&sort=created_timestamp&order=DESC`;
+
   try {
-    const url = `${PUMPFUN_API_URL}/coins?offset=0&limit=12&sort=created_timestamp&order=DESC`;
     const res = await fetch(url, {
-      headers: getHeaders(),
-      next: { revalidate: 0 } // Fresh real-time data
+      headers: isServer ? getHeaders() : undefined,
+      next: isServer ? { revalidate: 0 } : undefined
     });
     if (!res.ok) {
       throw new Error(`Pump.fun HTTP error: ${res.status}`);
@@ -54,11 +58,15 @@ export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
 }
 
 export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
+  const isServer = typeof window === 'undefined';
+  const url = isServer
+    ? `${PUMPFUN_API_URL}/coins/${mint}`
+    : `/api/pump-coins?mint=${encodeURIComponent(mint)}`;
+
   try {
-    const url = `${PUMPFUN_API_URL}/coins/${mint}`;
     const res = await fetch(url, {
-      headers: getHeaders(),
-      next: { revalidate: 0 }
+      headers: isServer ? getHeaders() : undefined,
+      next: isServer ? { revalidate: 0 } : undefined
     });
     if (!res.ok) {
       throw new Error(`Pump.fun HTTP error for coin ${mint}: ${res.status}`);
