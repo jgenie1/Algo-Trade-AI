@@ -286,7 +286,7 @@ export function useTradingSimulation() {
   // Refs for intervals
   // Compute Available Solana Balance (subtracting capital allocated to active Real bots)
   const runningRealBotsCapital = bots
-    .filter(b => b.mode === 'REAL' && b.status === 'RUNNING')
+    .filter(b => (b.mode === 'REAL' || (b.mode === undefined && b.strategy === 'Pump.fun Sniper Bot')) && b.status === 'RUNNING')
     .reduce((sum, b) => sum + b.capital, 0);
   const availableSolanaBalance = solanaBalance !== null 
     ? Math.max(0, solanaBalance - runningRealBotsCapital) 
@@ -378,7 +378,7 @@ export function useTradingSimulation() {
   useEffect(() => {
     const botTick = async () => {
       const runningBots = botsRef.current.filter(b => {
-        const botMode = b.mode || 'DEMO';
+        const botMode = b.mode || (b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO');
         return b.status === 'RUNNING' && botMode === tradingModeRef.current;
       });
       if (runningBots.length === 0) return;
@@ -464,7 +464,8 @@ export function useTradingSimulation() {
                 const subWallet = Math.floor(Math.random() * 5) + 1;
                 const fee = bot.priorityFee || 0.005;
 
-                if (bot.mode === 'REAL') {
+                const botMode = bot.mode || (bot.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO');
+                if (botMode === 'REAL') {
                   addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel] Envoi transaction de micro-${action === 'buy' ? 'achat' : 'vente'} de ${microSol} SOL via sous-portefeuille #${subWallet}...`, 'info');
 
                   executeRealPumpTrade({
@@ -825,7 +826,7 @@ export function useTradingSimulation() {
                   : undefined
               };
 
-              const isBotReal = bot.mode === 'REAL';
+              const isBotReal = bot.mode === 'REAL' || (bot.mode === undefined && bot.strategy === 'Pump.fun Sniper Bot');
               if (isBotReal && bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
                 const priority = bot.priorityFee || 0.005;
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${targetCoinData.symbol}...`, 'info');
