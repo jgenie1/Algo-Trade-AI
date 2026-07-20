@@ -86,6 +86,8 @@ interface TradingBot {
   pumpMode?: 'PRECOCE' | 'MOMENTUM' | 'RAYDIUM';
   priorityFee?: number;
   autoVolume?: boolean;
+  mode?: 'DEMO' | 'REAL';
+  customRules?: string;
 }
 
 interface BotLog {
@@ -596,8 +598,8 @@ export default function TradingTerminalPage() {
           const botPosition = activePositionsRef.current.find(p => p.botId === bot.id);
 
           if (botPosition) {
-            // If the bot has an active position and the volume generator/bump bot is enabled
-            if (bot.strategy === 'Pump.fun Sniper Bot' && bot.autoVolume) {
+            // If the bot has an active position and the volume generator/bump bot is enabled (only in REAL mode!)
+            if (bot.strategy === 'Pump.fun Sniper Bot' && bot.autoVolume && bot.mode === 'REAL') {
               const mintAddress = botPosition.pair.split(':')[1];
               if (mintAddress) {
                 const action = Math.random() > 0.50 ? 'buy' : 'sell';
@@ -811,7 +813,8 @@ export default function TradingTerminalPage() {
                   : undefined
               };
 
-              if (bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
+              const isBotReal = bot.mode === 'REAL';
+              if (isBotReal && bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
                 // Execute real transaction on Solana Mainnet
                 const priority = bot.priorityFee || 0.005;
                 addBotLog(bot.id, bot.strategy, `Envoi de la transaction d'achat réelle sur Solana pour $${targetCoinData.symbol}... (Frais: +${priority} SOL)`, 'info');
@@ -989,7 +992,8 @@ export default function TradingTerminalPage() {
       });
       
       if (p.botId) {
-        if (p.pair.startsWith('SOL:')) {
+        const isRealPosition = !!p.txHash;
+        if (p.pair.startsWith('SOL:') && isRealPosition) {
           const parts = p.pair.split(':');
           const mintAddress = parts[1];
           const botConfig = botsRef.current.find(b => b.id === p.botId);

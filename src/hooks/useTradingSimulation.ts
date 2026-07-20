@@ -1016,7 +1016,7 @@ export function useTradingSimulation() {
     });
     
     if (p.botId) {
-      const isRealPosition = !!p.txHash || (tradingModeRef.current === 'REAL' && p.pair.startsWith('SOL:'));
+      const isRealPosition = !!p.txHash;
       if (isRealPosition && p.pair.startsWith('SOL:')) {
         const parts = p.pair.split(':');
         const mintAddress = parts[1];
