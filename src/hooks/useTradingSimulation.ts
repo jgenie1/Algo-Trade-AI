@@ -533,24 +533,73 @@ export function useTradingSimulation() {
             let signal: 'BUY' | 'SELL' | null = null;
             let reason = '';
 
-            const mult = bot.selectivityMultiplier || 1.0;
-            const triggerChance = 0.45 / mult;
             const closes = candles.map(c => c.close);
             const volumes = candles.map(c => c.volume || 0);
 
+            // Compute AI learnings for this bot before triggering signal
+            const myLearnings = botLearningsRef.current.filter(l => l.botId === bot.id);
+            const blockedSignals: ('BUY' | 'SELL')[] = [];
+            const boostedSignals: ('BUY' | 'SELL')[] = [];
+            let confidenceReason = '';
+
+            for (const learning of myLearnings) {
+              let isMatch = false;
+              if (bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
+                const curveProgress = Math.max(0, Math.min(100, (((targetCoinData.virtual_sol_reserves / 1e9) - 30) / 55) * 100));
+                const replies = targetCoinData.reply_count || 0;
+                if (learning.bondingCurveProgress !== undefined && learning.replyCount !== undefined) {
+                  if (Math.abs(curveProgress - learning.bondingCurveProgress) < 15 && replies <= learning.replyCount) {
+                    isMatch = true;
+                  }
+                }
+              } else if (learning.entryRsi !== undefined) {
+                const lastEma = emaValues && emaValues.length > 0 ? emaValues[emaValues.length - 1] : lastClose;
+                const currentEmaTrend = lastClose > lastEma ? 'ABOVE' : 'BELOW';
+                const rsiDiff = Math.abs(lastRsi - learning.entryRsi);
+                if (rsiDiff < 6 && learning.entryEmaTrend === currentEmaTrend) {
+                  isMatch = true;
+                }
+              }
+
+              if (isMatch) {
+                if (learning.isPositive) {
+                  boostedSignals.push(learning.type as any);
+                  confidenceReason = learning.learningEffect;
+                } else {
+                  blockedSignals.push(learning.type as any);
+                }
+              }
+            }
+
+            const mult = bot.selectivityMultiplier || 1.0;
             const isDemo = bot.mode === 'DEMO' || !bot.mode;
+
+            const getTriggerChance = (sigType: 'BUY' | 'SELL') => {
+              const baseChance = 0.45 / mult;
+              if (boostedSignals.includes(sigType)) {
+                return Math.min(1.0, baseChance * 2.2); // Boost trigger confidence
+              }
+              return baseChance;
+            };
+
             if (bot.strategy === 'RSI Pullback' && closes.length >= 2) {
               const buyThreshold = isDemo ? 47 : (35 - (mult - 1.0) * 5);
               const sellThreshold = isDemo ? 53 : (65 + (mult - 1.0) * 5);
               const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2];
               const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2];
 
-              if (lastRsi < buyThreshold && isBullishReversal && Math.random() < triggerChance) {
-                signal = 'BUY';
-                reason = `RSI Survente (${lastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) confirmé par un retournement haussier (Fermeture: ${closes[closes.length - 1].toFixed(5)} > ${closes[closes.length - 2].toFixed(5)})`;
-              } else if (lastRsi > sellThreshold && isBearishReversal && Math.random() < triggerChance) {
-                signal = 'SELL';
-                reason = `RSI Surachat (${lastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) confirmé par un retournement baissier (Fermeture: ${closes[closes.length - 1].toFixed(5)} < ${closes[closes.length - 2].toFixed(5)})`;
+              if (lastRsi < buyThreshold && isBullishReversal) {
+                const hasBoost = boostedSignals.includes('BUY');
+                if (Math.random() < getTriggerChance('BUY')) {
+                  signal = 'BUY';
+                  reason = `RSI Survente (${lastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) avec retournement haussier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                }
+              } else if (lastRsi > sellThreshold && isBearishReversal) {
+                const hasBoost = boostedSignals.includes('SELL');
+                if (Math.random() < getTriggerChance('SELL')) {
+                  signal = 'SELL';
+                  reason = `RSI Surachat (${lastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) avec retournement baissier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                }
               }
             } else if (bot.strategy === 'EMA Cross' && closes.length >= 20) {
               const getEMA = (values: number[], period: number): number[] => {
@@ -583,12 +632,18 @@ export function useTradingSimulation() {
               const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
               const volumeConfirm = isDemo ? true : (lastVol > avgVol * 1.1);
 
-              if (goldenCross && volumeConfirm && Math.random() < triggerChance) {
-                signal = 'BUY';
-                reason = `Crossover haussier EMA 9/20 confirmé par pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)`;
-              } else if (deathCross && volumeConfirm && Math.random() < triggerChance) {
-                signal = 'SELL';
-                reason = `Crossover baissier EMA 9/20 confirmé par pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)`;
+              if (goldenCross && volumeConfirm) {
+                const hasBoost = boostedSignals.includes('BUY');
+                if (Math.random() < getTriggerChance('BUY')) {
+                  signal = 'BUY';
+                  reason = `Crossover haussier EMA 9/20 avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                }
+              } else if (deathCross && volumeConfirm) {
+                const hasBoost = boostedSignals.includes('SELL');
+                if (Math.random() < getTriggerChance('SELL')) {
+                  signal = 'SELL';
+                  reason = `Crossover baissier EMA 9/20 avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                }
               }
             } else if (bot.strategy === 'BB Mean Reversion') {
               const bbInds = calculateIndicators(candles, ['Bollinger Bands']) || {};
@@ -599,12 +654,18 @@ export function useTradingSimulation() {
                 const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2];
                 const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2];
 
-                if (lastClose <= lower && isBullishRebound && Math.random() < triggerChance) {
-                  signal = 'BUY';
-                  reason = `Rebond de survente BB (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})`;
-                } else if (lastClose >= upper && isBearishRebound && Math.random() < triggerChance) {
-                  signal = 'SELL';
-                  reason = `Correction de surachat BB (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})`;
+                if (lastClose <= lower && isBullishRebound) {
+                  const hasBoost = boostedSignals.includes('BUY');
+                  if (Math.random() < getTriggerChance('BUY')) {
+                    signal = 'BUY';
+                    reason = `Rebond de survente BB (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                  }
+                } else if (lastClose >= upper && isBearishRebound) {
+                  const hasBoost = boostedSignals.includes('SELL');
+                  if (Math.random() < getTriggerChance('SELL')) {
+                    signal = 'SELL';
+                    reason = `Correction de surachat BB (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                  }
                 }
               }
             } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
@@ -663,18 +724,24 @@ export function useTradingSimulation() {
               const finalScore = (agentMathScore * 0.4 + agentMomentumScore * 0.4 + (bot.customRules ? agentCustomScore * 0.2 : 0)) / mult;
               const isDemo = bot.mode === 'DEMO' || !bot.mode;
               const risk = bot.riskProfile || 'MODERATE';
-              const reqScore = (risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25) / (isDemo ? 2.5 : 1.0);
+
+              const hasBoostBuy = boostedSignals.includes('BUY');
+              const hasBoostSell = boostedSignals.includes('SELL');
+              const baseReq = (risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25) / (isDemo ? 2.5 : 1.0);
+              
+              const reqScoreBuy = hasBoostBuy ? baseReq * 0.5 : baseReq;
+              const reqScoreSell = hasBoostSell ? baseReq * 0.5 : baseReq;
 
               const assetLabel = currencyPairs.find(c => c.value === targetPair)?.label || targetPair;
 
-              if (finalScore > reqScore) {
+              if (finalScore > reqScoreBuy) {
                 signal = 'BUY';
-                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% > ${reqScore}%] Autopilot haussier sur ${assetLabel}.${customLog}`;
-              } else if (finalScore < -reqScore) {
+                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% > ${reqScoreBuy.toFixed(0)}%] Autopilot haussier sur ${assetLabel}.${customLog}${hasBoostBuy ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+              } else if (finalScore < -reqScoreSell) {
                 signal = 'SELL';
-                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% < -${reqScore}%] Autopilot baissier sur ${assetLabel}.${customLog}`;
+                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% < -${reqScoreSell.toFixed(0)}%] Autopilot baissier sur ${assetLabel}.${customLog}${hasBoostSell ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
               } else {
-                addBotLogRef.current(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${reqScore}%)${customLog}. Aucun signal.`, 'info');
+                addBotLogRef.current(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${baseReq.toFixed(0)}%${hasBoostBuy || hasBoostSell ? ', Boosté par apprentissage' : ''})${customLog}. Aucun signal.`, 'info');
               }
             } else if (bot.strategy === 'Pump.fun Sniper Bot') {
               if (targetCoinData) {
@@ -692,28 +759,33 @@ export function useTradingSimulation() {
                 let trigger = false;
                 let details = '';
 
+                const hasBoost = boostedSignals.includes('BUY');
+
                 if (isScamSpam) {
                   addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${targetCoinData.symbol} ANNULÉ : Alerte Scam/Spam.`, 'info');
                 } else if (!isCreatorSafe) {
                   addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${targetCoinData.symbol} ANNULÉ : Créateur suspect.`, 'info');
                 } else {
                   if (mode === 'PRECOCE') {
-                    if (curveProgress < 12) {
+                    const maxCurve = hasBoost ? 25 : 12;
+                    if (curveProgress < maxCurve) {
                       trigger = true;
-                      details = `[Ultra-Précoce] Curve: ${curveProgress.toFixed(1)}%.`;
+                      details = `[Ultra-Précoce] Curve: ${curveProgress.toFixed(1)}% < ${maxCurve}%${hasBoost ? ' (Boosté par apprentissage)' : ''}.`;
                     }
                   } else if (mode === 'MOMENTUM') {
                     const momentumScore = (replies * 6) + (hasSocials ? 30 : 0);
-                    if (momentumScore > 75) {
+                    const targetScore = hasBoost ? 50 : 75;
+                    if (momentumScore > targetScore) {
                       trigger = true;
-                      details = `[Momentum] Réponses: ${replies}.`;
+                      details = `[Momentum] Réponses: ${replies} (Score ${momentumScore.toFixed(0)}% > ${targetScore}%${hasBoost ? ' Boosté' : ''}).`;
                     } else {
-                      addBotLogRef.current(bot.id, "Pump.fun Sniper", `Jeton $${targetCoinData.symbol} écarté (Score ${momentumScore.toFixed(0)}% < 75%).`, 'info');
+                      addBotLogRef.current(bot.id, "Pump.fun Sniper", `Jeton $${targetCoinData.symbol} écarté (Score ${momentumScore.toFixed(0)}% < ${targetScore}%).`, 'info');
                     }
                   } else if (mode === 'RAYDIUM') {
-                    if (curveProgress >= 78 && hasSocials) {
+                    const reqCurve = hasBoost ? 65 : 78;
+                    if (curveProgress >= reqCurve && hasSocials) {
                       trigger = true;
-                      details = `[Raydium completion] Curve: ${curveProgress.toFixed(1)}%.`;
+                      details = `[Raydium completion] Curve: ${curveProgress.toFixed(1)}% >= ${reqCurve}%${hasBoost ? ' (Boosté)' : ''}.`;
                     }
                   }
                 }
@@ -726,37 +798,9 @@ export function useTradingSimulation() {
             }
 
             if (signal) {
-              let learningBlocked = false;
-              let learningReason = '';
-
-              const myLearnings = botLearningsRef.current.filter(l => l.botId === bot.id);
-              for (const learning of myLearnings) {
-                if (bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData) {
-                  const curveProgress = Math.max(0, Math.min(100, (((targetCoinData.virtual_sol_reserves / 1e9) - 30) / 55) * 100));
-                  const replies = targetCoinData.reply_count || 0;
-                  
-                  if (learning.bondingCurveProgress !== undefined && learning.replyCount !== undefined) {
-                    if (Math.abs(curveProgress - learning.bondingCurveProgress) < 15 && replies <= learning.replyCount) {
-                      learningBlocked = true;
-                      learningReason = learning.learningEffect;
-                      break;
-                    }
-                  }
-                } else if (learning.pair === targetPair && learning.type === signal) {
-                  if (learning.entryRsi !== undefined) {
-                    const rsiDiff = Math.abs(lastRsi - learning.entryRsi);
-                    if (rsiDiff < 6) {
-                      learningBlocked = true;
-                      learningReason = learning.learningEffect;
-                      break;
-                    }
-                  }
-                }
-              }
-
-              if (learningBlocked) {
+              if (blockedSignals.includes(signal)) {
                 const cleanPair = targetPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-                addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage] Signal ${signal} sur ${cleanPair} BLOQUÉ : perte passée (${learningReason}).`, 'info');
+                addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage] Signal ${signal} sur ${cleanPair} BLOQUÉ : configuration perdante évitée.`, 'info');
                 continue;
               }
 
@@ -1048,44 +1092,54 @@ export function useTradingSimulation() {
 
       addBotLog(p.botId, p.botId, `Position fermée à ${exitPrice.toFixed(5)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} $`, 'trade');
       
-      if (profit < 0) {
-        let learningEffect = '';
-        if (p.entryRsi !== undefined) {
-          const emaStatus = p.entryEmaTrend === 'ABOVE' ? 'au-dessus de' : 'sous';
-          if (p.type === 'BUY') {
-            learningEffect = `Éviter LONG sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
-          } else {
-            learningEffect = `Éviter SHORT sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
-          }
-        } else if (p.bondingCurveProgress !== undefined && p.replyCount !== undefined) {
-          learningEffect = `Bloquer l'achat de Meme Coins avec moins de ${p.replyCount + 1} réponses si la Bonding Curve est proche de ${p.bondingCurveProgress.toFixed(0)}%`;
+      let learningEffect = '';
+      const isWin = profit >= 0;
+      
+      if (p.entryRsi !== undefined) {
+        const emaStatus = p.entryEmaTrend === 'ABOVE' ? 'au-dessus de' : 'sous';
+        if (p.type === 'BUY') {
+          learningEffect = isWin 
+            ? `Favoriser LONG sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`
+            : `Éviter LONG sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
         } else {
-          learningEffect = `Renforcer la sélectivité sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')} suite à un échec technique`;
+          learningEffect = isWin
+            ? `Favoriser SHORT sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`
+            : `Éviter SHORT sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
         }
-
-        const newLearning = {
-          id: 'lrn_' + Math.random().toString(36).substring(2, 9),
-          botId: p.botId,
-          pair: p.pair,
-          type: p.type,
-          entryRsi: p.entryRsi,
-          entryEmaTrend: p.entryEmaTrend,
-          bondingCurveProgress: p.bondingCurveProgress,
-          replyCount: p.replyCount,
-          lossAmount: Math.abs(profit),
-          timestamp: Date.now(),
-          learningEffect
-        };
-
-        setBotLearnings(prev => {
-          if (prev.some(x => x.id === newLearning.id)) return prev;
-          return [newLearning, ...prev];
-        });
-
-        setTimeout(() => {
-          addBotLog(p.botId!, p.botId!, `[IA Apprentissage] Leçon enregistrée : "${learningEffect}".`, 'info');
-        }, 50);
+      } else if (p.bondingCurveProgress !== undefined && p.replyCount !== undefined) {
+        learningEffect = isWin
+          ? `Cibler l'achat de Meme Coins avec plus de ${p.replyCount} réponses si la Bonding Curve dépasse ${p.bondingCurveProgress.toFixed(0)}%`
+          : `Bloquer l'achat de Meme Coins avec moins de ${p.replyCount + 1} réponses si la Bonding Curve est proche de ${p.bondingCurveProgress.toFixed(0)}%`;
+      } else {
+        learningEffect = isWin
+          ? `Reproduire la configuration technique sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')}`
+          : `Renforcer la sélectivité sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')} suite à un échec technique`;
       }
+
+      const newLearning = {
+        id: 'lrn_' + Math.random().toString(36).substring(2, 9),
+        botId: p.botId,
+        pair: p.pair,
+        type: p.type,
+        entryRsi: p.entryRsi,
+        entryEmaTrend: p.entryEmaTrend,
+        bondingCurveProgress: p.bondingCurveProgress,
+        replyCount: p.replyCount,
+        lossAmount: Math.abs(profit), // Keep for backward compat
+        amount: Math.abs(profit),
+        isPositive: isWin,
+        timestamp: Date.now(),
+        learningEffect
+      };
+
+      setBotLearnings(prev => {
+        if (prev.some(x => x.id === newLearning.id)) return prev;
+        return [newLearning, ...prev];
+      });
+
+      setTimeout(() => {
+        addBotLog(p.botId!, p.botId!, `[IA Apprentissage] Configuration ${isWin ? 'gagnante' : 'perdante'} enregistrée : "${learningEffect}".`, 'info');
+      }, 50);
       
       const botIdVal = p.botId;
       const profitVal = profit;

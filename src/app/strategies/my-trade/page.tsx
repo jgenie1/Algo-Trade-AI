@@ -67,6 +67,8 @@ interface BotLearning {
   lossAmount: number;
   timestamp: number;
   learningEffect: string;
+  isPositive?: boolean;
+  amount?: number;
 }
 
 interface TradingBot {
@@ -2361,23 +2363,37 @@ export default function TradingTerminalPage() {
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {botLearnings.length === 0 ? (
                 <div className="border border-dashed border-white/5 rounded-xl p-6 text-center text-white/30 font-body text-xs">
-                  Le bot n'a rencontré aucun échec pour l'instant. Il apprendra automatiquement de ses pertes futures pour resserrer ses filtres.
+                  Aucun feedback d'apprentissage enregistré. Les bots analysent automatiquement chaque gain et perte pour s'ajuster en continu.
                 </div>
               ) : (
                 botLearnings.map((l) => (
-                  <div key={l.id} className="bg-purple-950/10 border border-purple-500/10 hover:border-purple-500/20 rounded-xl p-3 flex justify-between items-center gap-3 transition-all duration-200">
+                  <div key={l.id} className={cn(
+                    "border rounded-xl p-3 flex justify-between items-center gap-3 transition-all duration-200",
+                    l.isPositive 
+                      ? "bg-emerald-950/10 border-emerald-500/10 hover:border-emerald-500/20"
+                      : "bg-purple-950/10 border-purple-500/10 hover:border-purple-500/20"
+                  )}>
                     <div className="space-y-1">
-                      <div className="text-[10px] text-purple-400 font-headline uppercase font-bold flex items-center gap-1.5">
-                        <span>Leçon #{l.id.replace('lrn_', '')}</span>
+                      <div className="text-[10px] font-headline uppercase font-bold flex items-center gap-1.5">
+                        <span className={l.isPositive ? "text-emerald-400" : "text-purple-400"}>
+                          {l.isPositive ? "🚀 Optimisation" : "🧠 Apprentissage"} #{l.id.replace('lrn_', '')}
+                        </span>
                         <span className="text-white/20">•</span>
-                        <span className="text-white/60 font-body normal-case">Perte évitée: {l.lossAmount.toFixed(2)} $</span>
+                        <span className="text-white/60 font-body normal-case">
+                          {l.isPositive ? "Profit maximisé" : "Perte évitée"}: {(l.amount || l.lossAmount || 0).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                        </span>
                       </div>
                       <p className="text-xs text-white/80 font-body leading-relaxed">{l.learningEffect}</p>
                     </div>
                     <div className="shrink-0 text-right">
                       <span className="text-[9px] text-white/30 font-body block">{new Date(l.timestamp).toLocaleTimeString('fr-FR')}</span>
-                      <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-500/20 text-purple-300 font-headline uppercase">
-                        Actif
+                      <span className={cn(
+                        "inline-block mt-1 px-1.5 py-0.5 rounded text-[8px] font-bold font-headline uppercase",
+                        l.isPositive 
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : "bg-purple-500/20 text-purple-300"
+                      )}>
+                        {l.isPositive ? "Ciblé" : "Actif"}
                       </span>
                     </div>
                   </div>
