@@ -1,28 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Space_Grotesk, Source_Code_Pro } from 'next/font/google';
 import './globals.css';
 import AppLayout from '@/components/AppLayout';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space-grotesk',
-  display: 'swap',
-});
-
-const sourceCodePro = Source_Code_Pro({
-  subsets: ['latin'],
-  variable: '--font-source-code-pro',
-  display: 'swap',
-});
-
 import { AppContextProvider } from '@/context/AppContext';
 import RegisterSW from '@/components/RegisterSW';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -49,14 +29,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="dark" suppressHydrationWarning={true} style={{ backgroundColor: '#09070c', color: '#f3f0f6' }}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Source+Code+Pro:wght@400;600&display=swap" 
+          rel="stylesheet" 
+        />
+      </head>
       <body
         style={{ backgroundColor: '#09070c', color: '#f3f0f6', minHeight: '100vh' }}
-        className={cn(
-          "font-body antialiased bg-background text-foreground min-h-screen flex flex-col",
-          inter.variable,
-          spaceGrotesk.variable,
-          sourceCodePro.variable
-        )}
+        className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col"
         suppressHydrationWarning={true}
       >
         <ErrorBoundary>
