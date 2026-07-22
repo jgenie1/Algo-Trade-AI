@@ -356,8 +356,11 @@ export async function generateSubWalletsServer(): Promise<{
   }
 }
 
-// Helpers for browser-compatible base64 encoding/decoding without Node.js Buffer
+// Helpers for browser & Node.js compatible base64 encoding/decoding
 function base64ToUint8Array(base64: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    return new Uint8Array(Buffer.from(base64, 'base64'));
+  }
   const binaryString = atob(base64);
   const len = binaryString.length;
   const bytes = new Uint8Array(len);
@@ -368,6 +371,9 @@ function base64ToUint8Array(base64: string): Uint8Array {
 }
 
 function uint8ArrayToBase64(arr: Uint8Array): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(arr).toString('base64');
+  }
   const binString = Array.from(arr).map(val => String.fromCharCode(val)).join('');
   return btoa(binString);
 }

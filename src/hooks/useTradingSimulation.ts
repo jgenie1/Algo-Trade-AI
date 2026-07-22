@@ -136,10 +136,12 @@ export function useTradingSimulation() {
         } catch (e) {}
       } else {
         generateSubWalletsServer().then(res => {
-          if (res.success && res.wallets) {
+          if (res?.success && res.wallets) {
             localStorage.setItem('trade_sub_wallets', JSON.stringify(res.wallets));
             setSubWallets(res.wallets);
           }
+        }).catch(err => {
+          console.error("Subwallets server error:", err);
         });
       }
     }

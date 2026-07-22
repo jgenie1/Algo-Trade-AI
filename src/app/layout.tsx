@@ -25,6 +25,7 @@ const sourceCodePro = Source_Code_Pro({
 
 import { AppContextProvider } from '@/context/AppContext';
 import RegisterSW from '@/components/RegisterSW';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'AlgoTradeAI - Analyse Forex & Memecoins',
@@ -58,9 +59,11 @@ export default function RootLayout({
         )}
         suppressHydrationWarning={true}
       >
-        <AppContextProvider>
-          <AppLayout>{children}</AppLayout>
-        </AppContextProvider>
+        <ErrorBoundary>
+          <AppContextProvider>
+            <AppLayout>{children}</AppLayout>
+          </AppContextProvider>
+        </ErrorBoundary>
         <Toaster />
         <RegisterSW />
       </body>

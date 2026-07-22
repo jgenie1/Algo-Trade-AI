@@ -61,7 +61,7 @@ export default function SidebarNav() {
                 ? "bg-[#c2ff0c] text-black" 
                 : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
             )}>
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" size={16} />
             </div>
             <span className="font-body text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
             <span className="text-[10px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded ml-auto group-data-[collapsible=icon]:hidden">
@@ -97,7 +97,7 @@ export default function SidebarNav() {
                 ? "bg-[#c2ff0c] text-black" 
                 : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
             )}>
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" size={16} />
             </div>
             <span className="font-body text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
           </Link>
