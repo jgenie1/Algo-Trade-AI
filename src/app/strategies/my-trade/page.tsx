@@ -1482,16 +1482,7 @@ export default function TradingTerminalPage() {
     setBotLogs(prev => prev.filter(l => l.botId !== botId));
   };
 
-  if (!isMounted) {
-    return (
-      <div className="min-h-screen bg-[#07040a] flex items-center justify-center text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-          <span className="text-sm text-white/50">Chargement du terminal de trading...</span>
-        </div>
-      </div>
-    );
-  }
+
 
   const activePairPrice = livePrices[selectedPair] || 0;
 

@@ -74,16 +74,7 @@ export default function TradingTerminalPage() {
   const solToUsd = (sol: number) => sol * solPrice;
   const usdToHtg = (usd: number) => usd * 130;
 
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]" suppressHydrationWarning={true}>
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-          <span className="text-sm text-white/50 font-body">Chargement du terminal...</span>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning={true}>
