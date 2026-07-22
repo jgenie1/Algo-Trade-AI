@@ -2,6 +2,8 @@
 export default function LogoIcon({ className }: { className?: string }) {
   return (
     <svg
+      width="32"
+      height="32"
       className={className}
       viewBox="0 0 24 24"
       fill="none"
@@ -10,6 +12,7 @@ export default function LogoIcon({ className }: { className?: string }) {
       strokeWidth="1.5" // Slightly thinner lines for a more refined look
       strokeLinecap="round"
       strokeLinejoin="round"
+      style={{ maxWidth: '100%' }}
     >
       {/* Abstract representation of data flow / algorithm */}
       <path d="M6.5 17.5L3 14L6.5 10.5" />

@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+svg {
+  max-width: 100%;
+}
+
+html, body {
+  background-color: #09070c !important;
+  color: #f3f0f6 !important;
+}
+
 @layer base {
   :root {
     --background: 274 18% 7%;

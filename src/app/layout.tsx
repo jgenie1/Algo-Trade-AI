@@ -47,8 +47,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className="dark" suppressHydrationWarning={true}>
+    <html lang="fr" className="dark" suppressHydrationWarning={true} style={{ backgroundColor: '#09070c', color: '#f3f0f6' }}>
       <body
+        style={{ backgroundColor: '#09070c', color: '#f3f0f6', minHeight: '100vh' }}
         className={cn(
           "font-body antialiased bg-background text-foreground min-h-screen flex flex-col",
           inter.variable,
