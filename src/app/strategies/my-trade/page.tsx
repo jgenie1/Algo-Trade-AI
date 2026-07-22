@@ -102,6 +102,7 @@ interface BotLog {
 }
 
 const currencyPairs = [
+  { value: 'ALL_FOREX', label: '🌍 Tout le Forex (Scan Multi-Paires)', ticker: 'EURUSD=X' },
   { value: 'FX:EURUSD', label: 'EUR/USD', ticker: 'EURUSD=X' },
   { value: 'FX:GBPUSD', label: 'GBP/USD', ticker: 'GBPUSD=X' },
   { value: 'FX:USDJPY', label: 'USD/JPY', ticker: 'JPY=X' },
@@ -113,6 +114,20 @@ const currencyPairs = [
   { value: 'ETH', label: 'ETH/USD', ticker: 'ETH-USD' },
   { value: 'LINK', label: 'LINK/USD', ticker: 'LINK-USD' },
   { value: 'GOLD', label: 'GOLD/USD', ticker: 'GC=F' },
+];
+
+const FOREX_SCAN_PAIRS = [
+  'FX:EURUSD',
+  'FX:GBPUSD',
+  'FX:USDJPY',
+  'FX:AUDUSD',
+  'FX:USDCAD',
+  'FX:USDCHF',
+  'GOLD',
+  'BTC',
+  'ETH',
+  'BNB',
+  'LINK'
 ];
 
 const timeframes = [
@@ -685,166 +700,184 @@ export default function TradingTerminalPage() {
               return baseChance;
             };
 
-            if (bot.strategy === 'RSI Pullback' && closes.length >= 2) {
-              const buyThreshold = isDemo ? 47 : (35 - (mult - 1.0) * 5);
-              const sellThreshold = isDemo ? 53 : (65 + (mult - 1.0) * 5);
-              const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2];
-              const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2];
+            let bestPairSignal: {
+              pair: string;
+              signal: 'BUY' | 'SELL';
+              reason: string;
+              score: number;
+              lastClose: number;
+              lastRsi: number;
+              candles: Candle[];
+            } | null = null;
 
-              if (lastRsi < buyThreshold && isBullishReversal) {
-                const hasBoost = boostedSignals.includes('BUY');
-                if (Math.random() < getTriggerChance('BUY')) {
-                  signal = 'BUY';
-                  reason = `RSI Survente (${lastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) avec retournement haussier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
-                }
-              } else if (lastRsi > sellThreshold && isBearishReversal) {
-                const hasBoost = boostedSignals.includes('SELL');
-                if (Math.random() < getTriggerChance('SELL')) {
-                  signal = 'SELL';
-                  reason = `RSI Surachat (${lastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) avec retournement baissier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
-                }
-              }
-            } else if (bot.strategy === 'EMA Cross' && closes.length >= 20) {
-              const getEMA = (values: number[], period: number): number[] => {
-                const ema: number[] = [];
-                const k = 2 / (period + 1);
-                let lastEma = values[0] || 0;
-                ema.push(lastEma);
-                for (let i = 1; i < values.length; i++) {
-                  lastEma = values[i] * k + lastEma * (1 - k);
-                  ema.push(lastEma);
-                }
-                return ema;
-              };
+            const scanPairsList = (bot.pair === 'ALL_FOREX' || !bot.pair || bot.pair === 'FX:EURUSD') ? FOREX_SCAN_PAIRS : [bot.pair];
 
-              const fastEma = getEMA(closes, 9);
-              const slowEma = getEMA(closes, 20);
+            for (const candPair of scanPairsList) {
+              try {
+                const fetchedCandles = await fetchLiveMarketData(candPair, bot.timeframe);
+                if (!fetchedCandles || fetchedCandles.length < 15) continue;
 
-              const lastIdx = closes.length - 1;
-              const prevIdx = closes.length - 2;
+                const candCloses = fetchedCandles.map(c => c.close);
+                const candVolumes = fetchedCandles.map(c => c.volume);
+                const candIndicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA', 'Bollinger Bands']) || {};
+                const candRsiArr = candIndicators.rsi || [];
+                if (candRsiArr.length === 0) continue;
 
-              const fastLast = fastEma[lastIdx];
-              const slowLast = slowEma[lastIdx];
-              const fastPrev = fastEma[prevIdx];
-              const slowPrev = slowEma[prevIdx];
+                const candLastRsi = candRsiArr[candRsiArr.length - 1];
+                const candLastClose = fetchedCandles[fetchedCandles.length - 1]?.close || 0;
 
-              const goldenCross = fastPrev <= slowPrev && fastLast > slowLast;
-              const deathCross = fastPrev >= slowPrev && fastLast < slowLast;
+                let candSig: 'BUY' | 'SELL' | null = null;
+                let candReason = '';
+                let candScore = 0;
 
-              const lastVol = volumes[lastIdx] || 0;
-              const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
-              const volumeConfirm = isDemo ? true : (lastVol > avgVol * 1.1);
+                const candAssetLabel = currencyPairs.find(c => c.value === candPair)?.label || candPair;
 
-              if (goldenCross && volumeConfirm) {
-                const hasBoost = boostedSignals.includes('BUY');
-                if (Math.random() < getTriggerChance('BUY')) {
-                  signal = 'BUY';
-                  reason = `Crossover haussier EMA 9/20 avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
-                }
-              } else if (deathCross && volumeConfirm) {
-                const hasBoost = boostedSignals.includes('SELL');
-                if (Math.random() < getTriggerChance('SELL')) {
-                  signal = 'SELL';
-                  reason = `Crossover baissier EMA 9/20 avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
-                }
-              }
-            } else if (bot.strategy === 'BB Mean Reversion') {
-              const bbInds = calculateIndicators(candles, ['Bollinger Bands']) || {};
-              if (bbInds.bollingerBands && bbInds.bollingerBands.lower && bbInds.bollingerBands.upper && closes.length >= 2) {
-                const lower = bbInds.bollingerBands.lower[bbInds.bollingerBands.lower.length - 1];
-                const upper = bbInds.bollingerBands.upper[bbInds.bollingerBands.upper.length - 1];
-                
-                const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2];
-                const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2];
+                if (bot.strategy === 'RSI Pullback' && candCloses.length >= 2) {
+                  const buyThreshold = isDemo ? 47 : (35 - (mult - 1.0) * 5);
+                  const sellThreshold = isDemo ? 53 : (65 + (mult - 1.0) * 5);
+                  const isBullishReversal = candCloses[candCloses.length - 1] > candCloses[candCloses.length - 2];
+                  const isBearishReversal = candCloses[candCloses.length - 1] < candCloses[candCloses.length - 2];
 
-                if (lastClose <= lower && isBullishRebound) {
-                  const hasBoost = boostedSignals.includes('BUY');
-                  if (Math.random() < getTriggerChance('BUY')) {
-                    signal = 'BUY';
-                    reason = `Rebond de survente BB (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                  if (candLastRsi < buyThreshold && isBullishReversal) {
+                    const hasBoost = boostedSignals.includes('BUY');
+                    if (!blockedSignals.includes('BUY') && Math.random() < getTriggerChance('BUY')) {
+                      candSig = 'BUY';
+                      candScore = (buyThreshold - candLastRsi) + 30;
+                      candReason = `RSI Survente sur ${candAssetLabel} (${candLastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) avec retournement haussier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                    }
+                  } else if (candLastRsi > sellThreshold && isBearishReversal) {
+                    const hasBoost = boostedSignals.includes('SELL');
+                    if (!blockedSignals.includes('SELL') && Math.random() < getTriggerChance('SELL')) {
+                      candSig = 'SELL';
+                      candScore = (candLastRsi - sellThreshold) + 30;
+                      candReason = `RSI Surachat sur ${candAssetLabel} (${candLastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) avec retournement baissier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                    }
                   }
-                } else if (lastClose >= upper && isBearishRebound) {
-                  const hasBoost = boostedSignals.includes('SELL');
-                  if (Math.random() < getTriggerChance('SELL')) {
-                    signal = 'SELL';
-                    reason = `Correction de surachat BB (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                } else if (bot.strategy === 'EMA Cross' && candCloses.length >= 20) {
+                  const getEMA = (values: number[], period: number): number[] => {
+                    const ema: number[] = [];
+                    const k = 2 / (period + 1);
+                    let lastEma = values[0] || 0;
+                    ema.push(lastEma);
+                    for (let i = 1; i < values.length; i++) {
+                      lastEma = values[i] * k + lastEma * (1 - k);
+                      ema.push(lastEma);
+                    }
+                    return ema;
+                  };
+
+                  const fastEma = getEMA(candCloses, 9);
+                  const slowEma = getEMA(candCloses, 20);
+
+                  const lastIdx = candCloses.length - 1;
+                  const prevIdx = candCloses.length - 2;
+
+                  const fastLast = fastEma[lastIdx];
+                  const slowLast = slowEma[lastIdx];
+                  const fastPrev = fastEma[prevIdx];
+                  const slowPrev = slowEma[prevIdx];
+
+                  const goldenCross = fastPrev <= slowPrev && fastLast > slowLast;
+                  const deathCross = fastPrev >= slowPrev && fastLast < slowLast;
+
+                  const lastVol = candVolumes[lastIdx] || 0;
+                  const avgVol = candVolumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
+                  const volumeConfirm = isDemo ? true : (lastVol > avgVol * 1.1);
+
+                  if (goldenCross && volumeConfirm) {
+                    const hasBoost = boostedSignals.includes('BUY');
+                    if (!blockedSignals.includes('BUY') && Math.random() < getTriggerChance('BUY')) {
+                      candSig = 'BUY';
+                      candScore = 50 + (lastVol / avgVol) * 10;
+                      candReason = `Crossover haussier EMA 9/20 sur ${candAssetLabel} avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                    }
+                  } else if (deathCross && volumeConfirm) {
+                    const hasBoost = boostedSignals.includes('SELL');
+                    if (!blockedSignals.includes('SELL') && Math.random() < getTriggerChance('SELL')) {
+                      candSig = 'SELL';
+                      candScore = 50 + (lastVol / avgVol) * 10;
+                      candReason = `Crossover baissier EMA 9/20 sur ${candAssetLabel} avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                    }
+                  }
+                } else if (bot.strategy === 'BB Mean Reversion') {
+                  if (candIndicators.bollingerBands && candIndicators.bollingerBands.lower && candIndicators.bollingerBands.upper && candCloses.length >= 2) {
+                    const lower = candIndicators.bollingerBands.lower[candIndicators.bollingerBands.lower.length - 1];
+                    const upper = candIndicators.bollingerBands.upper[candIndicators.bollingerBands.upper.length - 1];
+                    
+                    const isBullishRebound = candCloses[candCloses.length - 1] > candCloses[candCloses.length - 2];
+                    const isBearishRebound = candCloses[candCloses.length - 1] < candCloses[candCloses.length - 2];
+
+                    if (candLastClose <= lower && isBullishRebound) {
+                      const hasBoost = boostedSignals.includes('BUY');
+                      if (!blockedSignals.includes('BUY') && Math.random() < getTriggerChance('BUY')) {
+                        candSig = 'BUY';
+                        candScore = ((lower - candLastClose) / (lower || 1)) * 1000 + 40;
+                        candReason = `Rebond de survente BB sur ${candAssetLabel} (Prix: ${candLastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                      }
+                    } else if (candLastClose >= upper && isBearishRebound) {
+                      const hasBoost = boostedSignals.includes('SELL');
+                      if (!blockedSignals.includes('SELL') && Math.random() < getTriggerChance('SELL')) {
+                        candSig = 'SELL';
+                        candScore = ((candLastClose - upper) / (upper || 1)) * 1000 + 40;
+                        candReason = `Correction de surachat BB sur ${candAssetLabel} (Prix: ${candLastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                      }
+                    }
+                  }
+                } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && candCloses.length >= 10) {
+                  const ema20 = candIndicators.ema || [];
+                  const lastEma = ema20.length > 0 ? (ema20[ema20.length - 1] || candLastClose) : candLastClose;
+                  const isBullishEma = candLastClose > lastEma;
+                  const agentMathScore = (isBullishEma ? 30 : -30) + (candLastRsi < 40 ? 40 : candLastRsi > 60 ? -40 : 0);
+
+                  const priceTrend = candCloses[candCloses.length - 1] - candCloses[candCloses.length - 5];
+                  const lastVol = candVolumes[candVolumes.length - 1] || 0;
+                  const avgVol = candVolumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
+                  const isVolumeSpiking = lastVol > avgVol * 1.25;
+                  const agentMomentumScore = (priceTrend > 0 ? 25 : -25) + (isVolumeSpiking ? 25 : 0);
+
+                  const finalScore = agentMathScore + agentMomentumScore;
+                  const baseReq = isDemo ? 15 : (50 - (mult - 1.0) * 10);
+                  const reqScoreBuy = boostedSignals.includes('BUY') ? baseReq * 0.5 : baseReq;
+                  const reqScoreSell = boostedSignals.includes('SELL') ? baseReq * 0.5 : baseReq;
+
+                  if (finalScore > reqScoreBuy && !blockedSignals.includes('BUY')) {
+                    candSig = 'BUY';
+                    candScore = Math.abs(finalScore);
+                    candReason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}%] Autopilot haussier sur ${candAssetLabel}.${boostedSignals.includes('BUY') ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                  } else if (finalScore < -reqScoreSell && !blockedSignals.includes('SELL')) {
+                    candSig = 'SELL';
+                    candScore = Math.abs(finalScore);
+                    candReason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}%] Autopilot baissier sur ${candAssetLabel}.${boostedSignals.includes('SELL') ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                   }
                 }
-              }
-            } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
-              const ema20 = (calculateIndicators(candles, ['EMA']) || {}).ema || [];
-              const lastEma = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;
-              const isBullishEma = lastClose > lastEma;
-              const agentMathScore = (isBullishEma ? 30 : -30) + (lastRsi < 40 ? 40 : lastRsi > 60 ? -40 : 0);
 
-              const priceTrend = closes[closes.length - 1] - closes[closes.length - 5];
-              const lastVol = volumes[volumes.length - 1] || 0;
-              const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
-              const isVolumeSpiking = lastVol > avgVol * 1.25;
-              const agentMomentumScore = (priceTrend > 0 ? 25 : -25) + (isVolumeSpiking ? 25 : 0);
-
-              let agentCustomScore = 0;
-              let customLog = "";
-              if (bot.customRules) {
-                const rules = bot.customRules.toLowerCase();
-                let matches = 0;
-                
-                if (rules.includes('rsi') && lastRsi !== 0) {
-                  const hasLt = rules.includes('<') || rules.includes('inférieur') || rules.includes('sous');
-                  const hasGt = rules.includes('>') || rules.includes('supérieur') || rules.includes('sur');
-                  
-                  if (hasLt && lastRsi < 35) {
-                    agentCustomScore += 35;
-                    matches++;
-                  } else if (hasGt && lastRsi > 65) {
-                    agentCustomScore -= 35;
-                    matches++;
+                if (candSig) {
+                  if (!bestPairSignal || candScore > bestPairSignal.score) {
+                    bestPairSignal = {
+                      pair: candPair,
+                      signal: candSig,
+                      reason: candReason,
+                      score: candScore,
+                      lastClose: candLastClose,
+                      lastRsi: candLastRsi,
+                      candles: fetchedCandles
+                    };
                   }
                 }
-                
-                if (rules.includes('volume') || rules.includes('vol')) {
-                  if (isVolumeSpiking) {
-                    agentCustomScore += 30;
-                    matches++;
-                  }
-                }
+              } catch (e) {}
+            }
 
-                if (rules.includes('ema') || rules.includes('trend')) {
-                  if (isBullishEma) {
-                    agentCustomScore += 25;
-                    matches++;
-                  } else {
-                    agentCustomScore -= 25;
-                    matches++;
-                  }
-                }
-                
-                if (matches > 0) {
-                  customLog = ` • Règle Vibe-Trading complétée (Score: ${agentCustomScore > 0 ? '+' : ''}${agentCustomScore})`;
-                }
-              }
-
-              const finalScore = (agentMathScore * 0.4 + agentMomentumScore * 0.4 + (bot.customRules ? agentCustomScore * 0.2 : 0)) / mult;
-              const risk = bot.riskProfile || 'MODERATE';
-              
-              const hasBoostBuy = boostedSignals.includes('BUY');
-              const hasBoostSell = boostedSignals.includes('SELL');
-              const baseReq = (risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25) / (isDemo ? 2.5 : 1.0);
-              
-              const reqScoreBuy = hasBoostBuy ? baseReq * 0.5 : baseReq;
-              const reqScoreSell = hasBoostSell ? baseReq * 0.5 : baseReq;
-
-              const assetLabel = currencyPairs.find(c => c.value === targetPair)?.label || targetPair;
-
-              if (finalScore > reqScoreBuy) {
-                signal = 'BUY';
-                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% > ${reqScoreBuy.toFixed(0)}%] Autopilot haussier sur ${assetLabel}.${customLog}${hasBoostBuy ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
-              } else if (finalScore < -reqScoreSell) {
-                signal = 'SELL';
-                reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% < -${reqScoreSell.toFixed(0)}%] Autopilot baissier sur ${assetLabel}.${customLog}${hasBoostSell ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
-              } else {
-                addBotLog(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${baseReq.toFixed(0)}%${hasBoostBuy || hasBoostSell ? ', Boosté par apprentissage' : ''})${customLog}. Aucun signal.`, 'info');
-              }
+            if (bestPairSignal) {
+              signal = bestPairSignal.signal;
+              reason = `[Scan Multi-Paires] ${bestPairSignal.reason}`;
+              targetPair = bestPairSignal.pair;
+              lastClose = bestPairSignal.lastClose;
+              lastRsi = bestPairSignal.lastRsi;
+              candles = bestPairSignal.candles;
+            } else if (bot.strategy === 'AI Autopilot (Machine à Cash)') {
+              addBotLog(bot.id, "IA Autopilot", `Scan de ${scanPairsList.length} paires Forex... Aucun consensus.`, 'info');
+            } else if (bot.strategy !== 'Pump.fun Sniper Bot') {
+              addBotLog(bot.id, bot.strategy, `Scan de ${scanPairsList.length} paires Forex... Aucune opportunité détectée.`, 'info');
             } else if (bot.strategy === 'Pump.fun Sniper Bot') {
               if (targetCoinData) {
                 const curveProgress = Math.max(0, Math.min(100, (((targetCoinData.virtual_sol_reserves / 1e9) - 30) / 55) * 100));

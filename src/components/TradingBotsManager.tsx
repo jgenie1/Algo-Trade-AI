@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 
 const currencyPairs = [
+  { value: 'ALL_FOREX', label: '🌍 Tout le Forex (Scan Multi-Paires)' },
   { value: 'FX:EURUSD', label: 'EUR/USD' },
   { value: 'FX:GBPUSD', label: 'GBP/USD' },
   { value: 'FX:USDJPY', label: 'USD/JPY' },
@@ -78,7 +79,7 @@ export default function TradingBotsManager({
   } = useAppState();
 
   // New Bot Form State
-  const [botPair, setBotPair] = useState<string>('FX:EURUSD');
+  const [botPair, setBotPair] = useState<string>('ALL_FOREX');
   const [botStrategy, setBotStrategy] = useState<'RSI Pullback' | 'EMA Cross' | 'BB Mean Reversion' | 'AI Autopilot (Machine à Cash)' | 'Pump.fun Sniper Bot'>('AI Autopilot (Machine à Cash)');
   const [botTimeframe, setBotTimeframe] = useState<string>('15');
   const [botCapital, setBotCapital] = useState<number>(1000);
