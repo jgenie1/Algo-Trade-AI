@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { 
@@ -15,7 +16,8 @@ import {
   LogOut,
   Info,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  User
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
@@ -57,7 +59,10 @@ export default function Header() {
 
   const [isMounted, setIsMounted] = useState(false);
 
-  // Settings State (persisted locally)
+  // Settings & Profile State (persisted locally)
+  const [userName, setUserName] = useState('David Owner');
+  const [userEmail, setUserEmail] = useState('admin@trade.ai');
+  const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100');
   const [rpcUrl, setRpcUrl] = useState('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');
   const [slippage, setSlippage] = useState('15');
   const [priorityFee, setPriorityFee] = useState('0.005');
@@ -66,9 +71,15 @@ export default function Header() {
   useEffect(() => {
     setIsMounted(true);
     if (typeof window !== 'undefined') {
+      const name = localStorage.getItem('user_profile_name');
+      const email = localStorage.getItem('user_profile_email');
+      const avatar = localStorage.getItem('user_profile_avatar');
       const storedRpc = localStorage.getItem('settings_rpc_url');
       const storedSlippage = localStorage.getItem('settings_slippage');
       const storedFee = localStorage.getItem('settings_priority_fee');
+      if (name) setUserName(name);
+      if (email) setUserEmail(email);
+      if (avatar) setAvatarUrl(avatar);
       if (storedRpc) setRpcUrl(storedRpc);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
@@ -226,110 +237,47 @@ export default function Header() {
           </PopoverContent>
         </Popover>
 
-        {/* 2. Settings Modal (Gear) */}
-        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200"
-            >
-              <Settings className="h-4.5 w-4.5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-[#14101a] border-white/10 text-white rounded-2xl max-w-md shadow-2xl">
-            <DialogHeader>
-              <DialogTitle className="font-headline text-lg text-white flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5 text-[#c2ff0c]" />
-                Configuration du Terminal
-              </DialogTitle>
-              <DialogDescription className="text-white/40 text-xs font-body">
-                Ajustez les paramètres de connexion RPC et de gaz pour vos trades on-chain.
-              </DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleSaveSettings} className="space-y-4 pt-2 font-body">
-              {/* RPC Input */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Point de terminaison RPC Solana (Mainnet)</label>
-                <input
-                  type="text"
-                  required
-                  value={rpcUrl}
-                  onChange={(e) => setRpcUrl(e.target.value)}
-                  placeholder="Collez l'URL de votre nœud RPC"
-                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
-                />
-              </div>
-
-              {/* Slippage & Gas settings */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Slippage Tolerance (%)</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    max="100"
-                    value={slippage}
-                    onChange={(e) => setSlippage(e.target.value)}
-                    className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Frais Prioritaires (SOL)</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    required
-                    value={priorityFee}
-                    onChange={(e) => setPriorityFee(e.target.value)}
-                    className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="border-t border-white/5 pt-4 flex gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsSettingsOpen(false)}
-                  className="flex-1 bg-white/5 text-white/60 hover:text-white"
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1 bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90 font-bold"
-                >
-                  Sauvegarder
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {/* 2. Settings Button (Gear) -> Navigate to /settings */}
+        <Link href="/settings">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-11 w-11 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200"
+            title="Paramètres & Profil"
+          >
+            <Settings className="h-4.5 w-4.5" />
+          </Button>
+        </Link>
 
         {/* 3. User Profile Dropdown Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <div className="flex items-center gap-3 p-1.5 pr-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors duration-200 cursor-pointer select-none">
               <Avatar className="h-8 w-8 rounded-lg border border-white/15">
-                <AvatarImage src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100" />
+                <AvatarImage src={avatarUrl} alt={userName} />
                 <AvatarFallback className="bg-white/10 text-white text-xs">DO</AvatarFallback>
               </Avatar>
               <div className="text-left hidden lg:block">
-                <p className="text-xs font-semibold text-white leading-tight">David Owner</p>
-                <p className="text-[10px] text-white/50 leading-tight font-mono">admin@trade.ai</p>
+                <p className="text-xs font-semibold text-white leading-tight">{userName}</p>
+                <p className="text-[10px] text-white/50 leading-tight font-mono">{userEmail}</p>
               </div>
               <ChevronDown className="h-3.5 w-3.5 text-white/55 hidden lg:block ml-1" />
             </div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56 bg-[#14101a] border-white/10 text-white rounded-xl shadow-xl p-1 font-body">
+          <DropdownMenuContent className="w-60 bg-[#14101a] border-white/10 text-white rounded-xl shadow-xl p-1 font-body">
             <DropdownMenuLabel className="font-headline text-[10px] text-white/30 uppercase tracking-widest px-3.5 py-2">
               Menu Utilisateur
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/5" />
             
+            {/* Direct Link to /settings */}
+            <DropdownMenuItem asChild className="px-3.5 py-2 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2">
+              <Link href="/settings" className="w-full flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-[#c2ff0c]" />
+                <span>Mon Profil & Paramètres</span>
+              </Link>
+            </DropdownMenuItem>
+
             {/* Toggle Trading Mode directly */}
             <DropdownMenuItem 
               onClick={() => setTradingMode(prev => prev === 'DEMO' ? 'REAL' : 'DEMO')}

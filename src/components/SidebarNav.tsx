@@ -11,6 +11,7 @@ import {
   Bot, 
   TrendingUp, 
   Trophy, 
+  Settings,
   LogOut
 } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
@@ -25,6 +26,7 @@ export default function SidebarNav() {
     { href: '/deposit', label: 'Dépôt', icon: ArrowDownLeft },
     { href: '/withdraw', label: 'Retrait', icon: ArrowUpRight },
     { href: '/analytics', label: 'Analyses & Stats', icon: Wallet },
+    { href: '/settings', label: 'Paramètres & Profil', icon: Settings },
   ];
 
   const tradingBotsItems = [
