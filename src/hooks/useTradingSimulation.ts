@@ -866,16 +866,24 @@ export function useTradingSimulation() {
               }
 
               const cleanPair = targetPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-              if (tradingModeRef.current === 'DEMO') {
-                const totalFunds = balanceRef.current + bot.capital;
-                if (totalFunds <= 0) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde insuffisant.`, 'error');
-                  continue;
+              
+              if (bot.strategy === 'Pump.fun Sniper Bot') {
+                if (tradingModeRef.current === 'REAL') {
+                  const solBal = solanaBalanceRef.current;
+                  if (solBal === null || solBal <= 0.001) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL insuffisant.`, 'error');
+                    continue;
+                  }
+                } else {
+                  if (balanceRef.current <= 0 && bot.capital <= 0) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde Démo insuffisant.`, 'error');
+                    continue;
+                  }
                 }
               } else {
-                const solBal = solanaBalanceRef.current;
-                if (solBal === null || solBal <= 0.001) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL insuffisant.`, 'error');
+                const availableCapital = balanceRef.current + bot.capital;
+                if (availableCapital <= 0) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Capital USD insuffisant.`, 'error');
                   continue;
                 }
               }

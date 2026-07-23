@@ -968,6 +968,28 @@ export default function TradingTerminalPage() {
                 continue;
               }
 
+              const cleanPair = targetPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+              
+              if (bot.strategy === 'Pump.fun Sniper Bot') {
+                if (tradingMode === 'REAL') {
+                  if (solanaBalance === null || solanaBalance <= 0.001) {
+                    addBotLog(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL insuffisant.`, 'error');
+                    continue;
+                  }
+                } else {
+                  if (balance <= 0 && bot.capital <= 0) {
+                    addBotLog(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde Démo insuffisant.`, 'error');
+                    continue;
+                  }
+                }
+              } else {
+                const availableCapital = balance + bot.capital;
+                if (availableCapital <= 0) {
+                  addBotLog(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Capital USD insuffisant.`, 'error');
+                  continue;
+                }
+              }
+
               const orderId = 'pos_' + Math.random().toString(36).substring(2, 9);
               let slDistance = 0.015;
               let tpDistance = 0.030;
