@@ -624,6 +624,8 @@ export default function TradingTerminalPage() {
                 const microSol = (0.01 + Math.random() * 0.02).toFixed(4); // Keep volume micro (0.01 - 0.03 SOL)
                 const subWallet = Math.floor(Math.random() * 5) + 1;
                 const fee = bot.priorityFee || 0.005;
+                const walletList = Array.isArray(subWalletsRef.current) ? subWalletsRef.current : [];
+                const targetWallet = walletList.length > 0 ? walletList[(subWallet - 1) % walletList.length] : undefined;
 
                 addBotLog(bot.id, "Volume Gen", `[Auto-Bump Réel] Envoi transaction de micro-${action === 'buy' ? 'achat' : 'vente'} de ${microSol} SOL via sous-portefeuille #${subWallet}...`, 'info');
 
@@ -634,7 +636,7 @@ export default function TradingTerminalPage() {
                   denominatedInSol: action === 'buy',
                   slippage: 15,
                   priorityFee: fee,
-                  customPrivateKey: subWalletsRef.current[subWallet - 1]?.privateKey
+                  customPrivateKey: targetWallet?.privateKey
                 }).then((res) => {
                   if (res.success && res.txHash) {
                     addBotLog(bot.id, "Volume Gen", `[Auto-Bump Réel Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé ! Hash: ${res.txHash.slice(0, 10)}... Jeton Bumpé.`, 'info');
@@ -951,10 +953,10 @@ export default function TradingTerminalPage() {
                 setLivePrices(prev => ({ ...prev, [targetPair]: lastClose }));
               } else {
                 // Calculate Volatility-Adjusted SL/TP (ATR proxy)
-                const closes = candles.slice(-15).map(c => c.close);
-                const avg = closes.reduce((s, val) => s + val, 0) / closes.length;
-                const stdDev = Math.sqrt(closes.reduce((s, val) => s + Math.pow(val - avg, 2), 0) / closes.length);
-                const volatilityPct = stdDev / avg || 0.0015;
+                const closes = (candles && Array.isArray(candles) && candles.length > 0) ? candles.slice(-15).map(c => c.close) : [];
+                const avg = closes.length > 0 ? closes.reduce((s, val) => s + val, 0) / closes.length : lastClose;
+                const stdDev = closes.length > 0 ? Math.sqrt(closes.reduce((s, val) => s + Math.pow(val - avg, 2), 0) / closes.length) : 0;
+                const volatilityPct = (avg > 0 && !isNaN(avg)) ? (stdDev / avg) : 0.0015;
 
                 if (volatilityPct > 0.003) {
                   slDistance = volatilityPct * 2.2;

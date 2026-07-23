@@ -484,6 +484,9 @@ export function useTradingSimulation() {
                 const fee = bot.priorityFee || 0.005;
 
                 const botMode = bot.mode || (bot.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO');
+                const walletList = Array.isArray(subWalletsRef.current) ? subWalletsRef.current : [];
+                const targetWallet = walletList.length > 0 ? walletList[(subWallet - 1) % walletList.length] : undefined;
+
                 if (botMode === 'REAL') {
                   addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel] Envoi transaction de micro-${action === 'buy' ? 'achat' : 'vente'} de ${microSol} SOL via sous-portefeuille #${subWallet}...`, 'info');
 
@@ -494,7 +497,7 @@ export function useTradingSimulation() {
                     denominatedInSol: action === 'buy',
                     slippage: 15,
                     priorityFee: fee,
-                    customPrivateKey: subWalletsRef.current[subWallet - 1]?.privateKey
+                    customPrivateKey: targetWallet?.privateKey
                   }).then((res) => {
                     if (res.success && res.txHash) {
                        addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé ! Hash: ${res.txHash.slice(0, 10)}... Jeton Bumpé.`, 'info');
@@ -860,10 +863,10 @@ export function useTradingSimulation() {
                 tpDistance = 0.80;
                 setLivePrices(prev => ({ ...prev, [targetPair]: lastClose }));
               } else {
-                const closes = candles.slice(-15).map(c => c.close);
-                const avg = closes.reduce((s, val) => s + val, 0) / closes.length;
-                const stdDev = Math.sqrt(closes.reduce((s, val) => s + Math.pow(val - avg, 2), 0) / closes.length);
-                const volatilityPct = stdDev / avg || 0.0015;
+                const closes = (candles && Array.isArray(candles) && candles.length > 0) ? candles.slice(-15).map(c => c.close) : [];
+                const avg = closes.length > 0 ? closes.reduce((s, val) => s + val, 0) / closes.length : lastClose;
+                const stdDev = closes.length > 0 ? Math.sqrt(closes.reduce((s, val) => s + Math.pow(val - avg, 2), 0) / closes.length) : 0;
+                const volatilityPct = (avg > 0 && !isNaN(avg)) ? (stdDev / avg) : 0.0015;
 
                 if (volatilityPct > 0.003) {
                   slDistance = volatilityPct * 2.2;
