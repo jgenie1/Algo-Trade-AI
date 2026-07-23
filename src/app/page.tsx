@@ -13,7 +13,14 @@ import {
   Globe,
   Layers,
   ArrowUpRight,
-  CheckCircle2
+  CheckCircle2,
+  Terminal,
+  Cpu,
+  RefreshCw,
+  Search,
+  Sliders,
+  Check,
+  Coins
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTradingSimulation } from '@/hooks/useTradingSimulation';
@@ -28,7 +35,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import dynamic from 'next/dynamic';
-import { Skeleton } from '@/components/ui/skeleton';
 
 const TVWidget = dynamic(
   () => import('@/components/TradingViewWidget').then((mod) => mod.default),
@@ -49,6 +55,15 @@ const PRESET_PAIRS = [
   { id: 'FX:USDJPY', label: 'USD/JPY', icon: '🇯🇵' },
   { id: 'SOL:PUMP', label: 'SOL/USD', icon: '☀️' },
   { id: 'CRYPTO:BTCUSD', label: 'BTC/USD', icon: '₿' }
+];
+
+const SCAN_RADAR_PAIRS = [
+  { symbol: 'EUR/USD', pair: 'FX:EURUSD', rsi: 44.2, trend: 'HAUSSIER', signal: 'ACHAT', score: 84 },
+  { symbol: 'GBP/USD', pair: 'FX:GBPUSD', rsi: 58.1, trend: 'HAUSSIER', signal: 'ACHAT', score: 79 },
+  { symbol: 'USD/JPY', pair: 'FX:USDJPY', rsi: 67.4, trend: 'SURACHAT', signal: 'VENTE', score: 88 },
+  { symbol: 'AUD/USD', pair: 'FX:AUDUSD', rsi: 31.8, trend: 'SURVENTE', signal: 'ACHAT', score: 92 },
+  { symbol: 'GOLD/USD', pair: 'GOLD', rsi: 49.5, trend: 'NEUTRE', signal: 'ATTENTE', score: 55 },
+  { symbol: 'BTC/USD', pair: 'BTC', rsi: 61.2, trend: 'HAUSSIER', signal: 'ACHAT', score: 86 }
 ];
 
 export default function TradingTerminalPage() {
@@ -87,7 +102,7 @@ export default function TradingTerminalPage() {
     handleClosePosition
   } = useTradingSimulation();
 
-  const { bots, setTradingMode } = useAppState();
+  const { bots, botLogs, setTradingMode } = useAppState();
 
   useEffect(() => {
     setIsClient(true);
@@ -141,7 +156,7 @@ export default function TradingTerminalPage() {
               </Badge>
             </div>
             <p className="text-xs text-white/50 font-body mt-0.5">
-              Trading Quantitatif Multi-Marchés • Forex & Solana Memecoins 24/7
+              Trading Quantitatif Multi-Marchés • Scan 24/7 & Consensus IA
             </p>
           </div>
         </div>
@@ -278,7 +293,7 @@ export default function TradingTerminalPage() {
         )}
       </div>
 
-      {/* Main Trading Workspace Grid (Control Center + TradingView Chart) */}
+      {/* Main Trading Workspace Grid (Control Center + Dynamic Powerful Panel) */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full space-y-4">
         
         {/* Navigation Tabs Header */}
@@ -309,25 +324,27 @@ export default function TradingTerminalPage() {
             )}
           </TabsList>
 
-          {/* Quick Pair Picker Bar */}
-          <div className="hidden xl:flex items-center gap-1.5 px-2">
-            <span className="text-[10px] uppercase font-headline text-white/40 font-bold mr-1">Direct Pair:</span>
-            {PRESET_PAIRS.map(p => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPair(p.id)}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all border",
-                  selectedPair === p.id
-                    ? "bg-[#c2ff0c]/20 text-[#c2ff0c] border-[#c2ff0c]/40 font-bold"
-                    : "bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                <span className="mr-1">{p.icon}</span>
-                {p.label}
-              </button>
-            ))}
-          </div>
+          {/* Quick Pair Picker Bar (visible when in manual tab) */}
+          {activeTab === 'manual' && (
+            <div className="hidden xl:flex items-center gap-1.5 px-2">
+              <span className="text-[10px] uppercase font-headline text-white/40 font-bold mr-1">Direct Pair:</span>
+              {PRESET_PAIRS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPair(p.id)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all border",
+                    selectedPair === p.id
+                      ? "bg-[#c2ff0c]/20 text-[#c2ff0c] border-[#c2ff0c]/40 font-bold"
+                      : "bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <span className="mr-1">{p.icon}</span>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Mobile Sub-Navigation Toggle */}
           <div className="flex lg:hidden bg-[#09070c] border border-white/10 p-1 rounded-xl w-full gap-1">
@@ -355,7 +372,7 @@ export default function TradingTerminalPage() {
                   : "text-white/40 hover:text-white"
               )}
             >
-              📊 Graphique Live
+              {activeTab === 'bots' ? '⚡ Moniteur IA' : activeTab === 'wallets' ? '💳 Multi-Wallets' : '📊 Graphique Live'}
             </Button>
           </div>
         </div>
@@ -406,37 +423,170 @@ export default function TradingTerminalPage() {
             )}
           </div>
 
-          {/* Right Panel: TradingView Live Interactive Chart */}
-          <Card className={cn(
-            "lg:col-span-7 glass-panel bg-[#0d0914]/90 border-white/10 shadow-2xl h-[560px] flex flex-col overflow-hidden w-full relative rounded-2xl",
-            mobileSubTab !== 'chart' && "hidden lg:flex"
-          )}>
-            {/* Chart Header Bar */}
-            <div className="p-3 bg-[#120e1a] border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-[#c2ff0c]" />
-                <span className="text-xs font-bold font-headline text-white tracking-wide uppercase">
-                  Graphique Professionnel en Temps Réel ({selectedPair.replace('FX:', '').replace('CRYPTO:', '').replace('SOL:PUMP', 'SOL/USD')})
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] font-mono">
-                  ● FLUX EN DIRECT
-                </Badge>
-              </div>
-            </div>
+          {/* Right Panel: DYNAMIC HIGH-POWER WORKSPACE PANEL */}
+          <div className={cn("lg:col-span-7 w-full", mobileSubTab !== 'chart' && "hidden lg:block")}>
+            
+            {/* TAB 1: TRADING MANUEL -> TRADINGVIEW CHART & SENTIMENT */}
+            {activeTab === 'manual' && (
+              <Card className="glass-panel bg-[#0d0914]/90 border-white/10 shadow-2xl h-[560px] flex flex-col overflow-hidden w-full relative rounded-2xl">
+                <div className="p-3 bg-[#120e1a] border-b border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-[#c2ff0c]" />
+                    <span className="text-xs font-bold font-headline text-white tracking-wide uppercase">
+                      Graphique HD ({selectedPair.replace('FX:', '').replace('CRYPTO:', '').replace('SOL:PUMP', 'SOL/USD')})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] font-mono">
+                      ● FLUX LIVE
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-0 flex-grow relative w-full h-full">
+                  {isClient && (
+                    <TVWidget 
+                      symbol={selectedPair} 
+                      interval="15" 
+                      indicators={["RSI", "SMA"]}
+                    />
+                  )}
+                </div>
+              </Card>
+            )}
 
-            {/* TradingView Container */}
-            <div className="p-0 flex-grow relative w-full h-full">
-              {isClient && (
-                <TVWidget 
-                  symbol={selectedPair} 
-                  interval="15" 
-                  indicators={["RSI", "SMA"]}
-                />
-              )}
-            </div>
-          </Card>
+            {/* TAB 2: ROBOTS D'IA -> RADAR IA MULTI-PAIRES & CONSOLE QUANTITATIVE EN DIRECT */}
+            {activeTab === 'bots' && (
+              <div className="flex flex-col gap-4 h-[560px] overflow-hidden">
+                {/* AI Multi-Pair Radar Heatmap */}
+                <Card className="glass-panel bg-[#0d0914]/90 border-white/10 p-4 rounded-2xl shrink-0">
+                  <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Cpu className="h-4 w-4 text-[#c2ff0c]" />
+                      <h3 className="text-xs font-bold font-headline uppercase text-white tracking-wider">
+                        Radar Quantitatif IA & Scanner Multi-Paires 24/7
+                      </h3>
+                    </div>
+                    <Badge className="bg-[#c2ff0c]/15 text-[#c2ff0c] border border-[#c2ff0c]/30 text-[10px]">
+                      {bots.filter(b => b.status === 'RUNNING').length} Bots Actifs
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {SCAN_RADAR_PAIRS.map((item) => (
+                      <div key={item.symbol} className="bg-white/5 border border-white/5 rounded-xl p-2.5 flex flex-col justify-between hover:border-[#c2ff0c]/30 transition-all">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold font-mono text-white">{item.symbol}</span>
+                          <Badge className={cn(
+                            "text-[9px] font-extrabold px-1.5 py-0.5",
+                            item.signal === 'ACHAT' ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
+                            item.signal === 'VENTE' ? "bg-rose-500/20 text-rose-300 border-rose-500/30" :
+                            "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                          )}>
+                            {item.signal} ({item.score}%)
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between mt-2 text-[10px] text-white/50 font-mono">
+                          <span>RSI: {item.rsi}</span>
+                          <span className={item.trend.includes('HAUSSIER') ? 'text-emerald-400' : item.trend.includes('SURVENTE') ? 'text-cyan-400' : 'text-rose-400'}>
+                            {item.trend}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Real-time AI Decision Stream Console */}
+                <Card className="glass-panel bg-[#0d0914]/90 border-white/10 p-4 rounded-2xl flex-1 flex flex-col overflow-hidden">
+                  <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="h-4 w-4 text-purple-400" />
+                      <h3 className="text-xs font-bold font-headline uppercase text-white tracking-wider">
+                        Flux de Décisions Quantitatives des Robots en Temps Réel
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono text-white/40">Mises à jour instantanées</span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-2 font-mono text-xs pr-1">
+                    {botLogs && botLogs.length > 0 ? (
+                      botLogs.slice(0, 15).map((log, idx) => (
+                        <div key={log.id || idx} className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-start gap-2.5 hover:bg-white/10 transition-colors">
+                          <span className={cn(
+                            "h-2 w-2 rounded-full mt-1 shrink-0",
+                            log.type === 'error' ? 'bg-rose-400' :
+                            log.type === 'warning' ? 'bg-amber-400' :
+                            'bg-[#c2ff0c]'
+                          )} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-white text-[11px]">{log.botStrategy || 'Robot'}</span>
+                              <span className="text-[9px] text-white/30">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                            </div>
+                            <p className="text-[11px] text-white/70 mt-0.5 break-words font-body">{log.message}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-6 border border-dashed border-white/10 rounded-xl">
+                        <Bot className="h-8 w-8 text-white/20 mb-2 animate-bounce" />
+                        <p className="text-xs text-white/40 font-body">
+                          Aucun log pour le moment. Lancez un robot dans le panneau de gauche pour voir les signaux IA s'afficher en direct !
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* TAB 3: MULTI-WALLETS -> SOLANA INFRASTRUCTURE & DISPERSER ANALYTICS */}
+            {activeTab === 'wallets' && tradingMode === 'REAL' && (
+              <Card className="glass-panel bg-[#0d0914]/90 border-white/10 p-5 rounded-2xl h-[560px] flex flex-col justify-between overflow-y-auto">
+                <div>
+                  <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-5 w-5 text-purple-400" />
+                      <h3 className="text-sm font-bold font-headline uppercase text-white tracking-wider">
+                        Distribution & Moniteur On-Chain Solana
+                      </h3>
+                    </div>
+                    <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      5 Sous-Portefeuilles Dédiés
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-purple-300 font-headline uppercase block">Frais de Gaz Prioritaires (Priority Fee)</span>
+                        <span className="text-[11px] text-white/60 font-body">Optimisé pour passer avant les bots adverses sur Pump.fun</span>
+                      </div>
+                      <Badge className="bg-purple-600 text-white font-mono text-xs px-2.5 py-1">0.005 SOL</Badge>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-headline font-bold text-white">
+                        <span>Solana Mainnet RPC Node</span>
+                        <span className="text-emerald-400 font-mono">Chainstack Dedicated (12 ms)</span>
+                      </div>
+                      <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-emerald-400 h-full w-[95%]" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-gradient-to-r from-purple-900/30 to-[#c2ff0c]/10 border border-white/10 mt-4">
+                  <h4 className="text-xs font-bold font-headline text-white uppercase mb-1">💡 À quoi sert la dispersion multi-portefeuilles ?</h4>
+                  <p className="text-[11px] text-white/70 font-body leading-relaxed">
+                    La dispersion permet de répartir vos achats sur plusieurs sous-portefeuilles Solana indépendants pour générer du volume de trading artificiel et camoufler l'activité de votre bot principal.
+                  </p>
+                </div>
+              </Card>
+            )}
+
+          </div>
         </div>
       </Tabs>
 
