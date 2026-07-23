@@ -20,7 +20,8 @@ import {
   Search,
   Sliders,
   Check,
-  Coins
+  Coins,
+  DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTradingSimulation } from '@/hooks/useTradingSimulation';
@@ -113,7 +114,7 @@ export default function TradingTerminalPage() {
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#c2ff0c] border-t-transparent shadow-lg shadow-[#c2ff0c]/20" />
-          <span className="text-sm font-headline tracking-wide text-white/60 uppercase font-semibold">Initialisation du Terminal Pro...</span>
+          <span className="text-sm font-headline tracking-wide text-white/60 uppercase font-semibold">Chargement du Terminal Algotrade...</span>
         </div>
       </div>
     );
@@ -134,16 +135,12 @@ export default function TradingTerminalPage() {
   const totalSniperAllocation = Math.max(runningSolBotsCapital, activeSolPositionsCapital);
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto p-3 sm:p-4 md:p-6 text-white font-body" suppressHydrationWarning={true}>
+    <div className="space-y-5 max-w-[1600px] mx-auto p-3 sm:p-4 md:p-6 text-white font-body" suppressHydrationWarning={true}>
       
-      {/* Top Banner & Mode Control Header */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 glass-panel bg-[#120e1a]/80 border border-white/10 p-4 sm:p-5 rounded-2xl shadow-2xl relative overflow-hidden">
-        {/* Glow backdrop */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#c2ff0c]/5 rounded-full blur-3xl pointer-events-none" />
-        
-        {/* Title & Status */}
-        <div className="flex items-center gap-3.5 z-10">
-          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#c2ff0c]/20 to-purple-600/30 border border-[#c2ff0c]/30 flex items-center justify-center shadow-lg shadow-[#c2ff0c]/10 shrink-0">
+      {/* 1. Header Bar: Title, Subtitle & Trading Mode Switcher */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#120e1a]/90 border border-white/10 p-4 sm:p-5 rounded-2xl shadow-xl">
+        <div className="flex items-center gap-3.5">
+          <div className="h-11 w-11 rounded-xl bg-[#c2ff0c]/15 border border-[#c2ff0c]/30 flex items-center justify-center shadow-lg shadow-[#c2ff0c]/10 shrink-0">
             <Activity className="h-6 w-6 text-[#c2ff0c] animate-pulse" />
           </div>
           <div>
@@ -156,57 +153,55 @@ export default function TradingTerminalPage() {
               </Badge>
             </div>
             <p className="text-xs text-white/50 font-body mt-0.5">
-              Trading Quantitatif Multi-Marchés • Scan 24/7 & Consensus IA
+              Plateforme Quantitative Multi-Marchés • Forex & Solana 24/7
             </p>
           </div>
         </div>
 
-        {/* Mode Selector Toggle */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 z-10 flex-wrap">
-          <div className="flex items-center bg-[#09070c] border border-white/10 p-1 rounded-xl gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setTradingMode('DEMO');
-                setActiveTab('manual');
-              }}
-              className={cn(
-                "px-3.5 py-1.5 h-8 text-[11px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
-                tradingMode === 'DEMO'
-                  ? "bg-amber-500/25 text-amber-300 border border-amber-500/30 shadow-md shadow-amber-500/10 font-extrabold"
-                  : "text-white/40 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <span className={cn("h-2 w-2 rounded-full", tradingMode === 'DEMO' ? "bg-amber-400 animate-ping" : "bg-white/20")} />
-              Mode Démo
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setTradingMode('REAL');
-                setActiveTab('manual');
-              }}
-              className={cn(
-                "px-3.5 py-1.5 h-8 text-[11px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
-                tradingMode === 'REAL'
-                  ? "bg-purple-600/30 text-purple-300 border border-purple-500/40 shadow-md shadow-purple-500/10 font-extrabold"
-                  : "text-white/40 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <span className={cn("h-2 w-2 rounded-full", tradingMode === 'REAL' ? "bg-purple-400 animate-ping" : "bg-white/20")} />
-              Mode Réel (Solana)
-            </Button>
-          </div>
+        {/* Mode Toggle Button Group */}
+        <div className="flex items-center bg-[#09070c] border border-white/10 p-1 rounded-xl gap-1 shrink-0 w-full sm:w-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setTradingMode('DEMO');
+              setActiveTab('manual');
+            }}
+            className={cn(
+              "flex-1 sm:flex-initial px-4 py-2 h-8 text-[11px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center justify-center gap-2 border-none",
+              tradingMode === 'DEMO'
+                ? "bg-amber-500/25 text-amber-300 border border-amber-500/30 font-extrabold shadow-sm"
+                : "text-white/40 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <span className={cn("h-2 w-2 rounded-full", tradingMode === 'DEMO' ? "bg-amber-400 animate-pulse" : "bg-white/20")} />
+            Mode Démo
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setTradingMode('REAL');
+              setActiveTab('manual');
+            }}
+            className={cn(
+              "flex-1 sm:flex-initial px-4 py-2 h-8 text-[11px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center justify-center gap-2 border-none",
+              tradingMode === 'REAL'
+                ? "bg-purple-600/30 text-purple-300 border border-purple-500/40 font-extrabold shadow-sm"
+                : "text-white/40 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <span className={cn("h-2 w-2 rounded-full", tradingMode === 'REAL' ? "bg-purple-400 animate-pulse" : "bg-white/20")} />
+            Mode Réel (Solana)
+          </Button>
         </div>
       </div>
 
-      {/* Metrics Summary Strip */}
+      {/* 2. Key Metrics Summary Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {tradingMode === 'DEMO' ? (
           <>
-            <Card className="glass-panel bg-[#120e1a]/60 border-white/5 hover:border-amber-500/30 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-white/10 hover:border-amber-500/30 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 font-headline">Solde Démo (USD)</div>
               <div className="text-xl sm:text-2xl font-extrabold text-amber-400 font-headline mt-1">
                 {balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
@@ -214,7 +209,7 @@ export default function TradingTerminalPage() {
               <div className="text-[10px] text-white/30 font-body mt-1">Capital Virtuel de Test</div>
             </Card>
 
-            <Card className="glass-panel bg-[#120e1a]/60 border-white/5 hover:border-emerald-500/30 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-white/10 hover:border-emerald-500/30 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 font-headline">Equity Totale</div>
               <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-headline mt-1">
                 {equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
@@ -222,7 +217,7 @@ export default function TradingTerminalPage() {
               <div className="text-[10px] text-emerald-400/60 font-body mt-1">Solde + PnL Latent</div>
             </Card>
 
-            <Card className="glass-panel bg-[#120e1a]/60 border-white/5 hover:border-purple-500/30 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-white/10 hover:border-purple-500/30 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 font-headline">Marge Engagée</div>
               <div className="text-xl sm:text-2xl font-extrabold text-purple-300 font-headline mt-1">
                 {activePositions.filter(p => !p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
@@ -230,17 +225,17 @@ export default function TradingTerminalPage() {
               <div className="text-[10px] text-white/30 font-body mt-1">Capital Mobilisé</div>
             </Card>
 
-            <Card className="glass-panel bg-[#120e1a]/60 border-white/5 hover:border-cyan-500/30 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-white/10 hover:border-cyan-500/30 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 font-headline">Positions Ouvertes</div>
               <div className="text-xl sm:text-2xl font-extrabold text-cyan-400 font-headline mt-1">
                 {activePositions.filter(p => !p.pair.startsWith('SOL:')).length}
               </div>
-              <div className="text-[10px] text-cyan-400/60 font-body mt-1">Ordres en Cours</div>
+              <div className="text-[10px] text-cyan-400/60 font-body mt-1">Ordres Forex / Crypto</div>
             </Card>
           </>
         ) : (
           <>
-            <Card className="glass-panel bg-[#120e1a]/60 border-purple-500/20 hover:border-purple-500/40 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-purple-500/20 hover:border-purple-500/40 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-purple-300/70 font-headline flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
                 Solde Solana Réel
@@ -255,7 +250,7 @@ export default function TradingTerminalPage() {
               )}
             </Card>
 
-            <Card className="glass-panel bg-[#120e1a]/60 border-violet-500/20 hover:border-violet-500/40 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-violet-500/20 hover:border-violet-500/40 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-violet-300/70 font-headline">
                 Allocations Sniper
               </div>
@@ -267,7 +262,7 @@ export default function TradingTerminalPage() {
               </div>
             </Card>
 
-            <Card className="glass-panel bg-[#120e1a]/60 border-cyan-500/20 hover:border-cyan-500/40 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-cyan-500/20 hover:border-cyan-500/40 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/70 font-headline">
                 Snipes Actifs
               </div>
@@ -277,7 +272,7 @@ export default function TradingTerminalPage() {
               <div className="text-[10px] text-cyan-400/60 font-body mt-1">Positions Pump.fun</div>
             </Card>
 
-            <Card className="glass-panel bg-[#120e1a]/60 border-white/5 hover:border-emerald-500/30 transition-all p-4">
+            <Card className="bg-[#120e1a]/80 border border-white/10 hover:border-emerald-500/30 transition-all p-4 rounded-2xl">
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 font-headline flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Latence RPC Node
@@ -293,22 +288,22 @@ export default function TradingTerminalPage() {
         )}
       </div>
 
-      {/* Main Trading Workspace Grid (Control Center + Dynamic Powerful Panel) */}
+      {/* 3. Main Workspace Tabs & 2-Column Responsive Layout */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full space-y-4">
         
-        {/* Navigation Tabs Header */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#120e1a]/80 border border-white/10 p-1.5 rounded-2xl">
+        {/* Workspace Navigation Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#120e1a]/90 border border-white/10 p-2 rounded-2xl">
           <TabsList className="flex bg-[#09070c] border border-white/10 p-1 rounded-xl gap-1 h-auto w-full sm:w-auto">
             <TabsTrigger
               value="manual"
-              className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/15 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-white/50 hover:text-white"
+              className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/40 text-white/50 hover:text-white"
             >
               <Zap className="inline-block h-3.5 w-3.5 mr-1.5" />
               Trading Manuel
             </TabsTrigger>
             <TabsTrigger
               value="bots"
-              className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/15 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-white/50 hover:text-white"
+              className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/40 text-white/50 hover:text-white"
             >
               <Bot className="inline-block h-3.5 w-3.5 mr-1.5" />
               Robots d'IA
@@ -316,7 +311,7 @@ export default function TradingTerminalPage() {
             {tradingMode === 'REAL' && (
               <TabsTrigger
                 value="wallets"
-                className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/15 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-white/50 hover:text-white"
+                className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/40 text-white/50 hover:text-white"
               >
                 <Wallet className="inline-block h-3.5 w-3.5 mr-1.5" />
                 Sous-Portefeuilles
@@ -324,10 +319,10 @@ export default function TradingTerminalPage() {
             )}
           </TabsList>
 
-          {/* Quick Pair Picker Bar (visible when in manual tab) */}
+          {/* Quick Pair Selector Pills (Visible in manual tab) */}
           {activeTab === 'manual' && (
             <div className="hidden xl:flex items-center gap-1.5 px-2">
-              <span className="text-[10px] uppercase font-headline text-white/40 font-bold mr-1">Direct Pair:</span>
+              <span className="text-[10px] uppercase font-headline text-white/40 font-bold mr-1">Paire Directe:</span>
               {PRESET_PAIRS.map(p => (
                 <button
                   key={p.id}
@@ -346,7 +341,7 @@ export default function TradingTerminalPage() {
             </div>
           )}
 
-          {/* Mobile Sub-Navigation Toggle */}
+          {/* Mobile Sub-Tab Navigation Toggle */}
           <div className="flex lg:hidden bg-[#09070c] border border-white/10 p-1 rounded-xl w-full gap-1">
             <Button
               type="button"
@@ -359,7 +354,7 @@ export default function TradingTerminalPage() {
                   : "text-white/40 hover:text-white"
               )}
             >
-              ⚙️ Exécution & Bots
+              ⚙️ Ordre & Bots
             </Button>
             <Button
               type="button"
@@ -377,10 +372,10 @@ export default function TradingTerminalPage() {
           </div>
         </div>
 
-        {/* Workspace Columns */}
+        {/* 4. Two-Column Desktop Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           
-          {/* Left Panel: Control Center & Order Execution */}
+          {/* Left Column (5 cols): Controls & Creation */}
           <div className={cn("lg:col-span-5 w-full space-y-4", mobileSubTab !== 'trade' && "hidden lg:block")}>
             <TabsContent value="manual" className="m-0 focus-visible:outline-none">
               <ManualOrderForm
@@ -423,12 +418,12 @@ export default function TradingTerminalPage() {
             )}
           </div>
 
-          {/* Right Panel: DYNAMIC HIGH-POWER WORKSPACE PANEL */}
+          {/* Right Column (7 cols): Dynamic Workspace Panels */}
           <div className={cn("lg:col-span-7 w-full", mobileSubTab !== 'chart' && "hidden lg:block")}>
             
-            {/* TAB 1: TRADING MANUEL -> TRADINGVIEW CHART & SENTIMENT */}
+            {/* TAB 1: MANUAL TRADING -> HD TRADINGVIEW CHART */}
             {activeTab === 'manual' && (
-              <Card className="glass-panel bg-[#0d0914]/90 border-white/10 shadow-2xl h-[560px] flex flex-col overflow-hidden w-full relative rounded-2xl">
+              <Card className="bg-[#0d0914]/90 border border-white/10 shadow-2xl h-[560px] flex flex-col overflow-hidden w-full relative rounded-2xl">
                 <div className="p-3 bg-[#120e1a] border-b border-white/10 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-[#c2ff0c]" />
@@ -454,11 +449,11 @@ export default function TradingTerminalPage() {
               </Card>
             )}
 
-            {/* TAB 2: ROBOTS D'IA -> RADAR IA MULTI-PAIRES & CONSOLE QUANTITATIVE EN DIRECT */}
+            {/* TAB 2: AI BOTS -> MULTI-PAIR QUANT RADAR & LIVE LOG CONSOLE */}
             {activeTab === 'bots' && (
               <div className="flex flex-col gap-4 h-[560px] overflow-hidden">
                 {/* AI Multi-Pair Radar Heatmap */}
-                <Card className="glass-panel bg-[#0d0914]/90 border-white/10 p-4 rounded-2xl shrink-0">
+                <Card className="bg-[#0d0914]/90 border border-white/10 p-4 rounded-2xl shrink-0">
                   <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Cpu className="h-4 w-4 text-[#c2ff0c]" />
@@ -497,7 +492,7 @@ export default function TradingTerminalPage() {
                 </Card>
 
                 {/* Real-time AI Decision Stream Console */}
-                <Card className="glass-panel bg-[#0d0914]/90 border-white/10 p-4 rounded-2xl flex-1 flex flex-col overflow-hidden">
+                <Card className="bg-[#0d0914]/90 border border-white/10 p-4 rounded-2xl flex-1 flex flex-col overflow-hidden">
                   <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 shrink-0">
                     <div className="flex items-center gap-2">
                       <Terminal className="h-4 w-4 text-purple-400" />
@@ -540,9 +535,9 @@ export default function TradingTerminalPage() {
               </div>
             )}
 
-            {/* TAB 3: MULTI-WALLETS -> SOLANA INFRASTRUCTURE & DISPERSER ANALYTICS */}
+            {/* TAB 3: MULTI-WALLETS -> SOLANA INFRASTRUCTURE MONITOR */}
             {activeTab === 'wallets' && tradingMode === 'REAL' && (
-              <Card className="glass-panel bg-[#0d0914]/90 border-white/10 p-5 rounded-2xl h-[560px] flex flex-col justify-between overflow-y-auto">
+              <Card className="bg-[#0d0914]/90 border border-white/10 p-5 rounded-2xl h-[560px] flex flex-col justify-between overflow-y-auto">
                 <div>
                   <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
                     <div className="flex items-center gap-2">
@@ -590,13 +585,27 @@ export default function TradingTerminalPage() {
         </div>
       </Tabs>
 
-      {/* SECTION B: ACTIVE POSITIONS & ORDERS TABLE (PLACED NATURALLY AT THE BOTTOM) */}
+      {/* 5. Bottom Section: Active Positions Table */}
       <div className="pt-2">
-        <ActivePositionsTable
-          livePrices={livePrices}
-          setSelectedPosition={setSelectedPosition}
-          handleClosePosition={handleClosePosition}
-        />
+        <Card className="bg-[#120e1a]/90 border border-white/10 p-4 sm:p-5 rounded-2xl shadow-xl">
+          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-[#c2ff0c]" />
+              <h2 className="text-sm sm:text-base font-bold font-headline uppercase text-white tracking-wider">
+                Positions Actives & Ordres en Cours
+              </h2>
+            </div>
+            <Badge className="bg-white/5 text-white/60 border border-white/10 text-[10px]">
+              {activePositions.length} Positions
+            </Badge>
+          </div>
+
+          <ActivePositionsTable
+            livePrices={livePrices}
+            setSelectedPosition={setSelectedPosition}
+            handleClosePosition={handleClosePosition}
+          />
+        </Card>
       </div>
 
       {/* Position Details Modal Overlay */}
