@@ -455,24 +455,22 @@ export function useTradingSimulation() {
             targetPair = `SOL:${matchingCoin.mint}:${matchingCoin.symbol}`;
             lastClose = (matchingCoin.virtual_token_reserves > 0) ? (matchingCoin.virtual_sol_reserves / matchingCoin.virtual_token_reserves) : 0;
 
-            if (usingWs && Array.isArray(liveWsCoinsRef.current)) {
-              liveWsCoinsRef.current = liveWsCoinsRef.current.filter(c => c && c.mint !== matchingCoin.mint);
-            }
-          } else {
-            const fetchedCandles = await fetchLiveMarketData(targetPair, bot.timeframe);
-            if (!fetchedCandles || !Array.isArray(fetchedCandles) || fetchedCandles.length < 15) continue;
-            candles = fetchedCandles;
-
-            const indicators = calculateIndicators(candles, ['RSI', 'EMA']) || {};
-            const rsiValues = Array.isArray(indicators.rsi) ? indicators.rsi : [];
-            if (!rsiValues || rsiValues.length === 0) continue;
-
-            lastRsi = rsiValues[rsiValues.length - 1] || 50;
-            emaValues = Array.isArray(indicators.ema) ? indicators.ema : [];
-            lastClose = (candles && candles.length > 0) ? (candles[candles.length - 1]?.close || 0) : 0;
           }
 
           const botPosition = activePositionsRef.current.find(p => p.botId === bot.id);
+
+          if (bot.strategy !== 'Pump.fun Sniper Bot' && botPosition) {
+            targetPair = botPosition.pair;
+            const fetchedCandles = await fetchLiveMarketData(targetPair, bot.timeframe);
+            if (fetchedCandles && Array.isArray(fetchedCandles) && fetchedCandles.length >= 15) {
+              candles = fetchedCandles;
+              const indicators = calculateIndicators(candles, ['RSI', 'EMA']) || {};
+              const rsiValues = Array.isArray(indicators.rsi) ? indicators.rsi : [];
+              lastRsi = rsiValues.length > 0 ? rsiValues[rsiValues.length - 1] : 50;
+              emaValues = Array.isArray(indicators.ema) ? indicators.ema : [];
+              lastClose = candles[candles.length - 1]?.close || 0;
+            }
+          }
 
           if (botPosition) {
             if (bot.strategy === 'Pump.fun Sniper Bot' && bot.autoVolume) {
@@ -661,7 +659,7 @@ export function useTradingSimulation() {
                 candles: Candle[];
               } | null = null;
 
-              const scanPairsList = (bot.pair === 'ALL_FOREX' || !bot.pair || bot.pair === 'FX:EURUSD') ? FOREX_SCAN_PAIRS : [bot.pair];
+              const scanPairsList = (bot.pair === 'ALL_FOREX' || bot.pair === 'ALL' || !bot.pair || bot.pair === 'FX:EURUSD') ? FOREX_SCAN_PAIRS : [bot.pair];
 
               for (const candPair of scanPairsList) {
                 try {

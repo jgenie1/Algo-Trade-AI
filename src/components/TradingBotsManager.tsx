@@ -119,11 +119,9 @@ export default function TradingBotsManager({
 
     const newBot = {
       id: 'bot_' + Math.random().toString(36).substring(2, 9),
-      pair: botStrategy === 'AI Autopilot (Machine à Cash)' 
-        ? 'ALL' 
-        : botStrategy === 'Pump.fun Sniper Bot'
-          ? 'SOLANA'
-          : botPair,
+      pair: botStrategy === 'Pump.fun Sniper Bot'
+        ? 'SOLANA'
+        : (botPair || 'ALL_FOREX'),
       strategy: botStrategy,
       timeframe: botStrategy === 'Pump.fun Sniper Bot' ? '0' : botTimeframe,
       capital: botCapital,
