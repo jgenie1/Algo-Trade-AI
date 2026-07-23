@@ -64,7 +64,7 @@ export default function TradingTerminalPage() {
     handleClosePosition
   } = useTradingSimulation();
 
-  const { setTradingMode } = useAppState();
+  const { bots, setTradingMode } = useAppState();
 
   useEffect(() => {
     setIsClient(true);
@@ -182,10 +182,20 @@ export default function TradingTerminalPage() {
               <div className="px-3 border-r border-white/5">
                 <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Allocations Sniper</div>
                 <div className="text-lg font-bold text-violet-400 font-body mt-0.5 flex flex-col gap-0.5">
-                  <span>{activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0).toFixed(2)} SOL</span>
-                  <div className="text-[10px] text-violet-300/80 font-semibold font-body leading-none">
-                    ≈ ${solToUsd(activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0)).toFixed(2)} USD / {usdToHtg(solToUsd(activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0))).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} HTG
-                  </div>
+                  {(() => {
+                    const allocatedSol = Math.max(
+                      bots.filter(b => b.status === 'RUNNING' && (b.strategy === 'Pump.fun Sniper Bot' || b.pair?.startsWith('SOL:'))).reduce((sum, b) => sum + (b.capital || 0), 0),
+                      activePositions.filter(p => p.pair?.startsWith('SOL:')).reduce((sum, p) => sum + (p.amount || 0), 0)
+                    );
+                    return (
+                      <>
+                        <span>{allocatedSol.toFixed(2)} SOL</span>
+                        <div className="text-[10px] text-violet-300/80 font-semibold font-body leading-none">
+                          ≈ ${solToUsd(allocatedSol).toFixed(2)} USD / {usdToHtg(solToUsd(allocatedSol)).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} HTG
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="px-3 border-r border-white/5">

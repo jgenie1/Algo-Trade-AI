@@ -1653,7 +1653,10 @@ export default function TradingTerminalPage() {
               <div className="px-3 border-r border-white/5">
                 <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Allocations Sniper</div>
                 <div className="text-lg font-bold text-violet-400 font-body mt-0.5">
-                  {activePositions.filter(p => p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0).toFixed(2)} SOL
+                  {Math.max(
+                    bots.filter(b => b.status === 'RUNNING' && (b.strategy === 'Pump.fun Sniper Bot' || b.pair?.startsWith('SOL:'))).reduce((sum, b) => sum + (b.capital || 0), 0),
+                    activePositions.filter(p => p.pair?.startsWith('SOL:')).reduce((sum, p) => sum + (p.amount || 0), 0)
+                  ).toFixed(2)} SOL
                 </div>
               </div>
               <div className="px-3 border-r border-white/5">
