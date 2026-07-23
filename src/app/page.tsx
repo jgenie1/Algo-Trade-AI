@@ -288,7 +288,30 @@ export default function TradingTerminalPage() {
         )}
       </div>
 
-      {/* 3. Main Workspace Tabs & 2-Column Responsive Layout */}
+      {/* 3. POSITIONS ACTIVES & ORDRES EN COURS (PLACÉ EN HAUT À LA DEMANDE DE L'UTILISATEUR) */}
+      <div>
+        <Card className="bg-[#120e1a]/90 border border-white/10 p-4 sm:p-5 rounded-2xl shadow-xl">
+          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-[#c2ff0c]" />
+              <h2 className="text-sm sm:text-base font-bold font-headline uppercase text-white tracking-wider">
+                Positions Actives & Ordres en Cours
+              </h2>
+            </div>
+            <Badge className="bg-[#c2ff0c]/15 text-[#c2ff0c] border border-[#c2ff0c]/30 text-[10px] font-extrabold">
+              {activePositions.length} Positions
+            </Badge>
+          </div>
+
+          <ActivePositionsTable
+            livePrices={livePrices}
+            setSelectedPosition={setSelectedPosition}
+            handleClosePosition={handleClosePosition}
+          />
+        </Card>
+      </div>
+
+      {/* 4. Main Workspace Tabs & 2-Column Responsive Layout */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full space-y-4">
         
         {/* Workspace Navigation Bar */}
@@ -372,7 +395,7 @@ export default function TradingTerminalPage() {
           </div>
         </div>
 
-        {/* 4. Two-Column Desktop Grid Layout */}
+        {/* Two-Column Desktop Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           
           {/* Left Column (5 cols): Controls & Creation */}
@@ -584,29 +607,6 @@ export default function TradingTerminalPage() {
           </div>
         </div>
       </Tabs>
-
-      {/* 5. Bottom Section: Active Positions Table */}
-      <div className="pt-2">
-        <Card className="bg-[#120e1a]/90 border border-white/10 p-4 sm:p-5 rounded-2xl shadow-xl">
-          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-[#c2ff0c]" />
-              <h2 className="text-sm sm:text-base font-bold font-headline uppercase text-white tracking-wider">
-                Positions Actives & Ordres en Cours
-              </h2>
-            </div>
-            <Badge className="bg-white/5 text-white/60 border border-white/10 text-[10px]">
-              {activePositions.length} Positions
-            </Badge>
-          </div>
-
-          <ActivePositionsTable
-            livePrices={livePrices}
-            setSelectedPosition={setSelectedPosition}
-            handleClosePosition={handleClosePosition}
-          />
-        </Card>
-      </div>
 
       {/* Position Details Modal Overlay */}
       {selectedPosition && (
