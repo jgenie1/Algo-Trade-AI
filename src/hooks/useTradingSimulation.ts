@@ -687,19 +687,25 @@ export function useTradingSimulation() {
                     const isBullishReversal = candCloses[candCloses.length - 1] > candCloses[candCloses.length - 2];
                     const isBearishReversal = candCloses[candCloses.length - 1] < candCloses[candCloses.length - 2];
 
+                    const candEmaArr = candIndicators.ema || [];
+                    const candLastEma = candEmaArr.length > 0 ? candEmaArr[candEmaArr.length - 1] : candLastClose;
+                    const isTrendBullish = candLastClose >= candLastEma;
+
                     if (candLastRsi < buyThreshold && isBullishReversal) {
                       const hasBoost = boostedSignals.includes('BUY');
                       if (!blockedSignals.includes('BUY') && Math.random() < getTriggerChance('BUY')) {
                         candSig = 'BUY';
-                        candScore = (buyThreshold - candLastRsi) + 30;
-                        candReason = `RSI Survente sur ${candAssetLabel} (${candLastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) avec retournement haussier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                        const trendBonus = isTrendBullish ? 20 : 0;
+                        candScore = (buyThreshold - candLastRsi) + 30 + trendBonus;
+                        candReason = `RSI Survente sur ${candAssetLabel} (${candLastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) avec retournement haussier${isTrendBullish ? ' [Filtre Tendance EMA Confirme]' : ''}${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                       }
                     } else if (candLastRsi > sellThreshold && isBearishReversal) {
                       const hasBoost = boostedSignals.includes('SELL');
                       if (!blockedSignals.includes('SELL') && Math.random() < getTriggerChance('SELL')) {
                         candSig = 'SELL';
-                        candScore = (candLastRsi - sellThreshold) + 30;
-                        candReason = `RSI Surachat sur ${candAssetLabel} (${candLastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) avec retournement baissier${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                        const trendBonus = !isTrendBullish ? 20 : 0;
+                        candScore = (candLastRsi - sellThreshold) + 30 + trendBonus;
+                        candReason = `RSI Surachat sur ${candAssetLabel} (${candLastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) avec retournement baissier${!isTrendBullish ? ' [Filtre Tendance EMA Confirme]' : ''}${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                       }
                     }
                   } else if (bot.strategy === 'EMA Cross' && candCloses.length >= 20) {
@@ -731,20 +737,20 @@ export function useTradingSimulation() {
 
                     const lastVol = candVolumes[lastIdx] || 0;
                     const avgVol = candVolumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
-                    const volumeConfirm = isDemo ? true : (lastVol > avgVol * 1.1);
+                    const volumeConfirm = isDemo ? true : (lastVol > avgVol * 1.15);
 
                     if (goldenCross && volumeConfirm) {
                       const hasBoost = boostedSignals.includes('BUY');
                       if (!blockedSignals.includes('BUY') && Math.random() < getTriggerChance('BUY')) {
                         candSig = 'BUY';
-                        candScore = 50 + (lastVol / avgVol) * 10;
+                        candScore = 50 + (lastVol / avgVol) * 15;
                         candReason = `Crossover haussier EMA 9/20 sur ${candAssetLabel} avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                       }
                     } else if (deathCross && volumeConfirm) {
                       const hasBoost = boostedSignals.includes('SELL');
                       if (!blockedSignals.includes('SELL') && Math.random() < getTriggerChance('SELL')) {
                         candSig = 'SELL';
-                        candScore = 50 + (lastVol / avgVol) * 10;
+                        candScore = 50 + (lastVol / avgVol) * 15;
                         candReason = `Crossover baissier EMA 9/20 sur ${candAssetLabel} avec pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                       }
                     }
@@ -755,20 +761,22 @@ export function useTradingSimulation() {
                       
                       const isBullishRebound = candCloses[candCloses.length - 1] > candCloses[candCloses.length - 2];
                       const isBearishRebound = candCloses[candCloses.length - 1] < candCloses[candCloses.length - 2];
+                      const rsiFilterBuy = candLastRsi < 48;
+                      const rsiFilterSell = candLastRsi > 52;
 
-                      if (candLastClose <= lower && isBullishRebound) {
+                      if (candLastClose <= lower && isBullishRebound && rsiFilterBuy) {
                         const hasBoost = boostedSignals.includes('BUY');
                         if (!blockedSignals.includes('BUY') && Math.random() < getTriggerChance('BUY')) {
                           candSig = 'BUY';
                           candScore = ((lower - candLastClose) / (lower || 1)) * 1000 + 40;
-                          candReason = `Rebond de survente BB sur ${candAssetLabel} (Prix: ${candLastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                          candReason = `Rebond de survente BB + RSI (${candLastRsi.toFixed(0)}) sur ${candAssetLabel} (Prix: ${candLastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                         }
-                      } else if (candLastClose >= upper && isBearishRebound) {
+                      } else if (candLastClose >= upper && isBearishRebound && rsiFilterSell) {
                         const hasBoost = boostedSignals.includes('SELL');
                         if (!blockedSignals.includes('SELL') && Math.random() < getTriggerChance('SELL')) {
                           candSig = 'SELL';
                           candScore = ((candLastClose - upper) / (upper || 1)) * 1000 + 40;
-                          candReason = `Correction de surachat BB sur ${candAssetLabel} (Prix: ${candLastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                          candReason = `Correction de surachat BB + RSI (${candLastRsi.toFixed(0)}) sur ${candAssetLabel} (Prix: ${candLastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})${hasBoost ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                         }
                       }
                     }
@@ -784,19 +792,39 @@ export function useTradingSimulation() {
                     const isVolumeSpiking = lastVol > avgVol * 1.25;
                     const agentMomentumScore = (priceTrend > 0 ? 25 : -25) + (isVolumeSpiking ? 25 : 0);
 
-                    const finalScore = agentMathScore + agentMomentumScore;
-                    const baseReq = isDemo ? 15 : (50 - (mult - 1.0) * 10);
+                    let agentCustomScore = 0;
+                    let customLog = "";
+                    if (bot.customRules) {
+                      const rules = bot.customRules.toLowerCase();
+                      let matches = 0;
+                      if (rules.includes('rsi') && candLastRsi !== 0) {
+                        if ((rules.includes('<') || rules.includes('inférieur')) && candLastRsi < 40) { agentCustomScore += 30; matches++; }
+                        if ((rules.includes('>') || rules.includes('supérieur')) && candLastRsi > 60) { agentCustomScore -= 30; matches++; }
+                      }
+                      if (rules.includes('volume') || rules.includes('vol')) {
+                        if (isVolumeSpiking) { agentCustomScore += 25; matches++; }
+                      }
+                      if (rules.includes('ema') || rules.includes('trend')) {
+                        if (isBullishEma) { agentCustomScore += 25; matches++; } else { agentCustomScore -= 25; matches++; }
+                      }
+                      if (matches > 0) {
+                        customLog = ` • Vibe-Trading (+${agentCustomScore} pts)`;
+                      }
+                    }
+
+                    const finalScore = agentMathScore + agentMomentumScore + agentCustomScore;
+                    const baseReq = isDemo ? 15 : (45 - (mult - 1.0) * 10);
                     const reqScoreBuy = boostedSignals.includes('BUY') ? baseReq * 0.5 : baseReq;
                     const reqScoreSell = boostedSignals.includes('SELL') ? baseReq * 0.5 : baseReq;
 
                     if (finalScore > reqScoreBuy && !blockedSignals.includes('BUY')) {
                       candSig = 'BUY';
                       candScore = Math.abs(finalScore);
-                      candReason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}%] Autopilot haussier sur ${candAssetLabel}.${boostedSignals.includes('BUY') ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                      candReason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}%] Autopilot haussier sur ${candAssetLabel}.${customLog}${boostedSignals.includes('BUY') ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                     } else if (finalScore < -reqScoreSell && !blockedSignals.includes('SELL')) {
                       candSig = 'SELL';
                       candScore = Math.abs(finalScore);
-                      candReason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}%] Autopilot baissier sur ${candAssetLabel}.${boostedSignals.includes('SELL') ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
+                      candReason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}%] Autopilot baissier sur ${candAssetLabel}.${customLog}${boostedSignals.includes('SELL') ? ' [IA Apprentissage: Confiance Renforcée]' : ''}`;
                     }
                   }
 
