@@ -1,11 +1,16 @@
+"use client";
+
 import type { ReactNode } from 'react';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarInset } from '@/components/ui/sidebar';
 import Header from '@/components/Header';
 import SidebarNav from '@/components/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
 import MobileBottomNav from '@/components/MobileBottomNav';
+import { useTradingSimulation } from '@/hooks/useTradingSimulation';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  useTradingSimulation();
+
   return (
     <SidebarProvider defaultOpen={true} className="min-h-screen bg-[#09070c] relative overflow-hidden font-body text-foreground flex" suppressHydrationWarning={true}>
       {/* Background ambient light blobs */}

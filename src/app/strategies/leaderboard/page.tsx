@@ -23,6 +23,8 @@ import {
   TableHead 
 } from '@/components/ui/table';
 
+import { useAppState } from '@/context/AppContext';
+
 interface LeaderboardEntry {
   rank: number;
   name: string;
@@ -34,17 +36,13 @@ interface LeaderboardEntry {
 }
 
 export default function LeaderboardPage() {
-  const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
+  const { tradingMode, setTradingMode } = useAppState();
   const [isMounted, setIsMounted] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
-    if (typeof window !== 'undefined') {
-      const storedMode = localStorage.getItem('trade_mode');
-      if (storedMode === 'REAL' || storedMode === 'DEMO') setTradingMode(storedMode);
-    }
   }, []);
 
   // Populate simulated rankings based on active mode
