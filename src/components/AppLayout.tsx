@@ -6,13 +6,12 @@ import Header from '@/components/Header';
 import SidebarNav from '@/components/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
 import MobileBottomNav from '@/components/MobileBottomNav';
-import { useTradingSimulation } from '@/hooks/useTradingSimulation';
+import BackgroundTradingRunner from '@/components/BackgroundTradingRunner';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  useTradingSimulation();
-
   return (
     <SidebarProvider defaultOpen={true} className="min-h-screen bg-[#09070c] relative overflow-hidden font-body text-foreground flex" suppressHydrationWarning={true}>
+      <BackgroundTradingRunner />
       {/* Background ambient light blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#5d2b90]/10 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
       <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#c2ff0c]/5 rounded-full blur-[150px] pointer-events-none animate-pulse" style={{ animationDuration: '10s' }} />

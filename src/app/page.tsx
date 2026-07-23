@@ -36,6 +36,17 @@ export default function TradingTerminalPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
+          <span className="text-sm text-white/50">Chargement du terminal...</span>
+        </div>
+      </div>
+    );
+  }
   
   const {
     isMounted,
