@@ -33,21 +33,6 @@ export default function TradingTerminalPage() {
   const [isClient, setIsClient] = useState(false);
   const [mobileSubTab, setMobileSubTab] = useState<'trade' | 'chart'>('trade');
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-          <span className="text-sm text-white/50">Chargement du terminal...</span>
-        </div>
-      </div>
-    );
-  }
-  
   const {
     isMounted,
     tradingMode,
@@ -80,6 +65,21 @@ export default function TradingTerminalPage() {
   } = useTradingSimulation();
 
   const { setTradingMode } = useAppState();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#c2ff0c] border-t-transparent" />
+          <span className="text-sm font-body text-white/50">Chargement du terminal...</span>
+        </div>
+      </div>
+    );
+  }
 
   const solPrice = livePrices['SOL'] || 140;
   const solToUsd = (sol: number) => sol * solPrice;
