@@ -556,15 +556,16 @@ export default function TradingTerminalPage() {
 
           if (bot.strategy === 'Pump.fun Sniper Bot') {
             // Check WebSocket queue first, then fallback to REST API
-            let latestCoins = [...liveWsCoinsRef.current];
+            let latestCoins = Array.isArray(liveWsCoinsRef.current) ? [...liveWsCoinsRef.current] : [];
             let usingWs = true;
 
-            if (latestCoins.length === 0) {
-              latestCoins = await fetchLatestPumpCoins();
+            if (!latestCoins || latestCoins.length === 0) {
+              const fetched = await fetchLatestPumpCoins();
+              latestCoins = Array.isArray(fetched) ? fetched : [];
               usingWs = false;
             }
 
-            if (latestCoins.length === 0) {
+            if (!latestCoins || !Array.isArray(latestCoins) || latestCoins.length === 0) {
               addBotLog(bot.id, "Pump.fun Sniper", "Aucun jeton trouvé sur le stream (attente de flux)...", "info");
               continue;
             }
@@ -575,13 +576,13 @@ export default function TradingTerminalPage() {
 
             if (mode === 'PRECOCE') {
               // Ultra-early: reserves < 34.4 SOL (progress < 8%)
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) < 34.4);
+              matchingCoin = latestCoins.find(c => c && !c.complete && (c.virtual_sol_reserves / 1e9) < 34.4);
             } else if (mode === 'MOMENTUM') {
               // Social momentum: replies >= 10, reserves between 34.4 and 65.7 SOL
-              matchingCoin = latestCoins.find(c => !c.complete && (c.reply_count || 0) >= 10 && (c.virtual_sol_reserves / 1e9) >= 34.4 && (c.virtual_sol_reserves / 1e9) < 65.7);
+              matchingCoin = latestCoins.find(c => c && !c.complete && (c.reply_count || 0) >= 10 && (c.virtual_sol_reserves / 1e9) >= 34.4 && (c.virtual_sol_reserves / 1e9) < 65.7);
             } else if (mode === 'RAYDIUM') {
               // Raydium completion rider: reserves >= 68.5 SOL (progress > 70%)
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 68.5);
+              matchingCoin = latestCoins.find(c => c && !c.complete && (c.virtual_sol_reserves / 1e9) >= 68.5);
             }
 
             if (!matchingCoin) {
@@ -591,24 +592,24 @@ export default function TradingTerminalPage() {
             }
             targetCoinData = matchingCoin;
             targetPair = `SOL:${matchingCoin.mint}:${matchingCoin.symbol}`;
-            lastClose = matchingCoin.virtual_sol_reserves / matchingCoin.virtual_token_reserves;
+            lastClose = (matchingCoin.virtual_token_reserves > 0) ? (matchingCoin.virtual_sol_reserves / matchingCoin.virtual_token_reserves) : 0;
 
             // If it came from WS queue, clear it so we don't buy it again
-            if (usingWs) {
-              liveWsCoinsRef.current = liveWsCoinsRef.current.filter(c => c.mint !== matchingCoin.mint);
+            if (usingWs && Array.isArray(liveWsCoinsRef.current)) {
+              liveWsCoinsRef.current = liveWsCoinsRef.current.filter(c => c && c.mint !== matchingCoin.mint);
             }
           } else {
             const fetchedCandles = await fetchLiveMarketData(targetPair, bot.timeframe);
-            if (!fetchedCandles || fetchedCandles.length < 15) continue;
+            if (!fetchedCandles || !Array.isArray(fetchedCandles) || fetchedCandles.length < 15) continue;
             candles = fetchedCandles;
 
-            const indicators = calculateIndicators(candles, ['RSI', 'EMA']);
-            const rsiValues = indicators.rsi || [];
-            if (rsiValues.length === 0) continue;
+            const indicators = calculateIndicators(candles, ['RSI', 'EMA']) || {};
+            const rsiValues = Array.isArray(indicators.rsi) ? indicators.rsi : [];
+            if (!rsiValues || rsiValues.length === 0) continue;
 
-            lastRsi = rsiValues[rsiValues.length - 1];
-            emaValues = indicators.ema || [];
-            lastClose = candles[candles.length - 1].close;
+            lastRsi = rsiValues[rsiValues.length - 1] || 50;
+            emaValues = Array.isArray(indicators.ema) ? indicators.ema : [];
+            lastClose = (candles && candles.length > 0) ? (candles[candles.length - 1]?.close || 0) : 0;
           }
 
           // Check if bot already has an active position for this pair
@@ -984,7 +985,7 @@ export default function TradingTerminalPage() {
                 
                 // Store indicators for self-learning
                 entryRsi: lastRsi !== 0 ? lastRsi : undefined,
-                entryEmaTrend: emaValues.length > 0 ? (lastClose > emaValues[emaValues.length - 1] ? 'ABOVE' : 'BELOW') : undefined,
+                entryEmaTrend: (Array.isArray(emaValues) && emaValues.length > 0) ? (lastClose > emaValues[emaValues.length - 1] ? 'ABOVE' : 'BELOW') : undefined,
                 bondingCurveProgress: bot.strategy === 'Pump.fun Sniper Bot' && targetCoinData
                   ? Math.max(0, Math.min(100, (((targetCoinData.virtual_sol_reserves / 1e9) - 30) / 55) * 100))
                   : undefined,

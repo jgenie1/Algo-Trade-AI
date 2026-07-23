@@ -411,15 +411,16 @@ export function useTradingSimulation() {
           let targetCoinData: any = null;
 
           if (bot.strategy === 'Pump.fun Sniper Bot') {
-            let latestCoins = [...liveWsCoinsRef.current];
+            let latestCoins = Array.isArray(liveWsCoinsRef.current) ? [...liveWsCoinsRef.current] : [];
             let usingWs = true;
 
-            if (latestCoins.length === 0) {
-              latestCoins = await fetchLatestPumpCoins();
+            if (!latestCoins || latestCoins.length === 0) {
+              const fetched = await fetchLatestPumpCoins();
+              latestCoins = Array.isArray(fetched) ? fetched : [];
               usingWs = false;
             }
 
-            if (latestCoins.length === 0) {
+            if (!latestCoins || !Array.isArray(latestCoins) || latestCoins.length === 0) {
               addBotLogRef.current(bot.id, "Pump.fun Sniper", "Aucun jeton trouvé sur le stream (attente de flux)...", "info");
               continue;
             }
@@ -427,8 +428,9 @@ export function useTradingSimulation() {
             const mode = bot.pumpMode || 'PRECOCE';
             let matchingCoin: any = null;
 
-            // Détection préventive et filtrage des tokens suspects/arbaques
+            // Détection préventive et filtrage des tokens suspects/arnaques
             const isCoinSafe = (c: any) => {
+              if (!c) return false;
               const nameStr = (c.name || '').toLowerCase();
               const descStr = (c.description || '').toLowerCase();
               const isScam = /(scam|rug|hack|fake|free sol|airdrop|giveaway|test|reward)/i.test(nameStr + ' ' + descStr);
@@ -437,11 +439,11 @@ export function useTradingSimulation() {
             };
 
             if (mode === 'PRECOCE') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) < 34.4 && isCoinSafe(c));
+              matchingCoin = latestCoins.find(c => c && !c.complete && (c.virtual_sol_reserves / 1e9) < 34.4 && isCoinSafe(c));
             } else if (mode === 'MOMENTUM') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.reply_count || 0) >= 8 && (c.virtual_sol_reserves / 1e9) >= 34.4 && (c.virtual_sol_reserves / 1e9) < 65.7 && isCoinSafe(c));
+              matchingCoin = latestCoins.find(c => c && !c.complete && (c.reply_count || 0) >= 8 && (c.virtual_sol_reserves / 1e9) >= 34.4 && (c.virtual_sol_reserves / 1e9) < 65.7 && isCoinSafe(c));
             } else if (mode === 'RAYDIUM') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 68.5 && isCoinSafe(c));
+              matchingCoin = latestCoins.find(c => c && !c.complete && (c.virtual_sol_reserves / 1e9) >= 68.5 && isCoinSafe(c));
             }
 
             if (!matchingCoin) {
@@ -451,23 +453,23 @@ export function useTradingSimulation() {
             }
             targetCoinData = matchingCoin;
             targetPair = `SOL:${matchingCoin.mint}:${matchingCoin.symbol}`;
-            lastClose = matchingCoin.virtual_sol_reserves / matchingCoin.virtual_token_reserves;
+            lastClose = (matchingCoin.virtual_token_reserves > 0) ? (matchingCoin.virtual_sol_reserves / matchingCoin.virtual_token_reserves) : 0;
 
-            if (usingWs) {
-              liveWsCoinsRef.current = liveWsCoinsRef.current.filter(c => c.mint !== matchingCoin.mint);
+            if (usingWs && Array.isArray(liveWsCoinsRef.current)) {
+              liveWsCoinsRef.current = liveWsCoinsRef.current.filter(c => c && c.mint !== matchingCoin.mint);
             }
           } else {
             const fetchedCandles = await fetchLiveMarketData(targetPair, bot.timeframe);
-            if (!fetchedCandles || fetchedCandles.length < 15) continue;
+            if (!fetchedCandles || !Array.isArray(fetchedCandles) || fetchedCandles.length < 15) continue;
             candles = fetchedCandles;
 
             const indicators = calculateIndicators(candles, ['RSI', 'EMA']) || {};
-            const rsiValues = indicators.rsi || [];
+            const rsiValues = Array.isArray(indicators.rsi) ? indicators.rsi : [];
             if (!rsiValues || rsiValues.length === 0) continue;
 
-            lastRsi = rsiValues[rsiValues.length - 1];
-            emaValues = indicators.ema || [];
-            lastClose = candles[candles.length - 1]?.close || 0;
+            lastRsi = rsiValues[rsiValues.length - 1] || 50;
+            emaValues = Array.isArray(indicators.ema) ? indicators.ema : [];
+            lastClose = (candles && candles.length > 0) ? (candles[candles.length - 1]?.close || 0) : 0;
           }
 
           const botPosition = activePositionsRef.current.find(p => p.botId === bot.id);
