@@ -9,13 +9,13 @@ import MobileBottomNav from '@/components/MobileBottomNav';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider defaultOpen={true} className="min-h-screen bg-[#09070c] relative overflow-hidden font-body text-foreground flex" suppressHydrationWarning={true}>
+    <SidebarProvider defaultOpen={true} className="min-h-screen bg-[#09070c] relative overflow-x-hidden font-body text-foreground flex" suppressHydrationWarning={true}>
       {/* Background ambient light blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#5d2b90]/10 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
       <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#c2ff0c]/5 rounded-full blur-[150px] pointer-events-none animate-pulse" style={{ animationDuration: '10s' }} />
       <div className="absolute top-[40%] right-[20%] w-[35%] h-[35%] bg-[#228be6]/5 rounded-full blur-[110px] pointer-events-none" />
 
-      {/* Floating Left Sidebar */}
+      {/* Floating Left Sidebar (Desktop) */}
       <Sidebar 
         collapsible="icon" 
         variant="floating" 
@@ -32,10 +32,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </SidebarContent>
       </Sidebar>
 
-      {/* Main Content Area */}
-      <SidebarInset className="flex flex-col flex-1 bg-transparent border-none p-4 md:p-6 lg:p-8" suppressHydrationWarning={true}>
+      {/* Main Content Area (Fully responsive with padding for mobile bottom nav) */}
+      <SidebarInset className="flex flex-col flex-1 bg-transparent border-none p-2.5 sm:p-4 md:p-6 lg:p-8 w-full max-w-full overflow-x-hidden" suppressHydrationWarning={true}>
         <Header />
-        <main className="flex-1 overflow-y-auto mt-6 pb-28 md:pb-8">
+        <main className="flex-1 overflow-y-auto mt-4 sm:mt-6 pb-36 md:pb-8 w-full max-w-full">
           {children}
         </main>
       </SidebarInset>
@@ -45,4 +45,3 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-

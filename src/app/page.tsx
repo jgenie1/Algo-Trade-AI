@@ -331,19 +331,19 @@ export default function TradingTerminalPage() {
             )}
           </TabsList>
 
-          {/* Quick Pair Selector Pills (Visible in manual tab) */}
+          {/* Quick Pair Selector Pills (Horizontally scrollable on mobile & desktop) */}
           {activeTab === 'manual' && (
-            <div className="hidden xl:flex items-center gap-1.5 px-2">
-              <span className="text-[10px] uppercase font-headline text-white/40 font-bold mr-1">Paire Directe:</span>
+            <div className="flex items-center gap-1.5 px-1 py-1 overflow-x-auto w-full xl:w-auto scrollbar-none">
+              <span className="text-[10px] uppercase font-headline text-white/40 font-bold mr-1 shrink-0">Paire:</span>
               {PRESET_PAIRS.map(p => (
                 <button
                   key={p.id}
                   onClick={() => setSelectedPair(p.id)}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all border",
+                    "px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all border shrink-0",
                     selectedPair === p.id
-                      ? "bg-[#c2ff0c]/20 text-[#c2ff0c] border-[#c2ff0c]/40 font-bold"
-                      : "bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white"
+                      ? "bg-[#c2ff0c]/25 text-[#c2ff0c] border-[#c2ff0c]/50 font-bold shadow-sm"
+                      : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white"
                   )}
                 >
                   <span className="mr-1">{p.icon}</span>

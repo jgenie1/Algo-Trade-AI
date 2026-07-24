@@ -9,6 +9,7 @@ svg {
 html, body {
   background-color: #09070c !important;
   color: #f3f0f6 !important;
+  overflow-x: hidden;
 }
 
 @layer base {
@@ -78,11 +79,16 @@ html, body {
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-  ::-webkit-scrollbar-thumb { background: rgba(194,255,12,0.3); border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(194,255,12,0.5); }
-  html { scroll-behavior: smooth; }
+  /* Custom scrollbars for mobile & desktop */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: rgba(18, 14, 26, 0.6); }
+  ::-webkit-scrollbar-thumb { background: rgba(194, 255, 12, 0.4); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(194, 255, 12, 0.7); }
+  
+  html { 
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @layer utilities {
