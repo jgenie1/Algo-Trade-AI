@@ -36,6 +36,12 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Source+Code+Pro:wght@400;600&display=swap" 
           rel="stylesheet" 
         />
+        <style dangerouslySetInnerHTML={{ __html: `
+          ul, ol { list-style: none !important; padding: 0 !important; margin: 0 !important; }
+          a { text-decoration: none !important; color: inherit !important; }
+          body { background-color: #09070c !important; color: #f3f0f6 !important; font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+          button { cursor: pointer; }
+        ` }} />
       </head>
       <body
         style={{ backgroundColor: '#09070c', color: '#f3f0f6', minHeight: '100vh' }}
