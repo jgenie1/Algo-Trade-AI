@@ -35,12 +35,6 @@ export default function AnalyticsPage() {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
-  if (!isMounted) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-    </div>
-  );
-
   const isReal = tradingMode === "REAL";
   const filteredActive = activePositions.filter(p => (p.mode ? p.mode === tradingMode : (isReal ? p.pair?.startsWith("SOL:") : !p.pair?.startsWith("SOL:"))));
   const filteredClosed = closedPositions.filter(p => (p.mode ? p.mode === tradingMode : (isReal ? p.pair?.startsWith("SOL:") : !p.pair?.startsWith("SOL:"))));

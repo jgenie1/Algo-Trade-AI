@@ -109,17 +109,6 @@ export default function TradingTerminalPage() {
     setIsClient(true);
   }, []);
 
-  if (!isClient) {
-    return (
-      <div className="flex items-center justify-center min-h-[70vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#c2ff0c] border-t-transparent shadow-lg shadow-[#c2ff0c]/20" />
-          <span className="text-sm font-headline tracking-wide text-white/60 uppercase font-semibold">Chargement du Terminal Algotrade...</span>
-        </div>
-      </div>
-    );
-  }
-
   const solPrice = livePrices['SOL'] || 140;
   const solToUsd = (sol: number) => sol * solPrice;
   const usdToHtg = (usd: number) => usd * 130;

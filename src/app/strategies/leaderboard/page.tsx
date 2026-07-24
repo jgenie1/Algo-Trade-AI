@@ -140,14 +140,6 @@ export default function LeaderboardPage() {
     }));
   };
 
-  if (!isMounted) {
-    return (
-      <div className="min-h-screen bg-[#07040a] flex items-center justify-center text-white">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 max-w-5xl mx-auto p-4 md:p-6 text-white">
       {/* Header */}
