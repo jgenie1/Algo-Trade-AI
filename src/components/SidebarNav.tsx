@@ -1,4 +1,3 @@
-
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -38,68 +37,51 @@ export default function SidebarNav() {
     const Icon = item.icon;
     const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href) && item.href.length > 1);
     
-    if (item.disabled) {
-      return (
-        <SidebarMenuItem key={item.label} className="opacity-70 cursor-not-allowed">
-          <SidebarMenuButton
-            asChild={false}
-            isActive={isActive}
-            disabled={item.disabled}
-            className={cn(
-              "w-full justify-start font-medium py-6 px-3 rounded-xl transition-all duration-300 gap-3 group/btn mb-1",
-              isActive 
-                ? "bg-white/5 border border-white/10 text-white font-semibold" 
-                : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
-            )}
-            tooltip={{
-              children: item.label, 
-              side: "right", 
-              className: "bg-popover text-popover-foreground border border-white/10 shadow-md font-body"
-            }}
-          >
-            <div className={cn(
-              "p-2 rounded-lg transition-colors duration-300 shrink-0",
-              isActive 
-                ? "bg-[#c2ff0c] text-black" 
-                : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
-            )}>
-              <Icon className="h-4 w-4" size={16} />
-            </div>
-            <span className="font-body text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
-            <span className="text-[10px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded ml-auto group-data-[collapsible=icon]:hidden">
-              Bientôt
-            </span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    }
-
     return (
-      <SidebarMenuItem key={item.label}>
+      <SidebarMenuItem key={item.href}>
         <SidebarMenuButton
-          asChild={true}
+          asChild
           isActive={isActive}
-          disabled={item.disabled}
           className={cn(
-            "w-full justify-start font-medium py-6 px-3 rounded-xl transition-all duration-300 gap-3 group/btn mb-1",
+            "w-full justify-start font-medium py-3 px-3 rounded-xl transition-all duration-300 gap-3 group/btn mb-1 flex items-center",
             isActive 
-              ? "bg-white/5 border border-white/10 text-white font-semibold" 
+              ? "bg-[#c2ff0c]/15 text-[#c2ff0c] border border-[#c2ff0c]/30 font-semibold" 
               : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
           )}
+          style={{
+            backgroundColor: isActive ? 'rgba(194, 255, 12, 0.15)' : 'transparent',
+            color: isActive ? '#c2ff0c' : 'rgba(255, 255, 255, 0.7)',
+            borderRadius: '12px',
+            padding: '10px 12px',
+            marginBottom: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            textDecoration: 'none'
+          }}
           tooltip={{
             children: item.label, 
             side: "right", 
             className: "bg-popover text-popover-foreground border border-white/10 shadow-md font-body"
           }}
         >
-          <Link href={item.href} className="w-full flex items-center gap-3">
-            <div className={cn(
-              "p-2 rounded-lg transition-colors duration-300 shrink-0",
-              isActive 
-                ? "bg-[#c2ff0c] text-black" 
-                : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
-            )}>
-              <Icon className="h-4 w-4" size={16} />
+          <Link href={item.href} className="w-full flex items-center gap-3" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div 
+              className={cn(
+                "p-2 rounded-lg transition-colors duration-300 shrink-0",
+                isActive ? "bg-[#c2ff0c] text-black" : "bg-white/5 text-white/70 group-hover/btn:bg-[#c2ff0c] group-hover/btn:text-black"
+              )}
+              style={{
+                backgroundColor: isActive ? '#c2ff0c' : 'rgba(255, 255, 255, 0.08)',
+                color: isActive ? '#000000' : '#ffffff',
+                borderRadius: '8px',
+                padding: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Icon className="h-4 w-4" />
             </div>
             <span className="font-body text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
           </Link>
@@ -109,42 +91,62 @@ export default function SidebarNav() {
   };
 
   return (
-    <div className="flex flex-col h-full justify-between px-2">
+    <div className="flex flex-col h-full justify-between px-2" style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', padding: '0 8px' }}>
       <div className="space-y-6">
         <div>
-          <span className="text-[11px] font-bold text-white/30 uppercase tracking-widest px-3 mb-2 block group-data-[collapsible=icon]:hidden">
+          <span 
+            className="text-[11px] font-bold text-white/30 uppercase tracking-widest px-3 mb-2 block group-data-[collapsible=icon]:hidden font-headline"
+            style={{ fontSize: '11px', fontWeight: 'bold', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', padding: '0 12px', marginBottom: '8px', display: 'block' }}
+          >
             Général
           </span>
-          <SidebarMenu>
+          <SidebarMenu style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {mainNavItems.map(renderItem)}
           </SidebarMenu>
         </div>
 
         <div>
-          <span className="text-[11px] font-bold text-white/30 uppercase tracking-widest px-3 mb-2 block group-data-[collapsible=icon]:hidden">
+          <span 
+            className="text-[11px] font-bold text-white/30 uppercase tracking-widest px-3 mb-2 block group-data-[collapsible=icon]:hidden font-headline"
+            style={{ fontSize: '11px', fontWeight: 'bold', color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', padding: '0 12px', marginBottom: '8px', display: 'block' }}
+          >
             Trading Bots
           </span>
-          <SidebarMenu>
+          <SidebarMenu style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {tradingBotsItems.map(renderItem)}
           </SidebarMenu>
         </div>
       </div>
 
-      <div className="pt-6 border-t border-white/5 mt-auto">
-        <SidebarMenu>
+      {/* Logout button at bottom */}
+      <div className="pt-6 border-t border-white/5 mt-auto" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', marginTop: 'auto' }}>
+        <SidebarMenu style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           <SidebarMenuItem>
             <SidebarMenuButton
-              className="w-full justify-start font-medium py-6 px-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors duration-200 gap-3"
-              tooltip={{
-                children: "Déconnexion", 
-                side: "right",
-                className: "bg-popover text-popover-foreground border border-white/10"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.clear();
+                  window.location.reload();
+                }
+              }}
+              className="h-8 text-sm w-full justify-start font-medium py-3 px-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors duration-200 gap-3"
+              style={{
+                color: '#f87171',
+                borderRadius: '12px',
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: 'none',
+                cursor: 'pointer',
+                width: '100%'
               }}
             >
-              <div className="p-2 rounded-lg bg-red-500/10 shrink-0">
+              <div className="p-2 rounded-lg bg-red-500/10 shrink-0" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', padding: '6px', borderRadius: '8px' }}>
                 <LogOut className="h-4 w-4" />
               </div>
-              <span className="font-body text-sm group-data-[collapsible=icon]:hidden">Déconnexion</span>
+              <span className="font-body text-sm group-data-[collapsible=icon]:hidden">Réinitialiser Session</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -152,4 +154,3 @@ export default function SidebarNav() {
     </div>
   );
 }
-
