@@ -59,11 +59,6 @@ export default function SidebarNav() {
             gap: '12px',
             textDecoration: 'none'
           }}
-          tooltip={{
-            children: item.label, 
-            side: "right", 
-            className: "bg-popover text-popover-foreground border border-white/10 shadow-md font-body"
-          }}
         >
           <Link href={item.href} className="w-full flex items-center gap-3" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div 
