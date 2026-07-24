@@ -26,12 +26,29 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error caught by ErrorBoundary:", error, errorInfo);
+
+    // Auto-reload on ChunkLoadError when a new deployment version has replaced old JS hashes
+    if (
+      typeof window !== "undefined" &&
+      (error.name === "ChunkLoadError" || 
+       error.message?.includes("Loading chunk") || 
+       error.message?.includes("failed to fetch"))
+    ) {
+      const storageKey = "last_chunk_reload";
+      const lastReload = sessionStorage.getItem(storageKey);
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(storageKey, now.toString());
+        window.location.reload();
+      }
+    }
   }
 
   public handleReset = () => {
     this.setState({ hasError: false, error: null });
     if (typeof window !== "undefined") {
-      window.location.reload();
+      sessionStorage.clear();
+      window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
     }
   };
 
@@ -48,7 +65,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <h2 className="text-xl font-bold font-headline mb-2">Un problème est survenu</h2>
           <p className="text-sm text-white/60 font-body max-w-md mb-6 leading-relaxed">
-            L'affichage de ce composant a rencontré une erreur inattendue. Veuillez rafraîchir la page ou réinitialiser le composant.
+            L'affichage de ce composant a rencontré une erreur inattendue. Une nouvelle version a été déployée sur le serveur.
           </p>
           {this.state.error && (
             <div className="bg-black/60 border border-white/10 rounded-xl p-3 mb-6 max-w-lg w-full text-left overflow-x-auto">
@@ -62,7 +79,7 @@ export class ErrorBoundary extends Component<Props, State> {
             className="bg-[#c2ff0c] text-black hover:bg-[#b0e60a] font-bold px-6 py-2 rounded-xl flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw className="h-4 w-4" />
-            Recharger l'Application
+            Recharger avec la Dernière Version
           </Button>
         </div>
       );
