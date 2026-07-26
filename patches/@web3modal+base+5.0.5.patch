@@ -1,0 +1,12 @@
+diff --git a/node_modules/@web3modal/base/dist/esm/adapters/evm/ethers5/client.js b/node_modules/@web3modal/base/dist/esm/adapters/evm/ethers5/client.js
+index 951a635..15e3a21 100644
+--- a/node_modules/@web3modal/base/dist/esm/adapters/evm/ethers5/client.js
++++ b/node_modules/@web3modal/base/dist/esm/adapters/evm/ethers5/client.js
+@@ -2,7 +2,7 @@
+ import EthereumProvider, { OPTIONAL_METHODS } from '@walletconnect/ethereum-provider';
+ import { getChainsFromAccounts } from '@walletconnect/utils';
+-import { ethers, utils } from 'ethers5';
++import { ethers, utils } from 'ethers';
+ import { EthersConstantsUtil, EthersHelpersUtil, EthersStoreUtil } from '@web3modal/scaffold-utils/ethers';
+ import { W3mFrameProvider, W3mFrameHelpers, W3mFrameRpcConstants } from '@web3modal/wallet';
+ import { NetworkUtil } from '@web3modal/common';
