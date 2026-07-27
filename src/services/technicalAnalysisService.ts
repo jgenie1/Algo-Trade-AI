@@ -14,6 +14,11 @@ export interface IndicatorResults {
     middle: number[];
     lower: number[];
   };
+  superTrend?: {
+    superTrend: number[];
+    direction: ('UP' | 'DOWN')[];
+  };
+  vwap?: number[];
   volumeProfile?: {
     bins: { min: number; max: number; volume: number }[];
     poc: number; // Point of Control price
@@ -141,6 +146,92 @@ export function calculateIndicators(candles: Candle[], activeIndicators: string[
       }
     }
     result.bollingerBands = { upper, middle, lower };
+  }
+
+  // 6. SuperTrend (10 period ATR, 3 multiplier)
+  if (activeIndicators.includes('SuperTrend')) {
+    const superTrendArr: number[] = [];
+    const directionArr: ('UP' | 'DOWN')[] = [];
+    const period = 10;
+    const multiplier = 3;
+
+    let prevUpperBand = 0;
+    let prevLowerBand = 0;
+    let prevSuperTrend = 0;
+    let prevDir: 'UP' | 'DOWN' = 'UP';
+
+    for (let i = 0; i < len; i++) {
+      const high = candles[i].high;
+      const low = candles[i].low;
+      const close = candles[i].close;
+      const hl2 = (high + low) / 2;
+
+      // Calculate True Range
+      let tr = high - low;
+      if (i > 0) {
+        const prevClose = candles[i - 1].close;
+        tr = Math.max(tr, Math.abs(high - prevClose), Math.abs(low - prevClose));
+      }
+
+      // Simple ATR estimation
+      let atr = tr;
+      if (i >= period - 1) {
+        let sumTr = tr;
+        for (let j = i - period + 1; j < i; j++) {
+          const cHigh = candles[j].high;
+          const cLow = candles[j].low;
+          const pClose = j > 0 ? candles[j - 1].close : candles[j].open;
+          sumTr += Math.max(cHigh - cLow, Math.abs(cHigh - pClose), Math.abs(cLow - pClose));
+        }
+        atr = sumTr / period;
+      }
+
+      let basicUpper = hl2 + multiplier * atr;
+      let basicLower = hl2 - multiplier * atr;
+
+      let finalUpper = (i > 0 && basicUpper < prevUpperBand) || (i > 0 && candles[i - 1].close > prevUpperBand) ? basicUpper : (i > 0 ? prevUpperBand : basicUpper);
+      let finalLower = (i > 0 && basicLower > prevLowerBand) || (i > 0 && candles[i - 1].close < prevLowerBand) ? basicLower : (i > 0 ? prevLowerBand : basicLower);
+
+      let currentDir: 'UP' | 'DOWN' = prevDir;
+      if (i > 0) {
+        if (prevDir === 'UP' && close < finalLower) {
+          currentDir = 'DOWN';
+        } else if (prevDir === 'DOWN' && close > finalUpper) {
+          currentDir = 'UP';
+        }
+      }
+
+      const currentST = currentDir === 'UP' ? finalLower : finalUpper;
+
+      prevUpperBand = finalUpper;
+      prevLowerBand = finalLower;
+      prevSuperTrend = currentST;
+      prevDir = currentDir;
+
+      superTrendArr.push(currentST);
+      directionArr.push(currentDir);
+    }
+
+    result.superTrend = { superTrend: superTrendArr, direction: directionArr };
+  }
+
+  // 7. VWAP (Volume Weighted Average Price)
+  if (activeIndicators.includes('VWAP')) {
+    const vwap: number[] = [];
+    let cumulativeTPV = 0;
+    let cumulativeVolume = 0;
+
+    for (let i = 0; i < len; i++) {
+      const c = candles[i];
+      const typicalPrice = (c.high + c.low + c.close) / 3;
+      const vol = c.volume || 1;
+
+      cumulativeTPV += typicalPrice * vol;
+      cumulativeVolume += vol;
+
+      vwap.push(cumulativeVolume > 0 ? cumulativeTPV / cumulativeVolume : typicalPrice);
+    }
+    result.vwap = vwap;
   }
 
   // 6. Volume Profile (POC)

@@ -778,6 +778,34 @@ export function useTradingSimulation() {
                     reason = `Correction de surachat BB (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})`;
                   }
                 }
+              } else if (bot.strategy === 'SuperTrend Momentum') {
+                const stInds = calculateIndicators(fetchedCandles, ['SuperTrend']) || {};
+                if (stInds.superTrend && stInds.superTrend.direction && stInds.superTrend.direction.length >= 2) {
+                  const dirs = stInds.superTrend.direction;
+                  const lastDir = dirs[dirs.length - 1];
+                  const prevDir = dirs[dirs.length - 2];
+                  if (prevDir === 'DOWN' && lastDir === 'UP') {
+                    signal = 'BUY';
+                    reason = `Changement de tendance SuperTrend (Baissier ➔ Haussier)`;
+                  } else if (prevDir === 'UP' && lastDir === 'DOWN') {
+                    signal = 'SELL';
+                    reason = `Changement de tendance SuperTrend (Haussier ➔ Baissier)`;
+                  }
+                }
+              } else if (bot.strategy === 'VWAP Breakout') {
+                const vwapInds = calculateIndicators(fetchedCandles, ['VWAP']) || {};
+                if (vwapInds.vwap && vwapInds.vwap.length >= 2) {
+                  const vwapVals = vwapInds.vwap;
+                  const lastVwap = vwapVals[vwapVals.length - 1];
+                  const prevClose = closes[closes.length - 2];
+                  if (prevClose < lastVwap && lastClose > lastVwap) {
+                    signal = 'BUY';
+                    reason = `Cassure haussière du VWAP (Prix ${lastClose.toFixed(5)} > VWAP ${lastVwap.toFixed(5)})`;
+                  } else if (prevClose > lastVwap && lastClose < lastVwap) {
+                    signal = 'SELL';
+                    reason = `Cassure baissière du VWAP (Prix ${lastClose.toFixed(5)} < VWAP ${lastVwap.toFixed(5)})`;
+                  }
+                }
               } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
                 const ema20 = (calculateIndicators(fetchedCandles, ['EMA']) || {}).ema || [];
                 const lastEma = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;

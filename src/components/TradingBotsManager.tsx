@@ -90,7 +90,7 @@ export default function TradingBotsManager({
 
   // New Bot Form State
   const [botPair, setBotPair] = useState<string>('ALL');
-  const [botStrategy, setBotStrategy] = useState<'RSI Pullback' | 'EMA Cross' | 'BB Mean Reversion' | 'AI Autopilot (Machine à Cash)' | 'Pump.fun Sniper Bot'>('AI Autopilot (Machine à Cash)');
+  const [botStrategy, setBotStrategy] = useState<'RSI Pullback' | 'EMA Cross' | 'BB Mean Reversion' | 'SuperTrend Momentum' | 'VWAP Breakout' | 'AI Autopilot (Machine à Cash)' | 'Pump.fun Sniper Bot'>('AI Autopilot (Machine à Cash)');
   const [botTimeframe, setBotTimeframe] = useState<string>('15');
   const [botCapital, setBotCapital] = useState<number>(1000);
   const [botRiskProfile, setBotRiskProfile] = useState<'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'>('MODERATE');
@@ -187,6 +187,12 @@ export default function TradingBotsManager({
                     <SelectItem value="Pump.fun Sniper Bot" className="focus:bg-white/10 focus:text-white cursor-pointer">
                       🎯 Pump.fun Sniper Bot (Démo Solana)
                     </SelectItem>
+                    <SelectItem value="SuperTrend Momentum" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                      ⚡ SuperTrend Volatility Momentum
+                    </SelectItem>
+                    <SelectItem value="VWAP Breakout" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                      📊 VWAP Volume Weighted Breakout
+                    </SelectItem>
                     <SelectItem value="RSI Pullback" className="focus:bg-white/10 focus:text-white cursor-pointer">
                       📈 RSI Pullback Reversal
                     </SelectItem>
@@ -201,6 +207,12 @@ export default function TradingBotsManager({
                     </SelectItem>
                     <SelectItem value="Pump.fun Sniper Bot" className="focus:bg-white/10 focus:text-white cursor-pointer">
                       🎯 Pump.fun Sniper Bot (Solana Réel)
+                    </SelectItem>
+                    <SelectItem value="SuperTrend Momentum" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                      ⚡ SuperTrend Volatility Momentum (Réel)
+                    </SelectItem>
+                    <SelectItem value="VWAP Breakout" className="focus:bg-white/10 focus:text-white cursor-pointer">
+                      📊 VWAP Volume Weighted Breakout (Réel)
                     </SelectItem>
                     <SelectItem value="RSI Pullback" className="focus:bg-white/10 focus:text-white cursor-pointer">
                       📈 RSI Pullback Reversal (Réel)

@@ -51,17 +51,18 @@ export default function ActivePositionsTable({
             {tradingMode === 'DEMO' ? "Aucune position démo ouverte actuellement. Utilisez le panneau de gauche pour initier un trade." : "Aucun snipe SOL actif actuellement."}
           </div>
         ) : (
-          <div className="rounded-md border border-white/5 overflow-hidden">
+          <div className="rounded-xl border border-white/10 bg-[#120d18] overflow-hidden shadow-2xl">
             <Table>
-              <TableHeader className="bg-white/[0.02] border-b border-white/5">
-                <TableRow className="border-b border-white/5 hover:bg-transparent">
-                  <TableHead className="py-2.5 text-white/40 font-headline">Actif</TableHead>
-                  <TableHead className="py-2.5 text-white/40 font-headline">Type</TableHead>
-                  <TableHead className="py-2.5 text-white/40 font-headline">Levier</TableHead>
-                  <TableHead className="py-2.5 text-white/40 font-headline">Prix Entrée</TableHead>
-                  <TableHead className="py-2.5 text-white/40 font-headline">Prix Actuel</TableHead>
-                  <TableHead className="py-2.5 text-right text-white/40 font-headline">PnL ({tradingMode === 'DEMO' ? 'USD' : 'SOL'})</TableHead>
-                  <TableHead className="py-2.5 text-center text-white/40 font-headline">Action</TableHead>
+              <TableHeader className="bg-white/[0.02] border-b border-white/10">
+                <TableRow className="border-b border-white/10 hover:bg-transparent">
+                  <TableHead className="py-3 px-4 text-white/50 font-medium text-xs font-headline">Actif</TableHead>
+                  <TableHead className="py-3 px-4 text-white/50 font-medium text-xs font-headline">Type</TableHead>
+                  <TableHead className="py-3 px-4 text-white/50 font-medium text-xs font-headline">Levier</TableHead>
+                  <TableHead className="py-3 px-4 text-white/50 font-medium text-xs font-headline">Taille</TableHead>
+                  <TableHead className="py-3 px-4 text-white/50 font-medium text-xs font-headline">Prix Entrée</TableHead>
+                  <TableHead className="py-3 px-4 text-white/50 font-medium text-xs font-headline">Prix Actuel</TableHead>
+                  <TableHead className="py-3 px-4 text-right text-white/50 font-medium text-xs font-headline">PnL ({tradingMode === 'DEMO' ? 'USD' : 'SOL'})</TableHead>
+                  <TableHead className="py-3 px-4 text-center text-white/50 font-medium text-xs font-headline">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -70,60 +71,65 @@ export default function ActivePositionsTable({
                   const priceDiff = current - p.entryPrice;
                   const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
                   const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
+                  const pnlPct = pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100);
                   const isProfit = profit >= 0;
+
+                  const cleanAsset = p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
                   return (
                     <TableRow
                       key={p.id}
                       onClick={() => setSelectedPosition(p)}
-                      className="border-b border-white/5 hover:bg-white/[0.03] active:bg-white/[0.05] cursor-pointer transition-all duration-150"
+                      className="border-b border-white/5 hover:bg-white/[0.04] active:bg-white/[0.07] cursor-pointer transition-all duration-150"
                     >
-                      <TableCell className="py-3 font-semibold font-body text-white flex items-center gap-1.5 border-none">
-                        {p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')}
+                      <TableCell className="py-3.5 px-4 border-none font-bold text-white text-xs flex items-center gap-2">
+                        <span>{cleanAsset}</span>
                         {p.botId && (
-                          <Badge variant="secondary" className="text-[8px] bg-violet-500/20 text-violet-400 px-1.5 py-0.5 rounded font-headline uppercase font-bold border-none">
-                            Bot
-                          </Badge>
+                          <span className="bg-[#2e1d44] text-[#b388ff] border border-[#6b3ba7]/30 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider font-headline">
+                            BOT
+                          </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-3 border-none">
-                        <Badge 
-                          className={cn(
-                            "px-1.5 py-0.5 rounded text-[10px] font-bold border-none",
-                            p.type === 'BUY' ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
-                          )}
-                        >
+                      <TableCell className="py-3.5 px-4 border-none">
+                        <span className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider border font-headline inline-block",
+                          p.type === 'BUY' 
+                            ? "bg-[#0d3424] text-[#34d399] border-[#064e3b]/50" 
+                            : "bg-[#3d1325] text-[#f43f5e] border-[#881337]/50"
+                        )}>
                           {p.type === 'BUY' ? 'LONG' : 'SHORT'}
-                        </Badge>
+                        </span>
                       </TableCell>
-                      <TableCell className="py-3 text-white/60 font-body border-none">{p.leverage}x</TableCell>
-                      <TableCell className="py-3 text-white/80 font-body border-none">
+                      <TableCell className="py-3.5 px-4 border-none text-white/80 font-medium text-xs font-body">
+                        {p.leverage}x
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 border-none font-bold text-white text-xs font-body">
+                        {typeof p.amount === 'number' ? p.amount.toFixed(2) : p.amount} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 border-none text-white/90 text-xs font-mono">
                         {p.entryPrice.toFixed(p.entryPrice > 100 ? 2 : 5)}
                       </TableCell>
-                      <TableCell className="py-3 font-bold text-white font-body border-none">
+                      <TableCell className="py-3.5 px-4 border-none font-bold text-white text-xs font-mono">
                         {current.toFixed(p.entryPrice > 100 ? 2 : 5)}
                       </TableCell>
                       <TableCell className={cn(
-                        "py-3 text-right font-bold font-body border-none",
-                        isProfit ? "text-emerald-400" : "text-rose-400"
+                        "py-3.5 px-4 border-none text-right font-headline",
+                        isProfit ? "text-[#34d399]" : "text-[#f43f5e]"
                       )}>
-                        <div>{isProfit ? '+' : ''}{profit.toFixed(tradingMode === 'REAL' ? 3 : 2)} {tradingMode === 'REAL' ? 'SOL' : '$'}</div>
-                        <span className="text-[9px] block font-mono text-white/50 font-normal">
-                          {tradingMode === 'REAL' ? formatSolToUsdAndHtg(profit).combinedLabel : `≈ ${formatUsdToHtg(profit)}`}
-                        </span>
-                        <span className="text-[9px] block font-normal opacity-70">
-                          ({(pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100)).toFixed(2)}%)
+                        <div className="font-bold text-xs">
+                          {isProfit ? '+' : ''}{profit.toFixed(tradingMode === 'REAL' ? 3 : 2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                        </div>
+                        <span className="text-[10px] block opacity-85 font-mono font-medium mt-0.5">
+                          ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
                         </span>
                       </TableCell>
-                      <TableCell className="py-3 text-center border-none" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="sm"
-                          variant="ghost"
+                      <TableCell className="py-3.5 px-4 border-none text-center" onClick={(e) => e.stopPropagation()}>
+                        <button
                           onClick={() => handleClosePosition(p)}
-                          className="h-7 px-2.5 text-[10px] bg-white/10 hover:bg-rose-500/20 hover:text-rose-400 border border-white/10 rounded-md font-semibold transition-all duration-200"
+                          className="px-3.5 py-1 text-xs font-medium text-white bg-white/10 hover:bg-rose-500/20 hover:text-rose-400 border border-white/15 rounded-full transition-all duration-200 shadow-sm"
                         >
                           Fermer
-                        </Button>
+                        </button>
                       </TableCell>
                     </TableRow>
                   );
