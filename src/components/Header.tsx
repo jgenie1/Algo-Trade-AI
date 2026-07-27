@@ -94,6 +94,59 @@ export default function Header() {
     }
   }, []);
 
+  // Real Web3 Browser Wallet Providers Connection Handlers
+  const connectPhantomSolana = async () => {
+    try {
+      const solanaObj = (window as any)?.solana || (window as any)?.solflare;
+      if (solanaObj) {
+        const resp = await solanaObj.connect();
+        const pubKey = resp?.publicKey ? resp.publicKey.toString() : solanaObj.publicKey?.toString();
+        if (pubKey) {
+          const w = { name: "Phantom Solana", address: pubKey, chain: "Solana" as const };
+          localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+          setConnectedWallet(w);
+          return;
+        }
+      }
+      alert("Extension Phantom ou Solflare introuvable dans votre navigateur.\n\nVeuillez installer l'extension Phantom (https://phantom.app/) pour vous connecter en réel.");
+    } catch (err: any) {
+      alert("Erreur de connexion Solana : " + (err.message || err));
+    }
+  };
+
+  const connectMetaMaskEVM = async () => {
+    try {
+      const ethereumObj = (window as any)?.ethereum;
+      if (ethereumObj) {
+        const accounts = await ethereumObj.request({ method: 'eth_requestAccounts' });
+        if (accounts && accounts.length > 0) {
+          const addr = accounts[0];
+          const w = { name: "MetaMask / Trust Wallet", address: addr, chain: "BSC" as const };
+          localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+          setConnectedWallet(w);
+          return;
+        }
+      }
+      alert("Extension MetaMask / Trust Wallet introuvable dans votre navigateur.\n\nVeuillez installer l'extension MetaMask (https://metamask.io/) pour vous connecter en réel.");
+    } catch (err: any) {
+      alert("Erreur de connexion EVM : " + (err.message || err));
+    }
+  };
+
+  const connectWalletConnect = async () => {
+    try {
+      if ((window as any)?.ethereum) {
+        await connectMetaMaskEVM();
+      } else if ((window as any)?.solana) {
+        await connectPhantomSolana();
+      } else {
+        alert("WalletConnect Universal : Aucun portefeuille de navigateur (Phantom ou MetaMask) n'a été détecté.\n\nVeuillez débloquer votre extension de portefeuille pour établir le lien direct.");
+      }
+    } catch (err: any) {
+      alert("Erreur WalletConnect : " + (err.message || err));
+    }
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     localStorage.setItem('settings_rpc_url', rpcUrl);
@@ -268,11 +321,7 @@ export default function Header() {
             ) : (
               <div className="space-y-2.5 pt-2 font-body">
                 <button
-                  onClick={() => {
-                    const w = { name: "Phantom Solana Wallet", address: "7xK9pM3nL4vQ2wR1sT8uY6zX5aB", chain: "Solana" as const };
-                    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
-                    setConnectedWallet(w);
-                  }}
+                  onClick={connectPhantomSolana}
                   className="w-full p-3.5 bg-white/5 hover:bg-purple-900/20 border border-white/10 hover:border-purple-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
                 >
                   <div className="flex items-center gap-3">
@@ -281,7 +330,7 @@ export default function Header() {
                     </div>
                     <div className="text-left">
                       <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">Phantom / Solflare</p>
-                      <p className="text-[10px] text-white/40 font-mono">Réseau Solana Mainnet</p>
+                      <p className="text-[10px] text-white/40 font-mono">Réseau Solana Mainnet (Direct Provider)</p>
                     </div>
                   </div>
                   <span className="text-[10px] bg-purple-500/10 text-purple-300 group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
@@ -290,11 +339,7 @@ export default function Header() {
                 </button>
 
                 <button
-                  onClick={() => {
-                    const w = { name: "MetaMask BSC Wallet", address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", chain: "BSC" as const };
-                    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
-                    setConnectedWallet(w);
-                  }}
+                  onClick={connectMetaMaskEVM}
                   className="w-full p-3.5 bg-white/5 hover:bg-amber-900/20 border border-white/10 hover:border-amber-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
                 >
                   <div className="flex items-center gap-3">
@@ -303,7 +348,7 @@ export default function Header() {
                     </div>
                     <div className="text-left">
                       <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">MetaMask / Trust Wallet</p>
-                      <p className="text-[10px] text-white/40 font-mono">Binance Smart Chain (BEP-20)</p>
+                      <p className="text-[10px] text-white/40 font-mono">Binance Smart Chain (eth_requestAccounts)</p>
                     </div>
                   </div>
                   <span className="text-[10px] bg-amber-500/10 text-amber-300 group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
@@ -312,11 +357,7 @@ export default function Header() {
                 </button>
 
                 <button
-                  onClick={() => {
-                    const w = { name: "WalletConnect Mobile", address: "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7", chain: "Ethereum" as const };
-                    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
-                    setConnectedWallet(w);
-                  }}
+                  onClick={connectWalletConnect}
                   className="w-full p-3.5 bg-white/5 hover:bg-blue-900/20 border border-white/10 hover:border-blue-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
                 >
                   <div className="flex items-center gap-3">
@@ -325,7 +366,7 @@ export default function Header() {
                     </div>
                     <div className="text-left">
                       <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">WalletConnect Universal</p>
-                      <p className="text-[10px] text-white/40 font-mono">Scanner le QR Code mobile</p>
+                      <p className="text-[10px] text-white/40 font-mono">Lien Web3 Mobile App</p>
                     </div>
                   </div>
                   <span className="text-[10px] bg-blue-500/10 text-blue-300 group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
