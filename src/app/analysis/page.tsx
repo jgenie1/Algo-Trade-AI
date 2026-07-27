@@ -22,6 +22,7 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { GetForexAnalysisInput, GetForexAnalysisOutput } from '@/ai/schemas';
 import TrendingTokensCard from '@/components/TrendingTokensCard';
+import BacktestSimulator from '@/components/BacktestSimulator';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
@@ -581,6 +582,11 @@ export default function ForexAnalysisPage() {
                 </CardContent>
               </Card>
 
+            </div>
+
+            {/* Backtest Simulator Section */}
+            <div className="mb-6">
+              <BacktestSimulator />
             </div>
 
             {/* Trading History Table Card */}

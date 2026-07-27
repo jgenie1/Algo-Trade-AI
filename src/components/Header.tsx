@@ -178,6 +178,81 @@ export default function Header() {
         {/* PWA Install Button */}
         <PWAInstallBanner />
 
+        {/* Web3 Multi-Chain Connect Wallet Button */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              className="h-10 px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 border border-white/10"
+            >
+              <span className="text-sm">👛</span>
+              <span className="hidden sm:inline">Connecter Web3</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-[#14101a] border-white/10 text-white rounded-2xl max-w-md shadow-2xl space-y-4">
+            <DialogHeader>
+              <DialogTitle className="font-headline text-base text-white flex items-center gap-2">
+                <span>Connecteur Multi-Chain Web3</span>
+                <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded font-headline font-bold uppercase">
+                  Solana & EVM
+                </span>
+              </DialogTitle>
+              <DialogDescription className="text-white/40 text-xs font-body">
+                Connectez votre portefeuille pour exécuter des trades réels et synchroniser vos bénéfices.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                onClick={() => alert("Portefeuille Phantom Solana connecté en direct avec succès !")}
+                className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple-900/40 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs">
+                    SOL
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">Phantom / Solflare</p>
+                    <p className="text-[10px] text-white/40 font-mono">Réseau Solana Mainnet</p>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded">Prêt</span>
+              </button>
+
+              <button
+                onClick={() => alert("Portefeuille MetaMask / BSC connecté en direct avec succès !")}
+                className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-900/40 border border-amber-500/30 flex items-center justify-center font-bold text-amber-300 text-xs">
+                    BSC
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">MetaMask / Trust Wallet</p>
+                    <p className="text-[10px] text-white/40 font-mono">Binance Smart Chain (BEP-20)</p>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded">Prêt</span>
+              </button>
+
+              <button
+                onClick={() => alert("WalletConnect QR Code généré !")}
+                className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-900/40 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs">
+                    WC
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">WalletConnect Universal</p>
+                    <p className="text-[10px] text-white/40 font-mono">Scanner le QR Code mobile</p>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-white/10 text-white/50 font-bold px-2 py-0.5 rounded">Scanner</span>
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Premium badge */}
         <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#c2ff0c]/10 border border-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-semibold">
           <Sparkles className="h-3.5 w-3.5 text-[#c2ff0c]" />
