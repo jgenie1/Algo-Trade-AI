@@ -51,7 +51,7 @@ export default function ActivePositionsTable({
             {tradingMode === 'DEMO' ? "Aucune position démo ouverte actuellement. Utilisez le panneau de gauche pour initier un trade." : "Aucun snipe SOL actif actuellement."}
           </div>
         ) : (
-          <div className="rounded-xl border border-white/10 bg-[#120d18] overflow-hidden shadow-2xl">
+          <div className="rounded-xl border border-white/10 bg-[#120d18] overflow-x-auto w-full max-w-full shadow-2xl">
             <Table>
               <TableHeader className="bg-white/[0.02] border-b border-white/10">
                 <TableRow className="border-b border-white/10 hover:bg-transparent">

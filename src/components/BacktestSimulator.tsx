@@ -195,7 +195,7 @@ export default function BacktestSimulator() {
               <h4 className="text-xs font-bold uppercase tracking-wider text-white/50 font-headline">
                 Historique des Ordres Simulés ({result.trades.length})
               </h4>
-              <div className="max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#120d18] text-xs">
+              <div className="max-h-60 overflow-y-auto overflow-x-auto w-full max-w-full rounded-xl border border-white/10 bg-[#120d18] text-xs">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-white/10 bg-white/[0.02] text-white/50 font-headline">
