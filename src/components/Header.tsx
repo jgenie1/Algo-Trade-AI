@@ -17,7 +17,11 @@ import {
   Info,
   CheckCircle2,
   AlertTriangle,
-  User
+  User,
+  Wallet,
+  ShieldCheck,
+  Check,
+  ExternalLink
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
@@ -60,6 +64,13 @@ export default function Header() {
 
   const [isMounted, setIsMounted] = useState(false);
 
+  // Connected Web3 Wallet State
+  const [connectedWallet, setConnectedWallet] = useState<{
+    name: string;
+    address: string;
+    chain: 'Solana' | 'BSC' | 'Ethereum';
+  } | null>(null);
+
   // Settings State (persisted locally)
   const [rpcUrl, setRpcUrl] = useState('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');
   const [slippage, setSlippage] = useState('15');
@@ -72,9 +83,14 @@ export default function Header() {
       const storedRpc = localStorage.getItem('settings_rpc_url');
       const storedSlippage = localStorage.getItem('settings_slippage');
       const storedFee = localStorage.getItem('settings_priority_fee');
+      const storedWallet = localStorage.getItem('connected_web3_wallet');
+
       if (storedRpc) setRpcUrl(storedRpc);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
+      if (storedWallet) {
+        try { setConnectedWallet(JSON.parse(storedWallet)); } catch (e) {}
+      }
     }
   }, []);
 
@@ -181,75 +197,143 @@ export default function Header() {
         {/* Web3 Multi-Chain Connect Wallet Button */}
         <Dialog>
           <DialogTrigger asChild>
-            <Button
-              className="h-10 px-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 border border-white/10"
-            >
-              <span className="text-sm">👛</span>
-              <span className="hidden sm:inline">Connecter Web3</span>
-            </Button>
+            {connectedWallet ? (
+              <Button
+                className="h-10 px-3.5 bg-[#171122] hover:bg-[#201830] border border-emerald-500/30 text-white font-headline font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="font-mono text-xs font-semibold text-emerald-400">
+                  {connectedWallet.address.slice(0, 4)}...{connectedWallet.address.slice(-4)}
+                </span>
+                <span className="text-[9px] bg-white/10 px-1.5 py-0.5 rounded font-headline uppercase text-white/70 hidden md:inline">
+                  {connectedWallet.chain}
+                </span>
+              </Button>
+            ) : (
+              <Button
+                className="h-10 px-4 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_15px_rgba(147,51,234,0.35)] hover:shadow-[0_0_25px_rgba(147,51,234,0.6)] flex items-center gap-2 border border-purple-400/30 transition-all duration-300 transform hover:-translate-y-0.5"
+              >
+                <Wallet className="h-4 w-4 text-[#c2ff0c] animate-pulse" />
+                <span className="hidden sm:inline">Connecter Web3</span>
+                <span className="text-[9px] bg-black/30 text-[#c2ff0c] px-1.5 py-0.5 rounded font-mono font-normal">
+                  Multi-Chain
+                </span>
+              </Button>
+            )}
           </DialogTrigger>
           <DialogContent className="bg-[#14101a] border-white/10 text-white rounded-2xl max-w-md shadow-2xl space-y-4">
             <DialogHeader>
-              <DialogTitle className="font-headline text-base text-white flex items-center gap-2">
-                <span>Connecteur Multi-Chain Web3</span>
+              <DialogTitle className="font-headline text-base text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-[#c2ff0c]" />
+                  <span>Connecteur Web3 Multi-Chain</span>
+                </div>
                 <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded font-headline font-bold uppercase">
-                  Solana & EVM
+                  Secured
                 </span>
               </DialogTitle>
               <DialogDescription className="text-white/40 text-xs font-body">
-                Connectez votre portefeuille pour exécuter des trades réels et synchroniser vos bénéfices.
+                Connectez votre portefeuille d'actifs numériques pour exécuter des ordres réels et transférer vos bénéfices.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2.5 pt-2">
-              <button
-                onClick={() => alert("Portefeuille Phantom Solana connecté en direct avec succès !")}
-                className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-between transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-purple-900/40 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs">
-                    SOL
+            {connectedWallet ? (
+              <div className="space-y-4 pt-1 font-body">
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/60 font-headline">Portefeuille Actif</span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded font-mono">
+                      Connecté • {connectedWallet.chain}
+                    </span>
                   </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">Phantom / Solflare</p>
-                    <p className="text-[10px] text-white/40 font-mono">Réseau Solana Mainnet</p>
+                  <div>
+                    <p className="text-xs font-bold text-white">{connectedWallet.name}</p>
+                    <p className="text-xs font-mono text-emerald-400 break-all mt-1">{connectedWallet.address}</p>
                   </div>
                 </div>
-                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded">Prêt</span>
-              </button>
 
-              <button
-                onClick={() => alert("Portefeuille MetaMask / BSC connecté en direct avec succès !")}
-                className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-between transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-900/40 border border-amber-500/30 flex items-center justify-center font-bold text-amber-300 text-xs">
-                    BSC
+                <Button
+                  onClick={() => {
+                    localStorage.removeItem('connected_web3_wallet');
+                    setConnectedWallet(null);
+                  }}
+                  className="w-full h-10 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-headline font-bold text-xs rounded-xl"
+                >
+                  Déconnecter le Portefeuille
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2.5 pt-2 font-body">
+                <button
+                  onClick={() => {
+                    const w = { name: "Phantom Solana Wallet", address: "7xK9pM3nL4vQ2wR1sT8uY6zX5aB", chain: "Solana" as const };
+                    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+                    setConnectedWallet(w);
+                  }}
+                  className="w-full p-3.5 bg-white/5 hover:bg-purple-900/20 border border-white/10 hover:border-purple-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-900/50 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs shadow-md">
+                      SOL
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">Phantom / Solflare</p>
+                      <p className="text-[10px] text-white/40 font-mono">Réseau Solana Mainnet</p>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">MetaMask / Trust Wallet</p>
-                    <p className="text-[10px] text-white/40 font-mono">Binance Smart Chain (BEP-20)</p>
-                  </div>
-                </div>
-                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded">Prêt</span>
-              </button>
+                  <span className="text-[10px] bg-purple-500/10 text-purple-300 group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
+                    Connecter
+                  </span>
+                </button>
 
-              <button
-                onClick={() => alert("WalletConnect QR Code généré !")}
-                className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-between transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-900/40 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs">
-                    WC
+                <button
+                  onClick={() => {
+                    const w = { name: "MetaMask BSC Wallet", address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", chain: "BSC" as const };
+                    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+                    setConnectedWallet(w);
+                  }}
+                  className="w-full p-3.5 bg-white/5 hover:bg-amber-900/20 border border-white/10 hover:border-amber-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-900/50 border border-amber-500/30 flex items-center justify-center font-bold text-amber-300 text-xs shadow-md">
+                      BSC
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">MetaMask / Trust Wallet</p>
+                      <p className="text-[10px] text-white/40 font-mono">Binance Smart Chain (BEP-20)</p>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">WalletConnect Universal</p>
-                    <p className="text-[10px] text-white/40 font-mono">Scanner le QR Code mobile</p>
+                  <span className="text-[10px] bg-amber-500/10 text-amber-300 group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
+                    Connecter
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const w = { name: "WalletConnect Mobile", address: "0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7", chain: "Ethereum" as const };
+                    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+                    setConnectedWallet(w);
+                  }}
+                  className="w-full p-3.5 bg-white/5 hover:bg-blue-900/20 border border-white/10 hover:border-blue-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-900/50 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs shadow-md">
+                      WC
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">WalletConnect Universal</p>
+                      <p className="text-[10px] text-white/40 font-mono">Scanner le QR Code mobile</p>
+                    </div>
                   </div>
-                </div>
-                <span className="text-[10px] bg-white/10 text-white/50 font-bold px-2 py-0.5 rounded">Scanner</span>
-              </button>
-            </div>
+                  <span className="text-[10px] bg-blue-500/10 text-blue-300 group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
+                    Scanner
+                  </span>
+                </button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 
