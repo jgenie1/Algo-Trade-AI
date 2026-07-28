@@ -54,7 +54,7 @@ export default function ActivePositionsTable({
           <div className="space-y-3">
             {/* VUE MOBILE (Cartes Tactiles Compactes) */}
             <div className="block md:hidden space-y-3">
-              {filteredPositions.map((p) => {
+              {filteredPositions.map((p, idx) => {
                 const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                 const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
                 const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
@@ -69,7 +69,7 @@ export default function ActivePositionsTable({
                 const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
                 return (
-                  <div key={p.id} className="p-4 bg-[#120d18] border border-white/10 rounded-2xl space-y-3 shadow-lg">
+                  <div key={p.id ? `${p.id}_${idx}` : `pos_mob_${idx}`} className="p-4 bg-[#120d18] border border-white/10 rounded-2xl space-y-3 shadow-lg">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-extrabold text-sm text-white">{cleanAsset}</span>
@@ -124,7 +124,7 @@ export default function ActivePositionsTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPositions.map((p) => {
+                  {filteredPositions.map((p, idx) => {
                     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
                     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
@@ -139,7 +139,7 @@ export default function ActivePositionsTable({
                     const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
                     return (
-                      <TableRow key={p.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <TableRow key={p.id ? `${p.id}_${idx}` : `pos_dt_${idx}`} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                         <TableCell className="py-3 px-4 font-bold font-mono text-white flex items-center gap-2">
                           <span>{cleanAsset}</span>
                           {p.botId && (

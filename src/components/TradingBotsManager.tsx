@@ -523,8 +523,8 @@ export default function TradingBotsManager({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredBots.map((b) => (
-                <div key={b.id} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 relative overflow-hidden group">
+              {filteredBots.map((b, idx) => (
+                <div key={b.id ? `${b.id}_${idx}` : `bot_${idx}`} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 relative overflow-hidden group">
                   <div className={cn(
                     "absolute top-0 right-0 h-1.5 w-1.5 rounded-full m-3",
                     b.status === 'RUNNING' ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
@@ -678,8 +678,8 @@ export default function TradingBotsManager({
                 Le bot n'a rencontré aucun échec pour l'instant. Il apprendra automatiquement de ses pertes futures pour resserrer ses filtres.
               </div>
             ) : (
-              botLearnings.map((l) => (
-                <div key={l.id || Math.random().toString()} className="bg-purple-950/10 border border-purple-500/10 hover:border-purple-500/20 rounded-xl p-3 flex justify-between items-center gap-3 transition-all duration-200">
+              botLearnings.map((l, idx) => (
+                <div key={l.id ? `${l.id}_${idx}` : `lrn_${idx}`} className="bg-purple-950/10 border border-purple-500/10 hover:border-purple-500/20 rounded-xl p-3 flex justify-between items-center gap-3 transition-all duration-200">
                   <div className="space-y-1">
                     <div className="text-[10px] text-purple-400 font-headline uppercase font-bold flex items-center gap-1.5">
                       <span>Leçon #{(l.id || '').replace('lrn_', '')}</span>
@@ -715,8 +715,8 @@ export default function TradingBotsManager({
             {botLogs.length === 0 ? (
               <div className="text-center text-white/20 py-8 font-body">Aucune activité enregistrée.</div>
             ) : (
-              botLogs.map((log) => (
-                <div key={log.id} className="flex items-start gap-2 border-b border-white/5 pb-1.5 last:border-b-0 last:pb-0">
+              botLogs.map((log, idx) => (
+                <div key={log.id ? `${log.id}_${idx}` : `log_${idx}`} className="flex items-start gap-2 border-b border-white/5 pb-1.5 last:border-b-0 last:pb-0">
                   <span className="text-white/30 shrink-0">
                     {new Date(log.timestamp).toLocaleTimeString('fr-FR')}
                   </span>
@@ -756,7 +756,7 @@ export default function TradingBotsManager({
             </div>
           ) : (
             <div className="max-h-60 overflow-y-auto space-y-2.5">
-              {filteredClosed.map((h) => {
+              {filteredClosed.map((h, idx) => {
                 if (!h) return null;
                 const entryP = typeof h.entryPrice === 'number' && !isNaN(h.entryPrice) ? h.entryPrice : 0;
                 const exitP = typeof h.exitPrice === 'number' && !isNaN(h.exitPrice) ? h.exitPrice : entryP;
@@ -765,7 +765,7 @@ export default function TradingBotsManager({
                 const cleanPair = (h.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
                 return (
-                  <div key={h.id || Math.random().toString()} className="bg-white/5 border border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
+                  <div key={h.id ? `${h.id}_${idx}` : `closed_${idx}`} className="bg-white/5 border border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
                     <div>
                       <div className="font-bold flex items-center gap-1.5">
                         {cleanPair}

@@ -106,8 +106,8 @@ export function processBotIteration(
         leverage: botLeverage
       };
     } else {
-      // Créer UNE SEULE position initiale pour ce bot
-      const botPosId = `pos_bot_${bot.id}`;
+      // Créer UNE SEULE position initiale pour ce bot avec ID unique
+      const botPosId = `pos_bot_${bot.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       currentPositions.unshift({
         id: botPosId,
         pair: pairSymbol,
