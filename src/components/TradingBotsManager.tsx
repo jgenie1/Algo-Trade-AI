@@ -679,17 +679,17 @@ export default function TradingBotsManager({
               </div>
             ) : (
               botLearnings.map((l) => (
-                <div key={l.id} className="bg-purple-950/10 border border-purple-500/10 hover:border-purple-500/20 rounded-xl p-3 flex justify-between items-center gap-3 transition-all duration-200">
+                <div key={l.id || Math.random().toString()} className="bg-purple-950/10 border border-purple-500/10 hover:border-purple-500/20 rounded-xl p-3 flex justify-between items-center gap-3 transition-all duration-200">
                   <div className="space-y-1">
                     <div className="text-[10px] text-purple-400 font-headline uppercase font-bold flex items-center gap-1.5">
-                      <span>Leçon #{l.id.replace('lrn_', '')}</span>
+                      <span>Leçon #{(l.id || '').replace('lrn_', '')}</span>
                       <span className="text-white/20">•</span>
-                      <span className="text-white/60 font-body normal-case">Perte évitée: {l.lossAmount.toFixed(2)} $</span>
+                      <span className="text-white/60 font-body normal-case">Perte évitée: {(l.lossAmount || 0).toFixed(2)} $</span>
                     </div>
                     <p className="text-xs text-white/80 font-body leading-relaxed">{l.learningEffect}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className="text-[9px] text-white/30 font-body block">{new Date(l.timestamp).toLocaleTimeString('fr-FR')}</span>
+                    <span className="text-[9px] text-white/30 font-body block">{l.timestamp ? new Date(l.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}</span>
                     <Badge className="mt-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-500/20 text-purple-300 font-headline uppercase border-none">
                       Actif
                     </Badge>
@@ -757,17 +757,23 @@ export default function TradingBotsManager({
           ) : (
             <div className="max-h-60 overflow-y-auto space-y-2.5">
               {filteredClosed.map((h) => {
-                const isProfit = h.profit >= 0;
+                if (!h) return null;
+                const entryP = typeof h.entryPrice === 'number' && !isNaN(h.entryPrice) ? h.entryPrice : 0;
+                const exitP = typeof h.exitPrice === 'number' && !isNaN(h.exitPrice) ? h.exitPrice : entryP;
+                const profitVal = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : 0;
+                const isProfit = profitVal >= 0;
+                const cleanPair = (h.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+
                 return (
-                  <div key={h.id} className="bg-white/5 border border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
+                  <div key={h.id || Math.random().toString()} className="bg-white/5 border border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
                     <div>
                       <div className="font-bold flex items-center gap-1.5">
-                        {h.pair.replace('FX:', '').replace('-USD', '').replace('=', '')}
+                        {cleanPair}
                         <Badge className={cn(
                           "text-[8px] font-bold px-1.5 py-0.5 rounded uppercase border-none",
                           h.type === 'BUY' ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
                         )}>
-                          {h.type === 'BUY' ? 'LONG' : 'SHORT'} {h.leverage}x
+                          {h.type === 'BUY' ? 'LONG' : 'SHORT'} {h.leverage || 1}x
                         </Badge>
                         {h.wasBot && (
                           <Badge className="text-[8px] bg-violet-500/15 text-violet-400 px-1 py-0.5 rounded font-bold uppercase border-none">
@@ -776,7 +782,7 @@ export default function TradingBotsManager({
                         )}
                       </div>
                       <div className="text-[10px] text-white/40 mt-1 font-body">
-                        Entrée: {h.entryPrice.toFixed(h.entryPrice > 100 ? 2 : 5)} | Sortie: {h.exitPrice.toFixed(h.entryPrice > 100 ? 2 : 5)}
+                        Entrée: {entryP.toFixed(entryP > 100 ? 2 : 5)} | Sortie: {exitP.toFixed(entryP > 100 ? 2 : 5)}
                       </div>
                       {(h.buyTxHash || h.sellTxHash) && (
                         <div className="flex gap-2.5 mt-1 text-[9px] font-mono text-purple-400">
@@ -808,10 +814,10 @@ export default function TradingBotsManager({
                         "font-bold text-sm block font-body",
                         isProfit ? "text-emerald-400" : "text-rose-400"
                       )}>
-                        {isProfit ? '+' : ''}{h.profit.toFixed(2)} $
+                        {isProfit ? '+' : ''}{profitVal.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
                       </span>
                       <span className="text-[9px] text-white/30 block font-body">
-                        {new Date(h.timestamp).toLocaleTimeString('fr-FR')}
+                        {h.timestamp ? new Date(h.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}
                       </span>
                     </div>
                   </div>
