@@ -87,6 +87,21 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       }));
     };
 
+    const sanitizeClosed = (arr: any[]) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map((c: any) => {
+        const val = typeof c.profit === 'number' && !isNaN(c.profit) 
+          ? c.profit 
+          : (typeof c.pnl === 'number' && !isNaN(c.pnl) ? c.pnl : 0);
+        return {
+          ...c,
+          profit: val,
+          pnl: val,
+          mode: c.mode ? c.mode : (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')
+        };
+      });
+    };
+
     const loadFromLocalStorage = () => {
       const mode = localStorage.getItem('trade_mode') as 'DEMO' | 'REAL';
       const bal = localStorage.getItem('trade_balance');
@@ -104,7 +119,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (vault) setReserveVault(parseFloat(vault));
       if (vaultSol) setReserveVaultSol(parseFloat(vaultSol));
       if (pos) { try { setActivePositions(sanitizePositions(JSON.parse(pos))); } catch(e) {} }
-      if (closed) { try { setClosedPositions(sanitizePositions(JSON.parse(closed))); } catch(e) {} }
+      if (closed) { try { setClosedPositions(sanitizeClosed(JSON.parse(closed))); } catch(e) {} }
       if (runningBots) { try { setBots(sanitizeBots(JSON.parse(runningBots))); } catch(e) {} }
       if (txs) { try { setTransactions(JSON.parse(txs)); } catch(e) {} }
       if (learnings) { try { setBotLearnings(JSON.parse(learnings)); } catch(e) {} }
@@ -139,7 +154,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           localStorage.setItem('trade_positions', JSON.stringify(sanitized));
         }
         if (data.closedPositions !== undefined) {
-          const sanitized = sanitizePositions(data.closedPositions);
+          const sanitized = sanitizeClosed(data.closedPositions);
           setClosedPositions(sanitized);
           localStorage.setItem('trade_closed', JSON.stringify(sanitized));
         }

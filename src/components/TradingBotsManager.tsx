@@ -167,6 +167,23 @@ export default function TradingBotsManager({
 
   const filteredClosed = closedPositions.filter(h => (h.mode || 'DEMO') === tradingMode);
 
+  const totalGains = filteredClosed.reduce((sum, h) => {
+    const val = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : (typeof h.pnl === 'number' && !isNaN(h.pnl) ? h.pnl : 0);
+    return sum + (val > 0 ? val : 0);
+  }, 0);
+
+  const totalLosses = filteredClosed.reduce((sum, h) => {
+    const val = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : (typeof h.pnl === 'number' && !isNaN(h.pnl) ? h.pnl : 0);
+    return sum + (val < 0 ? Math.abs(val) : 0);
+  }, 0);
+
+  const netRealizedPnL = totalGains - totalLosses;
+  const winningCount = filteredClosed.filter(h => {
+    const val = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : (typeof h.pnl === 'number' && !isNaN(h.pnl) ? h.pnl : 0);
+    return val >= 0;
+  }).length;
+  const overallWinRate = filteredClosed.length > 0 ? (winningCount / filteredClosed.length) * 100 : 0;
+
   return (
     <div className="space-y-6">
       {/* Bot Configuration Form */}
@@ -738,13 +755,56 @@ export default function TradingBotsManager({
       {/* Closed Positions History */}
       <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 shadow-xl">
         <CardHeader className="p-0 mb-4">
-          <CardTitle className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline flex items-center gap-2">
-            <History className="h-4 w-4 text-white/40" />
-            {tradingMode === 'DEMO' ? "Historique des Clôtures Démo" : "Historique des Clôtures Réelles (SOL)"} ({filteredClosed.length})
-          </CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline flex items-center gap-2">
+              <History className="h-4 w-4 text-white/40" />
+              {tradingMode === 'DEMO' ? "Historique des Clôtures Démo" : "Historique des Clôtures Réelles (SOL)"} ({filteredClosed.length})
+            </CardTitle>
+            {filteredClosed.length > 0 && (
+              <Badge className={cn(
+                "text-[10px] font-mono font-bold px-2 py-0.5 border-none",
+                netRealizedPnL >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+              )}>
+                PnL Net: {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+              </Badge>
+            )}
+          </div>
         </CardHeader>
 
         <CardContent className="p-0">
+          {/* Summary Statistics Bar for Closed Positions */}
+          {filteredClosed.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 p-3 bg-white/5 border border-white/10 rounded-xl text-xs font-mono">
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-emerald-400/80 font-headline uppercase block font-semibold">Gains Cumulés</span>
+                <span className="text-sm font-extrabold text-emerald-400 block">
+                  +{totalGains.toFixed(tradingMode === 'REAL' ? 4 : 2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                </span>
+              </div>
+
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-rose-400/80 font-headline uppercase block font-semibold">Pertes Cumulées</span>
+                <span className="text-sm font-extrabold text-rose-400 block">
+                  -{totalLosses.toFixed(tradingMode === 'REAL' ? 4 : 2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                </span>
+              </div>
+
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-white/50 font-headline uppercase block font-semibold">PnL Net Réalisé</span>
+                <span className={cn("text-sm font-extrabold block", netRealizedPnL >= 0 ? "text-[#c2ff0c]" : "text-rose-400")}>
+                  {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(tradingMode === 'REAL' ? 4 : 2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                </span>
+              </div>
+
+              <div className="space-y-0.5">
+                <span className="text-[9px] text-violet-400/80 font-headline uppercase block font-semibold">Taux de Victoire</span>
+                <span className="text-sm font-extrabold text-violet-300 block">
+                  {overallWinRate.toFixed(0)}%
+                </span>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="border border-white/5 rounded-xl p-4 flex items-center gap-3">
               <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
