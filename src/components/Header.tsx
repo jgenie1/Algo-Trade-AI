@@ -287,9 +287,6 @@ export default function Header() {
           </div>
         </div>
 
-        {/* PWA Install Button */}
-        <PWAInstallBanner />
-
         {/* DEX Swap Quick Trigger Button */}
         <Button
           onClick={() => setIsSwapOpen(true)}
