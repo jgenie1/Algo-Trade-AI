@@ -297,13 +297,13 @@ export function useTradingSimulation() {
     return () => clearInterval(noiseInterval);
   }, []);
 
-  // Compute live equity
+  // Compute live equity based on free balance, locked margins, active bots and live PnL
   useEffect(() => {
-    let totalPnL = 0;
-    let lockedMargin = 0;
+    let totalManualPnL = 0;
+    let lockedManualMargin = 0;
 
-    (activePositions || []).forEach(p => {
-      if (!p) return;
+    const manualPositions = (activePositions || []).filter(p => p && !p.botId);
+    manualPositions.forEach(p => {
       const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
       const current = livePrices[p.pair] || entry;
       const priceDiff = current - entry;
@@ -312,18 +312,26 @@ export function useTradingSimulation() {
       const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
       const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
       if (!isNaN(rawProfit)) {
-        totalPnL += rawProfit;
+        totalManualPnL += rawProfit;
       }
       if (!isNaN(amt)) {
-        lockedMargin += amt;
+        lockedManualMargin += amt;
       }
     });
 
+    let activeBotsCapitalAndPnL = 0;
+    (bots || []).forEach(b => {
+      if (!b || b.status !== 'RUNNING') return;
+      const cap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0;
+      const botPnL = typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : (typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : 0);
+      activeBotsCapitalAndPnL += cap + botPnL;
+    });
+
     const safeBal = typeof balance === 'number' && !isNaN(balance) ? balance : 10000;
-    const calcEquity = safeBal + lockedMargin + totalPnL;
+    const calcEquity = safeBal + lockedManualMargin + activeBotsCapitalAndPnL + totalManualPnL;
 
     setEquity(isNaN(calcEquity) ? safeBal : calcEquity);
-  }, [activePositions, livePrices, balance]);
+  }, [activePositions, livePrices, balance, bots]);
 
   // Refs for intervals
   const botsRef = useRef(bots);

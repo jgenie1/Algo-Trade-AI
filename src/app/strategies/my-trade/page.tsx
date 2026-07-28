@@ -403,25 +403,40 @@ export default function TradingTerminalPage() {
     return () => clearInterval(noiseInterval);
   }, []);
 
-  // Compute live equity based on active positions PnL and locked funds
+  // Compute live equity based on free balance, locked margins, active bots and live PnL
   useEffect(() => {
-    let totalPnL = 0;
-    activePositions.forEach(p => {
-      const current = livePrices[p.pair] || p.entryPrice;
-      const priceDiff = current - p.entryPrice;
-      const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-      const pnl = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
-      totalPnL += pnl;
+    let totalManualPnL = 0;
+    let lockedManualMargin = 0;
+
+    const manualPositions = (activePositions || []).filter(p => p && !p.botId);
+    manualPositions.forEach(p => {
+      const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+      const current = livePrices[p.pair] || entry;
+      const priceDiff = current - entry;
+      const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+      const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
+      const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+      const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
+      if (!isNaN(rawProfit)) {
+        totalManualPnL += rawProfit;
+      }
+      if (!isNaN(amt)) {
+        lockedManualMargin += amt;
+      }
     });
 
-    const lockedManualMargin = activePositions
-      .filter(p => !p.botId)
-      .reduce((sum, p) => sum + p.amount, 0);
+    let activeBotsCapitalAndPnL = 0;
+    (bots || []).forEach(b => {
+      if (!b || b.status !== 'RUNNING') return;
+      const cap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0;
+      const botPnL = typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : (typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : 0);
+      activeBotsCapitalAndPnL += cap + botPnL;
+    });
 
-    const activeBotCapital = bots
-      .reduce((sum, b) => sum + b.capital, 0);
+    const safeBal = typeof balance === 'number' && !isNaN(balance) ? balance : 10000;
+    const calcEquity = safeBal + lockedManualMargin + activeBotsCapitalAndPnL + totalManualPnL;
 
-    setEquity(balance + lockedManualMargin + activeBotCapital + totalPnL);
+    setEquity(isNaN(calcEquity) ? safeBal : calcEquity);
   }, [activePositions, livePrices, balance, bots]);
 
   // Refs to maintain latest state values in async intervals
