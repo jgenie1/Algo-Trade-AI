@@ -31,7 +31,7 @@ const GUIDE_TABS = [
 type GuideTab = typeof GUIDE_TABS[number]['id'];
 
 export default function DepositPage() {
-  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, setReserveVault, transactions, setTransactions } = useAppState();
+  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, setReserveVault, reserveVaultSol, setReserveVaultSol, transactions, setTransactions } = useAppState();
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -44,26 +44,32 @@ export default function DepositPage() {
 
   const handleUnlockVault = (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = parseFloat(vaultUnlockAmount) || (reserveVault || 0);
-    if (amt <= 0 || amt > (reserveVault || 0)) {
+    const isReal = tradingMode === 'REAL';
+    const currentVault = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
+    const amt = parseFloat(vaultUnlockAmount) || currentVault;
+    if (amt <= 0 || amt > currentVault) {
       alert("Montant à déverrouiller invalide.");
       return;
     }
     setIsUnlockingVault(true);
     setTimeout(() => {
-      setReserveVault(prev => Math.max(0, prev - amt));
-      setBalance(prev => prev + amt);
+      if (isReal) {
+        setReserveVaultSol(prev => Math.max(0, prev - amt));
+      } else {
+        setReserveVault(prev => Math.max(0, prev - amt));
+        setBalance(prev => prev + amt);
+      }
       setTransactions(prev => [{
         id: 'tx_vault_' + Math.random().toString(36).substring(2, 9),
         type: 'DEPOSIT' as const,
         amount: amt,
-        currency: 'USD',
+        currency: isReal ? 'SOL' : 'USD',
         timestamp: Date.now(),
         status: 'COMPLETED'
       }, ...(prev || [])]);
       setIsUnlockingVault(false);
       setVaultUnlockAmount('');
-      alert(`Succès ! $${amt.toFixed(2)} transférés du Coffre-Fort vers votre Solde Principal.`);
+      alert(`Succès ! ${isReal ? `${amt.toFixed(2)} SOL` : `$${amt.toFixed(2)}`} transférés du Coffre-Fort vers votre Solde Principal.`);
     }, 600);
   };
 
@@ -88,6 +94,10 @@ export default function DepositPage() {
 
   const handleDemoDeposit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (tradingMode === 'REAL') {
+      alert("Vous êtes actuellement en mode REAL (Solana). Pour créditer votre solde virtuel de démonstration, veuillez basculer en mode DEMO.");
+      return;
+    }
     const amt = parseFloat(depositAmount);
     if (isNaN(amt) || amt <= 0) return;
     setIsLoading(true);
@@ -103,7 +113,8 @@ export default function DepositPage() {
       }, ...(prev || [])]);
       setIsLoading(false);
       setDepositAmount('1000');
-    }, 800);
+      alert(`Succès ! $${amt.toFixed(2)} virtuels ajoutés à votre solde Démo.`);
+    }, 500);
   };
 
   if (!isMounted) {
@@ -293,7 +304,7 @@ export default function DepositPage() {
                 <div className="space-y-2">
                   <div className="text-3xl font-extrabold text-purple-300 font-body flex items-center gap-2">
                     <Coins className="h-7 w-7 text-purple-400" />
-                    <span>{solanaBalance !== null ? `${solanaBalance.toFixed(4)} SOL` : '0.0000 SOL'}</span>
+                    <span>{solanaBalance !== null ? `${solanaBalance.toFixed(2)} SOL` : '0.00 SOL'}</span>
                   </div>
                   <div className="text-[11px] text-emerald-400 font-mono font-semibold">
                     {formatSolToUsdAndHtg(solanaBalance).combinedLabel}

@@ -224,7 +224,7 @@ export default function SaaSERPPage() {
               <span className="text-[10px] uppercase font-bold text-purple-400 font-headline block">Trésorerie Disponible</span>
               <div className="text-2xl font-extrabold text-white font-body">
                 {tradingMode === 'REAL' 
-                  ? `${solanaBalance !== null ? solanaBalance.toFixed(3) : '0.000'} SOL` 
+                  ? `${solanaBalance !== null ? solanaBalance.toFixed(2) : '0.00'} SOL` 
                   : `${balance.toLocaleString('fr-FR')} $`
                 }
               </div>
@@ -276,7 +276,7 @@ export default function SaaSERPPage() {
               <div className="bg-white/5 border border-white/5 rounded-xl p-4 space-y-3">
                 <span className="text-[10px] uppercase font-bold text-purple-400 font-headline">Fonds Blockchain Solana (SOL)</span>
                 <div className="text-xl font-bold font-mono text-white">
-                  {solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL
+                  {solanaBalance !== null ? solanaBalance.toFixed(2) : '0.00'} SOL
                 </div>
                 <div className="text-xs text-purple-300 font-mono">
                   {formatSolToUsdAndHtg(solanaBalance).combinedLabel}

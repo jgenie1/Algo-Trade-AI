@@ -314,7 +314,8 @@ export function useTradingSimulation() {
       const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
       const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
       const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-      const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
+      const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+      const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
       if (!isNaN(rawProfit)) {
         totalManualPnL += rawProfit;
       }
@@ -504,8 +505,8 @@ export function useTradingSimulation() {
                       amount: newAmount,
                       entryPrice: newAvgEntry,
                       dcaCount: newEntryCount,
-                      sl: p.type === 'BUY' ? parseFloat((newAvgEntry * (1 - slDistance)).toFixed(5)) : parseFloat((newAvgEntry * (1 + slDistance)).toFixed(5)),
-                      tp: p.type === 'BUY' ? parseFloat((newAvgEntry * (1 + tpDistance)).toFixed(5)) : parseFloat((newAvgEntry * (1 - tpDistance)).toFixed(5))
+                      sl: (p.type === 'BUY' || p.type === 'LONG') ? parseFloat((newAvgEntry * (1 - slDistance)).toFixed(5)) : parseFloat((newAvgEntry * (1 + slDistance)).toFixed(5)),
+                      tp: (p.type === 'BUY' || p.type === 'LONG') ? parseFloat((newAvgEntry * (1 + tpDistance)).toFixed(5)) : parseFloat((newAvgEntry * (1 - tpDistance)).toFixed(5))
                     };
                   }
                   return p;
@@ -696,7 +697,7 @@ export function useTradingSimulation() {
           } else {
             // Standard quant strategy bot evaluation (with support for 'ALL' pairs scanning)
             const pairsToScan = bot.pair === 'ALL'
-              ? currencyPairs.map(cp => cp.value)
+              ? currencyPairs.map(cp => cp.value).filter(v => v !== 'ALL')
               : [bot.pair];
 
             let signalOpened = false;
@@ -963,7 +964,7 @@ export function useTradingSimulation() {
                   type: signal,
                   entryPrice: lastClose,
                   currentPrice: lastClose,
-                  amount: (bot.capital / 3),
+                  amount: parseFloat((bot.capital / 3).toFixed(2)),
                   leverage: bot.strategy === 'AI Autopilot (Machine à Cash)'
                     ? (bot.riskProfile === 'CONSERVATIVE' ? 5 : bot.riskProfile === 'AGGRESSIVE' ? 20 : 10)
                     : 10,
@@ -1015,7 +1016,8 @@ export function useTradingSimulation() {
         const current = livePricesRef.current[p.pair];
         if (!current) return;
 
-        if (p.type === 'BUY') {
+        const isLong = p.type === 'BUY' || p.type === 'LONG';
+        if (isLong) {
           const currentHighest = p.highestPrice || p.entryPrice;
           if (current > currentHighest) {
             p.highestPrice = current;
@@ -1042,7 +1044,7 @@ export function useTradingSimulation() {
         let shouldClose = false;
         let closeReason = '';
 
-        if (p.type === 'BUY') {
+        if (isLong) {
           if (p.sl && current <= p.sl) {
             shouldClose = true;
             closeReason = `Stop Loss suiveur déclenché (${current.toFixed(5)} <= ${p.sl})`;
@@ -1066,7 +1068,7 @@ export function useTradingSimulation() {
       });
     };
 
-    const interval = setInterval(checkStops, 2000);
+    const interval = setInterval(checkStops, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -1120,7 +1122,8 @@ export function useTradingSimulation() {
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-    const profit = pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1);
+    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+    const profit = pctDiff * amt * lev * (isLong ? 1 : -1);
 
     const posMode = p.mode || 'DEMO';
     if (posMode === 'DEMO') {
@@ -1202,7 +1205,7 @@ export function useTradingSimulation() {
         let learningEffect = '';
         if (p.entryRsi !== undefined) {
           const emaStatus = p.entryEmaTrend === 'ABOVE' ? 'au-dessus de' : 'sous';
-          if (p.type === 'BUY') {
+          if (p.type === 'BUY' || p.type === 'LONG') {
             learningEffect = `Éviter LONG sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
           } else {
             learningEffect = `Éviter SHORT sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
@@ -1314,7 +1317,17 @@ export function useTradingSimulation() {
     if (!bot) return;
     const nextStatus = bot.status === 'RUNNING' ? 'STOPPED' : 'RUNNING';
     addBotLog(bot.id, bot.strategy, `Bot ${nextStatus === 'RUNNING' ? 'redémarré' : 'mis en pause'}.`, 'info');
-    setBots(prev => prev.map(b => b.id === botId ? { ...b, status: nextStatus } : b));
+    setBots(prev => prev.map(b => {
+      if (b.id === botId) {
+        const isResetLoss = nextStatus === 'RUNNING' && ((b.pnl ?? 0) <= -b.capital || (b.netProfit ?? 0) <= -b.capital);
+        return {
+          ...b,
+          status: nextStatus,
+          ...(isResetLoss ? { pnl: 0, netProfit: 0, pnlPercent: 0 } : {})
+        };
+      }
+      return b;
+    }));
   };
 
   const handleDeleteBot = (botId: string) => {

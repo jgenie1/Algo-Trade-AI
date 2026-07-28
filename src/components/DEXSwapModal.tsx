@@ -40,7 +40,16 @@ export default function DEXSwapModal({ isOpen, onClose }: DEXSwapModalProps) {
   const [fromToken, setFromToken] = useState<SwapToken>(availableTokens[0] || POPULAR_TOKENS[0]);
   const [toToken, setToToken] = useState<SwapToken>(availableTokens[1] || POPULAR_TOKENS[1]);
   const [amount, setAmount] = useState<string>('1.0');
-  const [slippage, setSlippage] = useState<number>(0.5);
+  const [slippage, setSlippage] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('settings_slippage');
+      if (stored) {
+        const parsed = parseFloat(stored);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
+    return 0.5;
+  });
 
   const [quote, setQuote] = useState<SwapQuote | null>(null);
   const [isQuoting, setIsQuoting] = useState<boolean>(false);
@@ -85,6 +94,13 @@ export default function DEXSwapModal({ isOpen, onClose }: DEXSwapModalProps) {
     setToToken(fromToken);
   };
 
+  const getTokenUsdPrice = (token: SwapToken): number => {
+    if (token.symbol === 'SOL') return 145.0;
+    if (token.symbol === 'ETH') return 3250.0;
+    if (token.symbol === 'BNB') return 580.0;
+    return 1.0; // USDC, USDT, etc.
+  };
+
   const handleExecuteSwap = async () => {
     const numAmount = parseFloat(amount);
     if (!quote || isNaN(numAmount) || numAmount <= 0) return;
@@ -100,12 +116,11 @@ export default function DEXSwapModal({ isOpen, onClose }: DEXSwapModalProps) {
 
       // Mettre à jour le solde fictif si en mode Démo
       if (tradingMode === 'DEMO') {
-        if (fromToken.symbol === 'SOL' || fromToken.symbol === 'ETH') {
-          const costUsd = numAmount * (fromToken.symbol === 'SOL' ? 145.5 : 3250);
-          setBalance(prev => Math.max(0, prev - costUsd + parseFloat(quote.outAmount)));
-        } else {
-          setBalance(prev => prev + (parseFloat(quote.outAmount) * 145.5));
-        }
+        const fromValueUsd = numAmount * getTokenUsdPrice(fromToken);
+        const outQty = parseFloat(quote.outAmount) || 0;
+        const toValueUsd = outQty * getTokenUsdPrice(toToken);
+        const netDiffUsd = toValueUsd - fromValueUsd;
+        setBalance(prev => Math.max(0, prev + netDiffUsd));
       }
     }
   };

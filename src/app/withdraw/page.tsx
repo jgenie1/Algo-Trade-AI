@@ -23,7 +23,7 @@ const SOLANA_NETWORK_FEE = 0.00005;
 const PRIORITY_FEE_ESTIMATE = 0.001;
 
 export default function WithdrawPage() {
-  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, setReserveVault, transactions, setTransactions } = useAppState();
+  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, setReserveVault, reserveVaultSol, setReserveVaultSol, transactions, setTransactions } = useAppState();
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
   const isSolanaWalletActive = !!solanaPubKey;
@@ -39,26 +39,32 @@ export default function WithdrawPage() {
 
   const handleUnlockVault = (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = parseFloat(vaultUnlockAmount) || (reserveVault || 0);
-    if (amt <= 0 || amt > (reserveVault || 0)) {
+    const isReal = tradingMode === 'REAL';
+    const currentVault = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
+    const amt = parseFloat(vaultUnlockAmount) || currentVault;
+    if (amt <= 0 || amt > currentVault) {
       alert("Montant à déverrouiller invalide.");
       return;
     }
     setIsUnlockingVault(true);
     setTimeout(() => {
-      setReserveVault(prev => Math.max(0, prev - amt));
-      setBalance(prev => prev + amt);
+      if (isReal) {
+        setReserveVaultSol(prev => Math.max(0, prev - amt));
+      } else {
+        setReserveVault(prev => Math.max(0, prev - amt));
+        setBalance(prev => prev + amt);
+      }
       setTransactions(prev => [{
         id: 'tx_vault_' + Math.random().toString(36).substring(2, 9),
         type: 'DEPOSIT' as const,
         amount: amt,
-        currency: 'USD',
+        currency: isReal ? 'SOL' : 'USD',
         timestamp: Date.now(),
         status: 'COMPLETED'
       }, ...(prev || [])]);
       setIsUnlockingVault(false);
       setVaultUnlockAmount('');
-      alert(`Succès ! $${amt.toFixed(2)} transférés du Coffre-Fort vers votre Solde Principal.`);
+      alert(`Succès ! ${isReal ? `${amt.toFixed(2)} SOL` : `$${amt.toFixed(2)}`} transférés du Coffre-Fort vers votre Solde Principal.`);
     }, 600);
   };
 
@@ -79,7 +85,7 @@ export default function WithdrawPage() {
       ? Math.max(0, (solanaBalance || 0) - SOLANA_NETWORK_FEE - PRIORITY_FEE_ESTIMATE)
       : balance;
     if (maxAvailable <= 0) { setWithdrawAmount('0'); return; }
-    setWithdrawAmount((maxAvailable * (pct / 100)).toFixed(tradingMode === 'REAL' ? 4 : 2));
+    setWithdrawAmount((maxAvailable * (pct / 100)).toFixed(2));
   };
 
   const handleWithdraw = async (e: React.FormEvent) => {

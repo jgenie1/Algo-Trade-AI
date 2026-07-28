@@ -216,7 +216,7 @@ export default function Header() {
   (closedPositions || []).slice(0, 3).forEach(pos => {
     if (!pos) return;
     const pairStr = pos.pair || '';
-    const profitVal = pos.profit || 0;
+    const profitVal = Number(pos.profit) || 0;
     const isSol = pairStr.startsWith('SOL:');
     const posTime = pos.timestamp ? new Date(pos.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'Récemment';
     notifications.push({
@@ -281,8 +281,8 @@ export default function Header() {
             </span>
             <span className="text-xs font-mono font-bold text-[#c2ff0c]">
               {tradingMode === 'REAL' 
-                ? `${(reserveVaultSol || 0).toFixed(4)} SOL` 
-                : `$${(reserveVault || 0).toFixed(2)}`}
+                ? `${(Number(reserveVaultSol) || 0).toFixed(2)} SOL` 
+                : `$${(Number(reserveVault) || 0).toFixed(2)}`}
             </span>
           </div>
         </div>
@@ -604,7 +604,12 @@ export default function Header() {
 
             {/* Toggle Trading Mode directly */}
             <DropdownMenuItem 
-              onClick={() => setTradingMode(prev => prev === 'DEMO' ? 'REAL' : 'DEMO')}
+              onClick={() => {
+                if (tradingMode === 'DEMO' && !connectedWallet) {
+                  alert("⚠️ Attention: Aucun portefeuille Web3 (Phantom/MetaMask) n'est actuellement connecté. Veuillez connecter votre portefeuille pour exécuter des trades réels.");
+                }
+                setTradingMode(prev => prev === 'DEMO' ? 'REAL' : 'DEMO');
+              }}
               className="px-3.5 py-2 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex justify-between items-center"
             >
               <span>Mode de Trading</span>

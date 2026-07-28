@@ -61,10 +61,11 @@ export default function ActivePositionsTable({
                 const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
                 const priceDiff = current - entry;
                 const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
-                const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
-                const profit = isNaN(rawProfit) ? 0 : rawProfit;
-                const rawPnlPct = typeof p.pnlPercent === 'number' && !isNaN(p.pnlPercent) ? p.pnlPercent : (pctDiff * lev * (p.type === 'BUY' ? 100 : -100));
-                const pnlPct = isNaN(rawPnlPct) ? 0 : rawPnlPct;
+                const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+                const liveProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
+                const profit = isNaN(liveProfit) ? 0 : liveProfit;
+                const livePnlPct = pctDiff * lev * (isLong ? 100 : -100);
+                const pnlPct = isNaN(livePnlPct) ? 0 : livePnlPct;
                 const isProfit = profit >= 0;
                 const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
@@ -73,7 +74,7 @@ export default function ActivePositionsTable({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-extrabold text-sm text-white">{cleanAsset}</span>
-                        <Badge className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border-none", p.type === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
+                        <Badge className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border-none", isLong ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                           {p.type} {lev}x
                         </Badge>
                         {p.botId && (
@@ -84,7 +85,7 @@ export default function ActivePositionsTable({
                       </div>
                       <div className="text-right">
                         <span className={cn("text-sm font-extrabold font-mono block", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                          {isProfit ? '+' : ''}{profit.toFixed(tradingMode === 'DEMO' ? 2 : 4)} {tradingMode === 'DEMO' ? '$' : 'SOL'}
+                          {isProfit ? '+' : ''}{profit.toFixed(2)} {tradingMode === 'DEMO' ? '$' : 'SOL'}
                         </span>
                         <span className={cn("text-[10px] font-mono block", isProfit ? "text-emerald-400" : "text-rose-400")}>
                           ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
@@ -93,8 +94,8 @@ export default function ActivePositionsTable({
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-white/60 bg-white/5 p-2.5 rounded-xl">
-                      <div>Entrée: <span className="text-white font-bold">{entry.toFixed(4)}</span></div>
-                      <div>Prix: <span className="text-white font-bold">{current.toFixed(4)}</span></div>
+                      <div>Entrée: <span className="text-white font-bold">{entry.toFixed(2)}</span></div>
+                      <div>Prix: <span className="text-white font-bold">{current.toFixed(2)}</span></div>
                     </div>
 
                     <Button
@@ -131,10 +132,11 @@ export default function ActivePositionsTable({
                     const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
                     const priceDiff = current - entry;
                     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
-                    const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
-                    const profit = isNaN(rawProfit) ? 0 : rawProfit;
-                    const rawPnlPct = typeof p.pnlPercent === 'number' && !isNaN(p.pnlPercent) ? p.pnlPercent : (pctDiff * lev * (p.type === 'BUY' ? 100 : -100));
-                    const pnlPct = isNaN(rawPnlPct) ? 0 : rawPnlPct;
+                    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+                    const liveProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
+                    const profit = isNaN(liveProfit) ? 0 : liveProfit;
+                    const livePnlPct = pctDiff * lev * (isLong ? 100 : -100);
+                    const pnlPct = isNaN(livePnlPct) ? 0 : livePnlPct;
                     const isProfit = profit >= 0;
                     const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
@@ -149,16 +151,16 @@ export default function ActivePositionsTable({
                           )}
                         </TableCell>
                         <TableCell className="py-3 px-4">
-                          <Badge className={cn("text-[10px] font-bold px-2 py-0.5 border-none", p.type === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
+                          <Badge className={cn("text-[10px] font-bold px-2 py-0.5 border-none", isLong ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
                             {p.type}
                           </Badge>
                         </TableCell>
                         <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{lev}x</TableCell>
-                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{amt} {tradingMode === 'DEMO' ? '$' : 'SOL'}</TableCell>
-                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{entry.toFixed(4)}</TableCell>
-                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{current.toFixed(4)}</TableCell>
+                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{amt.toFixed(2)} {tradingMode === 'DEMO' ? '$' : 'SOL'}</TableCell>
+                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{entry.toFixed(2)}</TableCell>
+                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{current.toFixed(2)}</TableCell>
                         <TableCell className={cn("py-3 px-4 text-right font-mono font-bold text-xs", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                          {isProfit ? '+' : ''}{profit.toFixed(tradingMode === 'DEMO' ? 2 : 4)} ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
+                          {isProfit ? '+' : ''}{profit.toFixed(2)} ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
                         </TableCell>
                         <TableCell className="py-3 px-4 text-center">
                           <Button

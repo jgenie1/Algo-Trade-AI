@@ -7,17 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Calculator, ShieldCheck, Percent, Zap } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
 
-export default function PositionRiskCalculator() {
-  const { balance, reserveVault } = useAppState();
+interface PositionRiskCalculatorProps {
+  solanaBalance?: number | null;
+}
 
-  const allocatableBalance = Math.max(0, balance - (reserveVault || 0));
+export default function PositionRiskCalculator({ solanaBalance }: PositionRiskCalculatorProps) {
+  const { balance, reserveVault, reserveVaultSol, tradingMode } = useAppState();
+
+  const isReal = tradingMode === 'REAL';
+  const rawBal = isReal ? (solanaBalance || 0) : balance;
+  const vaultVal = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
+  const allocatableBalance = Math.max(0, rawBal - vaultVal);
+  const currencySymbol = isReal ? 'SOL' : '$';
 
   const [riskPercent, setRiskPercent] = useState<number>(1.0); // 1% par défaut
   const [stopLossPips, setStopLossPips] = useState<number>(20); // 20 pips/points par défaut
   const [entryPrice, setEntryPrice] = useState<number>(145.50);
 
   // Calculs de gestion de risque
-  const maxRiskAmount = allocatableBalance * (riskPercent / 100); // Perte max tolérée en $
+  const maxRiskAmount = allocatableBalance * (riskPercent / 100); // Perte max tolérée
   const recommendedTradeSize = (allocatableBalance / 3); // 1/3 de règle stricte
   const lotSizeUnits = stopLossPips > 0 ? (maxRiskAmount / (stopLossPips * 0.1)).toFixed(2) : '0';
 
@@ -27,7 +35,7 @@ export default function PositionRiskCalculator() {
         <div className="flex items-center gap-2">
           <Calculator className="h-5 w-5 text-[#c2ff0c]" />
           <h3 className="text-sm font-extrabold font-headline uppercase text-white">
-            Calculateur De Risque & Taille De Position
+            Calculateur De Risque & Taille De Position ({isReal ? 'SOL' : 'USD'})
           </h3>
         </div>
         <span className="text-[9px] bg-[#c2ff0c]/15 text-[#c2ff0c] px-2 py-0.5 rounded font-mono font-bold uppercase">
@@ -75,11 +83,15 @@ export default function PositionRiskCalculator() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 bg-white/[0.03] rounded-xl border border-white/5 font-mono text-center">
         <div>
           <span className="text-[9px] text-white/40 block font-headline uppercase">Perte Max Risquée</span>
-          <span className="text-sm font-extrabold text-rose-400">${maxRiskAmount.toFixed(2)}</span>
+          <span className="text-sm font-extrabold text-rose-400">
+            {isReal ? `${maxRiskAmount.toFixed(2)} SOL` : `$${maxRiskAmount.toFixed(2)}`}
+          </span>
         </div>
         <div>
           <span className="text-[9px] text-white/40 block font-headline uppercase">Taille Ordre Recommandée (1/3)</span>
-          <span className="text-sm font-extrabold text-[#c2ff0c]">${recommendedTradeSize.toFixed(2)}</span>
+          <span className="text-sm font-extrabold text-[#c2ff0c]">
+            {isReal ? `${recommendedTradeSize.toFixed(2)} SOL` : `$${recommendedTradeSize.toFixed(2)}`}
+          </span>
         </div>
         <div className="col-span-2 sm:col-span-1">
           <span className="text-[9px] text-white/40 block font-headline uppercase">Taille Lot Estimée</span>

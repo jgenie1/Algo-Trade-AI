@@ -25,29 +25,37 @@ import DEXSwapModal from '@/components/DEXSwapModal';
 import PanicKillSwitch from '@/components/PanicKillSwitch';
 
 export default function MobileQuickActionSheet() {
-  const { reserveVault, reserveVaultSol, tradingMode, setBalance, setReserveVault, setTransactions } = useAppState();
+  const { reserveVault, reserveVaultSol, tradingMode, setBalance, setReserveVault, setReserveVaultSol, setTransactions } = useAppState();
   const [isOpen, setIsOpen] = useState(false);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
 
   const handleUnlockVaultFast = () => {
-    const vaultAmt = tradingMode === 'REAL' ? (reserveVaultSol || 0) : (reserveVault || 0);
+    const isReal = tradingMode === 'REAL';
+    const vaultAmt = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
+    const currencyLabel = isReal ? 'SOL' : 'USD';
+    const formattedAmt = isReal ? `${vaultAmt.toFixed(4)} SOL` : `$${vaultAmt.toFixed(2)}`;
+
     if (vaultAmt <= 0) {
       alert("Le Coffre-Fort est actuellement vide.");
       return;
     }
-    if (confirm(`Transférer $${vaultAmt.toFixed(2)} du Coffre-Fort vers le Solde Principal ?`)) {
-      setReserveVault(0);
-      setBalance(prev => prev + vaultAmt);
+    if (confirm(`Transférer ${formattedAmt} du Coffre-Fort vers le Solde Principal ?`)) {
+      if (isReal) {
+        setReserveVaultSol(0);
+      } else {
+        setReserveVault(0);
+        setBalance(prev => prev + vaultAmt);
+      }
       setTransactions(prev => [{
         id: 'tx_vault_' + Math.random().toString(36).substring(2, 9),
         type: 'DEPOSIT' as const,
         amount: vaultAmt,
-        currency: 'USD',
+        currency: currencyLabel,
         timestamp: Date.now(),
         status: 'COMPLETED'
       }, ...(prev || [])]);
       setIsOpen(false);
-      alert(`Succès ! $${vaultAmt.toFixed(2)} transférés au Solde Principal.`);
+      alert(`Succès ! ${formattedAmt} transférés au Solde Principal.`);
     }
   };
 

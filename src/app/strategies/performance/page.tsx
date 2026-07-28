@@ -64,7 +64,7 @@ export default function PerformancePage() {
     
     const netGains = (
       <div className="flex flex-col">
-        <span>{isReal ? `${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(3)} SOL` : `${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)} $`}</span>
+        <span>{isReal ? `${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)} SOL` : `${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)} $`}</span>
         <span className="text-[9px] text-white/40 font-mono font-normal">
           {isReal ? formatSolToUsdAndHtg(totalProfit).combinedLabel : `≈ ${formatUsdToHtg(totalProfit)}`}
         </span>

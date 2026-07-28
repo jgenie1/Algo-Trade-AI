@@ -127,7 +127,7 @@ export default function TradingTerminalPage() {
                 <div className="text-[10px] uppercase font-bold text-[#c2ff0c] font-headline flex items-center gap-1">
                   🔒 Coffre-Fort (10%)
                 </div>
-                <div className="text-lg font-bold text-[#c2ff0c] font-body mt-0.5">${(reserveVault || 0).toFixed(2)}</div>
+                <div className="text-lg font-bold text-[#c2ff0c] font-body mt-0.5">${(Number(reserveVault) || 0).toFixed(2)}</div>
               </div>
               <div className="px-3 border-r border-white/5">
                 <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Equity</div>

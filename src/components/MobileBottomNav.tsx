@@ -18,7 +18,7 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
   const { reserveVault, reserveVaultSol, tradingMode } = useAppState();
 
-  const vaultAmt = tradingMode === 'REAL' ? (reserveVaultSol || 0) : (reserveVault || 0);
+  const vaultAmt = tradingMode === 'REAL' ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
 
   const navItems = [
     { href: '/', label: 'Accueil', icon: Home },

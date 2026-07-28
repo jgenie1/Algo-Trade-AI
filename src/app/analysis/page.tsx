@@ -212,10 +212,10 @@ export default function ForexAnalysisPage() {
     const lostCount = botTrades.filter(t => t.profit < 0).length;
 
     const walletBalance = {
-      SOL: solanaBalance !== null ? `${solanaBalance.toFixed(4)}` : '0.0000',
+      SOL: solanaBalance !== null ? `${solanaBalance.toFixed(2)}` : '0.00',
       USDT: balance.toFixed(2),
-      ETH: '0.0000',
-      BNB: '0.0000'
+      ETH: '0.00',
+      BNB: '0.00'
     };
 
     return (
@@ -242,7 +242,7 @@ export default function ForexAnalysisPage() {
                   </p>
                   <p className="text-lg font-bold font-mono text-white leading-none mt-1">
                     {tradingMode === 'REAL' 
-                      ? `${solanaBalance !== null ? solanaBalance.toFixed(3) : '0.000'} SOL`
+                      ? `${solanaBalance !== null ? solanaBalance.toFixed(2) : '0.00'} SOL`
                       : `${balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
                     }
                   </p>
@@ -635,8 +635,8 @@ export default function ForexAnalysisPage() {
                               minute: '2-digit'
                             }),
                             pair: p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', ''),
-                            trend: p.type === 'BUY' ? 'HAUSSIÈRE' : 'BAISSIÈRE',
-                            signal: p.type === 'BUY' ? 'ACHAT' as const : 'VENTE' as const,
+                            trend: (p.type === 'BUY' || p.type === 'LONG') ? 'HAUSSIÈRE' : 'BAISSIÈRE',
+                            signal: (p.type === 'BUY' || p.type === 'LONG') ? 'ACHAT' as const : 'VENTE' as const,
                             justification: p.wasBot ? 'Exécuté par bot de trading.' : 'Ordre placé manuellement.',
                             value: `${p.profit >= 0 ? '+' : ''}${p.profit.toFixed(2)} ${p.pair.startsWith('SOL:') ? 'SOL' : '$'}`,
                             status: (p.profit >= 0 ? 'Gagné' : 'Perdu') as 'Gagné' | 'Perdu'
@@ -658,8 +658,8 @@ export default function ForexAnalysisPage() {
                                 minute: '2-digit'
                               }),
                               pair: p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', ''),
-                              trend: p.type === 'BUY' ? 'HAUSSIÈRE' : 'BAISSIÈRE',
-                              signal: p.type === 'BUY' ? 'ACHAT' as const : 'VENTE' as const,
+                              trend: (p.type === 'BUY' || p.type === 'LONG') ? 'HAUSSIÈRE' : 'BAISSIÈRE',
+                              signal: (p.type === 'BUY' || p.type === 'LONG') ? 'ACHAT' as const : 'VENTE' as const,
                               justification: p.wasBot ? 'Exécuté par bot de trading.' : 'Ordre placé manuellement.',
                               value: `${p.profit >= 0 ? '+' : ''}${p.profit.toFixed(2)} ${p.pair.startsWith('SOL:') ? 'SOL' : '$'}`,
                               status: (p.profit >= 0 ? 'Gagné' : 'Perdu') as 'Gagné' | 'Perdu'

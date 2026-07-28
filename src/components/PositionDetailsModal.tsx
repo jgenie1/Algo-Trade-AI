@@ -42,7 +42,8 @@ export default function PositionDetailsModal({
   const current = livePrices[position.pair] || position.entryPrice;
   const priceDiff = current - position.entryPrice;
   const pctDiff = position.entryPrice > 0 ? (priceDiff / position.entryPrice) : 0;
-  const profit = pctDiff * position.amount * position.leverage * (position.type === 'BUY' ? 1 : -1);
+  const isLong = position.type === 'BUY' || (position.type as string) === 'LONG';
+  const profit = pctDiff * position.amount * position.leverage * (isLong ? 1 : -1);
   const isProfit = profit >= 0;
   const cleanName = position.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
   const isSol = position.pair.startsWith('SOL:');
@@ -140,7 +141,7 @@ export default function PositionDetailsModal({
               "text-sm font-bold font-body",
               isProfit ? "text-emerald-400" : "text-rose-400"
             )}>
-              ({isProfit ? '+' : ''}{(pctDiff * position.leverage * (position.type === 'BUY' ? 100 : -100)).toFixed(2)}%)
+              ({isProfit ? '+' : ''}{(pctDiff * position.leverage * (isLong ? 100 : -100)).toFixed(2)}%)
             </span>
           </div>
         </div>

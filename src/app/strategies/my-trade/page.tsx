@@ -416,7 +416,8 @@ export default function TradingTerminalPage() {
       const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
       const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
       const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-      const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
+      const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+      const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
       if (!isNaN(rawProfit)) {
         totalManualPnL += rawProfit;
       }
@@ -966,7 +967,8 @@ export default function TradingTerminalPage() {
 
       const priceDiff = exitPrice - p.entryPrice;
       const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-      const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
+      const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+      const profit = pctDiff * p.amount * p.leverage * (isLong ? 1 : -1);
 
       if (p.botId) {
         // Bot trade margin is handled within the bot's capital. Do not change global balance.
@@ -1306,13 +1308,17 @@ export default function TradingTerminalPage() {
     }
   };
 
-  // Start/Stop bot
   const handleToggleBot = (botId: string) => {
     setBots(prev => prev.map(b => {
       if (b.id === botId) {
         const nextStatus = b.status === 'RUNNING' ? 'STOPPED' : 'RUNNING';
+        const isResetLoss = nextStatus === 'RUNNING' && ((b.pnl ?? 0) <= -b.capital || (b.netProfit ?? 0) <= -b.capital);
         addBotLog(b.id, b.strategy, `Bot ${nextStatus === 'RUNNING' ? 'redémarré' : 'mis en pause'}.`, 'info');
-        return { ...b, status: nextStatus };
+        return {
+          ...b,
+          status: nextStatus,
+          ...(isResetLoss ? { pnl: 0, netProfit: 0, pnlPercent: 0 } : {})
+        };
       }
       return b;
     }));
@@ -1490,8 +1496,9 @@ export default function TradingTerminalPage() {
                   const current = livePrices[p.pair] || p.entryPrice;
                   const priceDiff = current - p.entryPrice;
                   const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-                  const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
-                  const pnlPct = pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100);
+                  const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+                  const profit = pctDiff * p.amount * p.leverage * (isLong ? 1 : -1);
+                  const pnlPct = pctDiff * p.leverage * (isLong ? 100 : -100);
                   const isProfit = profit >= 0;
 
                   const cleanAsset = p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
@@ -2522,7 +2529,8 @@ export default function TradingTerminalPage() {
         const current = livePrices[p.pair] || p.entryPrice;
         const priceDiff = current - p.entryPrice;
         const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-        const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
+        const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+        const profit = pctDiff * p.amount * p.leverage * (isLong ? 1 : -1);
         const isProfit = profit >= 0;
         const cleanName = p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
         const isSol = p.pair.startsWith('SOL:');
@@ -2551,9 +2559,9 @@ export default function TradingTerminalPage() {
                 </h3>
                 <span className={cn(
                   "px-2 py-0.5 rounded text-[10px] font-bold font-headline uppercase",
-                  p.type === 'BUY' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                  isLong ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                 )}>
-                  {p.type === 'BUY' ? 'LONG / ACHAT' : 'SHORT / VENTE'}
+                  {isLong ? 'LONG / ACHAT' : 'SHORT / VENTE'}
                 </span>
               </div>
 
@@ -2610,7 +2618,7 @@ export default function TradingTerminalPage() {
                     "text-sm font-bold font-body",
                     isProfit ? "text-emerald-400" : "text-rose-400"
                   )}>
-                    ({isProfit ? '+' : ''}{(pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100)).toFixed(2)}%)
+                    ({isProfit ? '+' : ''}{(pctDiff * p.leverage * (isLong ? 100 : -100)).toFixed(2)}%)
                   </span>
                 </div>
               </div>

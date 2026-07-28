@@ -68,15 +68,21 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
     const sanitizePositions = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
-      return arr.map((p: any) => ({
-        ...p,
-        leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
-        amount: typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0,
-        entryPrice: typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50,
-        pnl: typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : 0,
-        pnlPercent: typeof p.pnlPercent === 'number' && !isNaN(p.pnlPercent) ? p.pnlPercent : 0,
-        mode: p.mode ? p.mode : (p.pair?.startsWith('SOL:') && p.amount < 100 ? 'REAL' : 'DEMO')
-      }));
+      return arr.map((p: any) => {
+        const cleanPair = (p.pair === 'ALL' || !p.pair) ? 'FX:EURUSD' : p.pair;
+        const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+        const amt = parseFloat(rawAmt.toFixed(2));
+        const isEuroFix = p.pair === 'ALL' || (cleanPair === 'FX:EURUSD' && p.entryPrice > 10);
+        const entry = isEuroFix ? 1.0850 : (typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 1.0850);
+        return {
+          ...p,
+          pair: cleanPair,
+          amount: amt,
+          entryPrice: entry,
+          leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
+          mode: p.mode ? p.mode : (cleanPair.startsWith('SOL:') && amt < 100 ? 'REAL' : 'DEMO')
+        };
+      });
     };
 
     const sanitizeBots = (arr: any[]) => {
@@ -137,16 +143,19 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           localStorage.setItem('trade_mode', data.tradeMode);
         }
         if (data.balance !== undefined) {
-          setBalance(data.balance);
-          localStorage.setItem('trade_balance', data.balance.toString());
+          const val = typeof data.balance === 'number' && !isNaN(data.balance) ? data.balance : (parseFloat(String(data.balance)) || 0);
+          setBalance(val);
+          localStorage.setItem('trade_balance', val.toString());
         }
         if (data.reserveVault !== undefined) {
-          setReserveVault(data.reserveVault);
-          localStorage.setItem('trade_reserve_vault', data.reserveVault.toString());
+          const val = typeof data.reserveVault === 'number' && !isNaN(data.reserveVault) ? data.reserveVault : (parseFloat(String(data.reserveVault)) || 0);
+          setReserveVault(val);
+          localStorage.setItem('trade_reserve_vault', val.toString());
         }
         if (data.reserveVaultSol !== undefined) {
-          setReserveVaultSol(data.reserveVaultSol);
-          localStorage.setItem('trade_reserve_vault_sol', data.reserveVaultSol.toString());
+          const val = typeof data.reserveVaultSol === 'number' && !isNaN(data.reserveVaultSol) ? data.reserveVaultSol : (parseFloat(String(data.reserveVaultSol)) || 0);
+          setReserveVaultSol(val);
+          localStorage.setItem('trade_reserve_vault_sol', val.toString());
         }
         if (data.positions !== undefined) {
           const sanitized = sanitizePositions(data.positions);
@@ -213,6 +222,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         processBotIteration(
           bots, 
           activePositions, 
+          balance,
+          null,
           setBots, 
           setActivePositions, 
           setClosedPositions,
@@ -223,7 +234,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [bots, activePositions]);
+  }, [bots, activePositions, balance]);
 
   // 3. Save to Firestore whenever states change
   useEffect(() => {

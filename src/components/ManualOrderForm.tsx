@@ -200,7 +200,7 @@ export default function ManualOrderForm({
       </CardHeader>
 
       <div className="mb-4">
-        <PositionRiskCalculator />
+        <PositionRiskCalculator solanaBalance={solanaBalance} />
       </div>
 
       <form onSubmit={handlePlaceOrder} className="space-y-4">

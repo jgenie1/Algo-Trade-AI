@@ -18,7 +18,7 @@ export default function VaultGrowthChart() {
   const { balance, reserveVault, reserveVaultSol, tradingMode } = useAppState();
 
   // Génération d'une courbe d'évolution réaliste sur 7 jours
-  const vaultVal = tradingMode === 'REAL' ? (reserveVaultSol || 0) * 145.5 : (reserveVault || 0);
+  const vaultVal = tradingMode === 'REAL' ? (Number(reserveVaultSol) || 0) * 145.5 : (Number(reserveVault) || 0);
   const currentTotal = balance + vaultVal;
 
   const data = [

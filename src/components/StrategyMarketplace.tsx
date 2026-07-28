@@ -125,7 +125,7 @@ export default function StrategyMarketplace() {
   const handleCopyStrategy = (strat: StrategyItem) => {
     const requiredCapital = 500;
     if (allocatableBalance < requiredCapital) {
-      alert(`Capital allocable insuffisant pour démarrer la stratégie ($${allocatableBalance.toFixed(2)} disponibles). Requis: $${requiredCapital}. Le Coffre-Fort de Réserve 10% ($${(reserveVault || 0).toFixed(2)}) est intouchable.`);
+      alert(`Capital allocable insuffisant pour démarrer la stratégie ($${allocatableBalance.toFixed(2)} disponibles). Requis: $${requiredCapital}. Le Coffre-Fort de Réserve 10% ($${(Number(reserveVault) || 0).toFixed(2)}) est intouchable.`);
       return;
     }
 
