@@ -308,24 +308,17 @@ export function useTradingSimulation() {
       const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
       const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
       const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-      const pnl = pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1);
-      if (!isNaN(pnl)) {
-        totalPnL += pnl;
+      const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
+      if (!isNaN(rawProfit)) {
+        totalPnL += rawProfit;
       }
     });
 
-    const lockedManualMargin = (activePositions || [])
-      .filter(p => p && !p.botId)
-      .reduce((sum, p) => sum + (typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0), 0);
-
-    const activeBotCapital = (bots || [])
-      .reduce((sum, b) => sum + (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0), 0);
-
     const safeBal = typeof balance === 'number' && !isNaN(balance) ? balance : 10000;
-    const calcEquity = safeBal + lockedManualMargin + activeBotCapital + totalPnL;
+    const calcEquity = safeBal + totalPnL;
 
     setEquity(isNaN(calcEquity) ? safeBal : calcEquity);
-  }, [activePositions, livePrices, balance, bots]);
+  }, [activePositions, livePrices, balance]);
 
   // Refs for intervals
   const botsRef = useRef(bots);

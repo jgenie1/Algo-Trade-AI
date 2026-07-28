@@ -20,22 +20,22 @@ export interface BotInstance {
   stopLossPct?: number;
   takeProfitPct?: number;
   trailingStopPct?: number;
+  leverage?: number;
 }
 
 /**
  * RÈGLES STRICTES D'EXÉCUTION DU CAPITAL ET DU COFFRE-FORT DE RÉSERVE (10%):
  * 1. Taille de chaque position d'échange (Trade Size) = 1/3 du capital total alloué (bot.capital / 3).
- * 2. Les pertes potentielles sur un trade s'appliquent UNIQUEMENT sur le 1/3 engagé en position.
- * 3. RÈGLE DES GAINS (COFFRE-FORT 10%) : Sur chaque gain réalisé (deltaPnL > 0), 10% du gain est AUTOMATIQUEMENT
- *    mis de côté dans le Coffre-Fort de Réserve (USD en Démo, SOL en Réel).
- * 4. SYNCHRONISATION DES POSITIONS : Les ordres générés par les bots alimentent en temps réel la table des positions actives.
+ * 2. Le levier est déterminé selon la stratégie (5x Arbitrage, 10x Scalping/Grid, 20x Sniper/Momentum).
+ * 3. Chaque bot maintient UNE SEULE position active à la fois dans la table des positions (mise à jour en temps réel).
+ * 4. RÈGLE DES GAINS (COFFRE-FORT 10%) : Sur chaque gain réalisé (deltaPnL > 0), 10% du gain est mis de côté.
  */
 export function processBotIteration(
   bots: BotInstance[],
   activePositions: any[],
   onUpdateBots: (updatedBots: BotInstance[]) => void,
   onUpdatePositions: (updatedPositions: any[]) => void,
-  onUpdateClosedPositions?: (updatedClosed: any[]) => void,
+  onUpdateClosedPositions?: React.Dispatch<React.SetStateAction<any[]>>,
   onUpdateReserveVault?: (updater: (prev: number) => number) => void,
   onUpdateReserveVaultSol?: (updater: (prev: number) => number) => void
 ) {
@@ -43,8 +43,9 @@ export function processBotIteration(
   let totalProfitSkimmedUsd = 0;
   let totalProfitSkimmedSol = 0;
 
-  const newBotPositions: any[] = [];
-  const closedBotPositions: any[] = [];
+  // Copie de travail des positions actives
+  let currentPositions = [...activePositions];
+  const newlyClosedPositions: any[] = [];
 
   const updatedBots = bots.map(bot => {
     if (bot.status !== 'RUNNING') return bot;
@@ -52,16 +53,22 @@ export function processBotIteration(
     const currentPnL = bot.pnl ?? bot.netProfit ?? 0;
     const allocatedCapital = bot.capital > 0 ? bot.capital : 1000;
 
-    // RÈGLE 1 & 2: Taille de trade = 1/3 du capital alloué
+    // Levier adapté à la stratégie
+    const botLeverage = bot.leverage || (
+      bot.strategy.includes('Sniper') || bot.strategy.includes('Momentum') ? 20 :
+      bot.strategy.includes('Arbitrage') ? 5 : 10
+    );
+
+    // RÈGLE 1: Taille de trade = 1/3 du capital alloué
     const tradedAmount = allocatedCapital / 3;
 
-    // Variation du trade sur le 1/3 engagé
+    // Fluctuation simulée sur la position engagée
     const tradeFluctuationPct = (Math.random() - 0.48) * 0.015;
-    const rawDeltaPnL = tradedAmount * tradeFluctuationPct;
+    const rawDeltaPnL = tradedAmount * tradeFluctuationPct * (botLeverage / 10);
 
     let netDeltaPnL = rawDeltaPnL;
 
-    // RÈGLE 3: 10% DE CÔTÉ SUR CHAQUE GAIN
+    // RÈGLE 4: 10% DE CÔTÉ SUR CHAQUE GAIN (COFFRE-FORT)
     if (rawDeltaPnL > 0) {
       const vaultSkim = rawDeltaPnL * 0.10;
       netDeltaPnL = rawDeltaPnL * 0.90;
@@ -73,11 +80,8 @@ export function processBotIteration(
     }
 
     const rawNewPnL = currentPnL + netDeltaPnL;
-    
-    // RÈGLE 4: La perte totale NE PEUT PAS dépasser le capital alloué
     const newPnL = Math.max(-allocatedCapital, rawNewPnL);
     const newPnLPercent = (newPnL / allocatedCapital) * 100;
-    const shouldIncrementTrade = Math.random() < 0.15;
 
     botsChanged = true;
 
@@ -86,19 +90,34 @@ export function processBotIteration(
     const tp = bot.takeProfitPct || 8.0;
     const botDisplayName = bot.name || `Bot ${bot.strategy} (${bot.pair})`;
 
-    // RÈGLE 5: Synchro Table Positions
-    if (shouldIncrementTrade) {
-      const botPosId = `pos_bot_${bot.id}_${Date.now()}`;
-      newBotPositions.push({
+    // Recherche de la position existante pour ce bot
+    const existingPosIndex = currentPositions.findIndex(p => p.botId === bot.id);
+    const pairSymbol = bot.pair === 'ALL' ? 'SOL:SOLUSDT' : bot.pair;
+    const basePrice = 145.50;
+    const currentPrice = basePrice * (1 + tradeFluctuationPct);
+
+    if (existingPosIndex >= 0) {
+      // Mettre à jour la position existante du bot
+      currentPositions[existingPosIndex] = {
+        ...currentPositions[existingPosIndex],
+        currentPrice: parseFloat(currentPrice.toFixed(4)),
+        pnl: parseFloat(newPnL.toFixed(2)),
+        pnlPercent: parseFloat(newPnLPercent.toFixed(2)),
+        leverage: botLeverage
+      };
+    } else {
+      // Créer UNE SEULE position initiale pour ce bot
+      const botPosId = `pos_bot_${bot.id}`;
+      currentPositions.unshift({
         id: botPosId,
-        pair: bot.pair === 'ALL' ? 'SOL:SOLUSDT' : bot.pair,
+        pair: pairSymbol,
         type: 'LONG',
-        leverage: 1,
+        leverage: botLeverage,
         amount: parseFloat(tradedAmount.toFixed(2)),
-        entryPrice: 145.50,
-        currentPrice: 145.50 * (1 + tradeFluctuationPct),
-        pnl: parseFloat(netDeltaPnL.toFixed(2)),
-        pnlPercent: parseFloat((tradeFluctuationPct * 100).toFixed(2)),
+        entryPrice: basePrice,
+        currentPrice: parseFloat(currentPrice.toFixed(4)),
+        pnl: parseFloat(newPnL.toFixed(2)),
+        pnlPercent: parseFloat(newPnLPercent.toFixed(2)),
         botId: bot.id,
         botName: botDisplayName,
         timestamp: Date.now(),
@@ -106,8 +125,25 @@ export function processBotIteration(
       });
     }
 
-    // Verrouillage de sécurité: arrêt automatique si perte égale au capital alloué
-    if (newPnL <= -allocatedCapital) {
+    const isStopped = newPnL <= -allocatedCapital;
+    const isSL = newPnLPercent <= -sl;
+    const isTP = newPnLPercent >= tp;
+
+    // Fermeture de la position du bot si SL, TP ou Stop
+    if (isStopped || isSL || isTP) {
+      const closedPosIndex = currentPositions.findIndex(p => p.botId === bot.id);
+      if (closedPosIndex >= 0) {
+        const [closedPos] = currentPositions.splice(closedPosIndex, 1);
+        newlyClosedPositions.push({
+          ...closedPos,
+          closeTimestamp: Date.now(),
+          profit: closedPos.pnl
+        });
+      }
+    }
+
+    // Gestion des alertes
+    if (isStopped) {
       dispatchAlert(
         `⛔ ARRÊT DE SÉCURITÉ BOT - ${botDisplayName}`,
         `Le bot ${botDisplayName} a atteint la limite maximale de son capital alloué ($${allocatedCapital}). Le bot est stoppé automatiquement.`,
@@ -123,16 +159,16 @@ export function processBotIteration(
       };
     }
 
-    if (newPnLPercent <= -sl) {
+    if (isSL) {
       dispatchAlert(
         `🚨 STOP-LOSS DÉCLENCHÉ - ${botDisplayName}`,
-        `Position (1/3 du budget = $${tradedAmount.toFixed(2)}) fermée suite au Stop-Loss (-${sl}%). PnL: $${newPnL.toFixed(2)}`,
+        `Position (1/3 du budget = $${tradedAmount.toFixed(2)}, Levier ${botLeverage}x) fermée suite au Stop-Loss (-${sl}%). PnL: $${newPnL.toFixed(2)}`,
         'STOP_LOSS'
       );
-    } else if (newPnLPercent >= tp) {
+    } else if (isTP) {
       dispatchAlert(
         `🎯 TAKE-PROFIT ATTEINT - ${botDisplayName}`,
-        `Position (1/3 du budget = $${tradedAmount.toFixed(2)}) fermée avec profit (+${tp}%). 10% du gain a été sécurisé au Coffre-Fort ! PnL: +$${newPnL.toFixed(2)}`,
+        `Position (1/3 du budget = $${tradedAmount.toFixed(2)}, Levier ${botLeverage}x) fermée avec profit (+${tp}%). 10% du gain sécurisé au Coffre-Fort ! PnL: +$${newPnL.toFixed(2)}`,
         'TRADE'
       );
     }
@@ -141,11 +177,12 @@ export function processBotIteration(
 
     return {
       ...bot,
+      leverage: botLeverage,
       pnl: parseFloat(newPnL.toFixed(2)),
       netProfit: parseFloat(newPnL.toFixed(2)),
       pnlPercent: parseFloat(newPnLPercent.toFixed(2)),
-      tradesCount: shouldIncrementTrade ? currentTradesCount + 1 : currentTradesCount,
-      totalTrades: shouldIncrementTrade ? currentTradesCount + 1 : currentTradesCount
+      tradesCount: currentTradesCount + 1,
+      totalTrades: currentTradesCount + 1
     };
   });
 
@@ -158,8 +195,10 @@ export function processBotIteration(
   }
 
   // Synchro des positions dans la table globale
-  if (newBotPositions.length > 0) {
-    onUpdatePositions([...newBotPositions, ...activePositions].slice(0, 20));
+  onUpdatePositions(currentPositions);
+
+  if (newlyClosedPositions.length > 0 && onUpdateClosedPositions) {
+    onUpdateClosedPositions(prev => [...newlyClosedPositions, ...(prev || [])]);
   }
 
   if (botsChanged) {
