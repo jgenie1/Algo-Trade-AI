@@ -111,6 +111,10 @@ export function useTradingSimulation() {
     tradingMode,
     balance,
     setBalance,
+    reserveVault,
+    setReserveVault,
+    reserveVaultSol,
+    setReserveVaultSol,
     activePositions,
     setActivePositions,
     closedPositions,
@@ -328,10 +332,11 @@ export function useTradingSimulation() {
     });
 
     const safeBal = typeof balance === 'number' && !isNaN(balance) ? balance : 10000;
-    const calcEquity = safeBal + lockedManualMargin + activeBotsCapitalAndPnL + totalManualPnL;
+    const safeVault = typeof reserveVault === 'number' && !isNaN(reserveVault) ? reserveVault : 0;
+    const calcEquity = safeBal + lockedManualMargin + activeBotsCapitalAndPnL + totalManualPnL + safeVault;
 
     setEquity(isNaN(calcEquity) ? safeBal : calcEquity);
-  }, [activePositions, livePrices, balance, bots]);
+  }, [activePositions, livePrices, balance, bots, reserveVault]);
 
   // Refs for intervals
   const botsRef = useRef(bots);
@@ -1123,9 +1128,19 @@ export function useTradingSimulation() {
         const vaultSkim = profit * 0.10;
         const netProfit = profit * 0.90;
         setBalance(bal => bal + amt + netProfit);
+        if (setReserveVault) {
+          setReserveVault(vault => vault + vaultSkim);
+        }
       } else {
         const returnAmount = Math.max(0, amt + profit);
         setBalance(bal => bal + returnAmount);
+      }
+    } else if (posMode === 'REAL') {
+      if (profit > 0) {
+        const vaultSkimSol = profit * 0.10;
+        if (setReserveVaultSol) {
+          setReserveVaultSol(vault => vault + vaultSkimSol);
+        }
       }
     }
     
