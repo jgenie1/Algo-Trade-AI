@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { db, DEFAULT_USER, saveFullState, AppState, auth } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
+import { getRealMarketBasePrice } from '@/lib/utils';
 
 interface AppContextType {
   tradingMode: 'DEMO' | 'REAL';
@@ -72,8 +73,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const cleanPair = (p.pair === 'ALL' || !p.pair) ? 'FX:EURUSD' : p.pair;
         const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
         const amt = parseFloat(rawAmt.toFixed(2));
-        const isEuroFix = p.pair === 'ALL' || (cleanPair === 'FX:EURUSD' && p.entryPrice > 10);
-        const entry = isEuroFix ? 1.0850 : (typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 1.0850);
+        const expectedBase = getRealMarketBasePrice(cleanPair);
+        const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
+        const entry = isInvalidEntry ? expectedBase : p.entryPrice;
         return {
           ...p,
           pair: cleanPair,

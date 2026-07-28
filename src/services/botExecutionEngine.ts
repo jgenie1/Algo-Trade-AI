@@ -1,5 +1,6 @@
 // Moteur d'exécution automatique des bots et de gestion des alertes & positions
 import { dispatchAlert } from './notificationService';
+import { getRealMarketBasePrice } from '@/lib/utils';
 
 export interface BotInstance {
   id: string;
@@ -117,7 +118,7 @@ export function processBotIteration(
     const botDisplayName = bot.name || `Bot ${bot.strategy} (${bot.pair})`;
 
     const pairSymbol = bot.pair === 'ALL' ? 'FX:EURUSD' : bot.pair;
-    const basePrice = pairSymbol.startsWith('SOL:') || pairSymbol === 'SOL' ? 145.50 : (pairSymbol.startsWith('FX:') ? 1.0850 : 145.50);
+    const basePrice = getRealMarketBasePrice(pairSymbol);
     const currentPrice = basePrice * (1 + tradeFluctuationPct);
 
     if (existingPosIndex >= 0) {

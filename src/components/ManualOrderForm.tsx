@@ -7,7 +7,7 @@ import {
   Activity, 
   Zap 
 } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { executeRealPumpTrade, fetchLatestPumpCoins } from '@/services/pumpFunService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -84,7 +84,9 @@ export default function ManualOrderForm({
       isSubmittingOrderRef.current = false;
     }, 500);
 
-    const currentPrice = livePrices[selectedPair] || 0.0001;
+    const currentPrice = (livePrices[selectedPair] && livePrices[selectedPair] > 0) 
+      ? livePrices[selectedPair] 
+      : getRealMarketBasePrice(selectedPair);
 
     if (tradingMode === 'REAL') {
       if (!selectedPair.startsWith('SOL:')) {
