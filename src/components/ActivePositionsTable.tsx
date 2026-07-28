@@ -165,7 +165,7 @@ export default function ActivePositionsTable({
                             onClick={() => handleClosePosition(p)}
                             className="h-8 px-3 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 text-rose-300 text-xs font-bold rounded-lg"
                           >
-                            Clôturer
+                            Fermer la Position
                           </Button>
                         </TableCell>
                       </TableRow>
