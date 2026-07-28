@@ -1,10 +1,11 @@
-
-import type {Metadata} from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk, Source_Code_Pro } from 'next/font/google';
 import './globals.css';
 import AppLayout from '@/components/AppLayout';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
+import { AppContextProvider } from '@/context/AppContext';
+import SWRegister from '@/components/SWRegister';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,11 +25,24 @@ const sourceCodePro = Source_Code_Pro({
   display: 'swap',
 });
 
-import { AppContextProvider } from '@/context/AppContext';
+export const viewport: Viewport = {
+  themeColor: '#c2ff0c',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
-  title: 'AlgoTradeAI - Analyse Forex',
-  description: 'Analyse du marché Forex avec IA',
+  title: 'Algo-Trade-AI | Terminal Quant & Bots',
+  description: 'Terminal de trading algorithmique IA, gestion de bots de trading et coffre-fort de réserve 10%.',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'AlgoTradeAI',
+  },
+  applicationName: 'AlgoTradeAI',
 };
 
 export default function RootLayout({
@@ -37,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning={true}>
+    <html lang="fr" className="dark" suppressHydrationWarning={true}>
       <body
         className={cn(
           "font-body antialiased bg-background text-foreground min-h-screen flex flex-col",
@@ -47,6 +61,7 @@ export default function RootLayout({
         )}
         suppressHydrationWarning={true}
       >
+        <SWRegister />
         <AppContextProvider>
           <AppLayout>{children}</AppLayout>
         </AppContextProvider>

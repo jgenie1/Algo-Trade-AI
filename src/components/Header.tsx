@@ -21,12 +21,17 @@ import {
   Wallet,
   ShieldCheck,
   Check,
-  ExternalLink
+  ExternalLink,
+  ArrowDownUp,
+  Lock
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
+import PanicKillSwitch from '@/components/PanicKillSwitch';
 import PWAInstallBanner from '@/components/PWAInstallBanner';
+import { getStoredLanguage, setStoredLanguage, Language } from '@/services/languageService';
+import DEXSwapModal from '@/components/DEXSwapModal';
 import {
   Popover,
   PopoverContent,
@@ -56,6 +61,8 @@ export default function Header() {
     setTradingMode, 
     balance, 
     setBalance, 
+    reserveVault,
+    reserveVaultSol,
     bots, 
     closedPositions, 
     transactions,
@@ -76,6 +83,7 @@ export default function Header() {
   const [slippage, setSlippage] = useState('15');
   const [priorityFee, setPriorityFee] = useState('0.005');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSwapOpen, setIsSwapOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -243,9 +251,56 @@ export default function Header() {
       </div>
 
       {/* Right side: Actions, Notifications, Settings, Profile */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2.5">
+        {/* Panic Kill Switch 1-Clic */}
+        <PanicKillSwitch />
+
+        {/* Sélecteur Multi-Langues FR / HT / EN */}
+        <select
+          value={getStoredLanguage()}
+          onChange={(e) => {
+            setStoredLanguage(e.target.value as Language);
+            window.location.reload();
+          }}
+          className="bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs font-bold text-white font-headline shrink-0"
+        >
+          <option value="FR">🇫🇷 FR</option>
+          <option value="HT">🇭🇹 HT</option>
+          <option value="EN">🇺🇸 EN</option>
+        </select>
+
+        {/* Bouton d'Installation PWA App */}
+        <PWAInstallBanner />
+
+        {/* Coffre-Fort Intouchable (10% des Gains) */}
+        <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[#c2ff0c] font-headline font-bold text-xs shadow-sm">
+          <Lock className="h-4 w-4 text-[#c2ff0c]" />
+          <div className="flex flex-col text-left leading-none">
+            <span className="text-[9px] text-white/50 font-body uppercase font-semibold">
+              Coffre-Fort (10% {tradingMode === 'REAL' ? 'SOL' : 'USD'})
+            </span>
+            <span className="text-xs font-mono font-bold text-[#c2ff0c]">
+              {tradingMode === 'REAL' 
+                ? `${(reserveVaultSol || 0).toFixed(4)} SOL` 
+                : `$${(reserveVault || 0).toFixed(2)}`}
+            </span>
+          </div>
+        </div>
+
         {/* PWA Install Button */}
         <PWAInstallBanner />
+
+        {/* DEX Swap Quick Trigger Button */}
+        <Button
+          onClick={() => setIsSwapOpen(true)}
+          className="h-10 px-3.5 bg-[#171122] hover:bg-[#201830] border border-[#c2ff0c]/30 text-[#c2ff0c] font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all"
+        >
+          <ArrowDownUp className="h-4 w-4" />
+          <span className="hidden md:inline font-headline uppercase">Swap DEX</span>
+        </Button>
+
+        {/* DEX Swap Modal */}
+        <DEXSwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} />
 
         {/* Web3 Multi-Chain Connect Wallet Button */}
         <Dialog>

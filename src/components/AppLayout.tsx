@@ -4,9 +4,11 @@ import Header from '@/components/Header';
 import SidebarNav from '@/components/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
 
+import MobileBottomNav from '@/components/MobileBottomNav';
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider defaultOpen={true} className="min-h-screen bg-[#09070c] relative overflow-x-hidden font-body text-foreground flex max-w-full">
+    <SidebarProvider defaultOpen={true} className="min-h-screen bg-[#09070c] relative overflow-x-hidden font-body text-foreground flex max-w-full pb-20 md:pb-0">
       {/* Background ambient light blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#5d2b90]/10 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
       <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#c2ff0c]/5 rounded-full blur-[150px] pointer-events-none animate-pulse" style={{ animationDuration: '10s' }} />
@@ -36,6 +38,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </SidebarInset>
+
+      {/* Mobile Bottom Dock Bar */}
+      <MobileBottomNav />
     </SidebarProvider>
   );
 }

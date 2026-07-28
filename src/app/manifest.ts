@@ -1,24 +1,31 @@
-import type { MetadataRoute } from 'next';
+import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'AlgoTrade AI Enterprise ERP - Quantitative SaaS Trading Suite',
-    short_name: 'AlgoTrade ERP',
-    description: 'SaaS ERP Enterprise de Trading Algorithmique, Gestion de Trésorerie Multi-Actifs & Intelligence Artificielle.',
+    name: 'Algo-Trade-AI | Terminal Quant & Bots',
+    short_name: 'AlgoTradeAI',
+    description: 'Terminal de trading algorithmique IA, gestion de bots de trading et coffre-fort de réserve 10%.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#09070c',
+    orientation: 'portrait',
+    background_color: '#0c0d12',
     theme_color: '#c2ff0c',
-    orientation: 'any',
+    categories: ['finance', 'productivity', 'utilities'],
     icons: [
       {
-        src: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=192&h=192&fit=crop&q=80',
+        src: '/icons/icon-192x192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any'
       },
       {
-        src: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=512&h=512&fit=crop&q=80',
+        src: '/icons/icon-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any'
+      },
+      {
+        src: '/icons/icon-maskable-512x512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable'
@@ -26,19 +33,32 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: 'Trading Terminal',
-        url: '/',
-        description: 'Accéder au Terminal de Trading Direct'
+        name: 'Dépôt / Créditer',
+        short_name: 'Dépôt',
+        description: 'Accéder au rechargement de compte et au Coffre-Fort',
+        url: '/deposit',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
       },
       {
-        name: 'ERP Enterprise',
-        url: '/erp',
-        description: 'Gestion de Trésorerie et Audit ERP'
+        name: 'Retrait de Fonds',
+        short_name: 'Retrait',
+        description: 'Retirer des SOL ou transférer du Coffre-Fort',
+        url: '/withdraw',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
       },
       {
-        name: 'Analyse IA',
-        url: '/analysis',
-        description: 'Analyse Visuelle par Gemini IA'
+        name: 'Analyses & PnL',
+        short_name: 'Analytics',
+        description: 'Voir les statistiques et exporter les rapports CSV',
+        url: '/analytics',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
+      },
+      {
+        name: 'Stratégies & Bots',
+        short_name: 'Stratégies',
+        description: 'Marketplace de bots et copy-trading',
+        url: '/strategies',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
       }
     ]
   };

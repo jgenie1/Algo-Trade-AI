@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 
+import PositionRiskCalculator from '@/components/PositionRiskCalculator';
 import { currencyPairs as allCurrencyPairs } from '@/hooks/useTradingSimulation';
 const currencyPairs = allCurrencyPairs.filter(c => c.value !== 'ALL');
 
@@ -197,6 +198,10 @@ export default function ManualOrderForm({
           Flux direct
         </div>
       </CardHeader>
+
+      <div className="mb-4">
+        <PositionRiskCalculator />
+      </div>
 
       <form onSubmit={handlePlaceOrder} className="space-y-4">
         {tradingMode === 'DEMO' ? (

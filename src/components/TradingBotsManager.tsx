@@ -79,6 +79,7 @@ export default function TradingBotsManager({
     tradingMode, 
     balance, 
     setBalance, 
+    reserveVault,
     bots, 
     setBots, 
     botLogs, 
@@ -87,6 +88,8 @@ export default function TradingBotsManager({
     closedPositions, 
     isLoading 
   } = useAppState();
+
+  const allocatableBalance = Math.max(0, balance - (reserveVault || 0));
 
   // New Bot Form State
   const [botPair, setBotPair] = useState<string>('ALL');
@@ -112,8 +115,8 @@ export default function TradingBotsManager({
         return;
       }
     } else {
-      if (botCapital > balance) {
-        alert(`Capital insuffisant. Requis: ${botCapital} $, Solde disponible: ${balance.toFixed(2)} $`);
+      if (botCapital > allocatableBalance) {
+        alert(`Capital insuffisant pour le bot. Requis: ${botCapital} $, Capital allocable (hors Coffre-Fort de Réserve 10%): ${allocatableBalance.toFixed(2)} $. Le coffre-fort ($${(reserveVault || 0).toFixed(2)}) est intouchable et protégé.`);
         return;
       }
     }
@@ -462,9 +465,7 @@ export default function TradingBotsManager({
                 {tradingMode === 'REAL' ? "Capital Allocateur (SOL)" : "Capital Allocateur (USD)"}
               </label>
               <span className="text-[10px] text-emerald-400 font-mono font-semibold">
-                Disponible: {tradingMode === 'REAL' 
-                  ? `${solanaBalance?.toFixed(3)} SOL (${formatSolToUsdAndHtg(solanaBalance).combinedLabel})` 
-                  : `${balance.toFixed(0)} $ (≈ ${formatUsdToHtg(balance)})`}
+                Allocable: ${allocatableBalance.toFixed(2)} (Hors Coffre-Fort ${ (reserveVault || 0).toFixed(2) })
               </span>
             </div>
             <Input
@@ -473,6 +474,15 @@ export default function TradingBotsManager({
               onChange={(e) => setBotCapital(Math.max(0, parseFloat(e.target.value) || 0))}
               className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-sm focus:ring-[#c2ff0c] text-white font-body"
             />
+            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] text-emerald-300 font-mono space-y-1">
+              <div className="flex justify-between font-bold">
+                <span>🔒 Coffre-Fort Intouchable (10% des Gains) :</span>
+                <span className="text-[#c2ff0c]">${ (reserveVault || 0).toFixed(2) }</span>
+              </div>
+              <p className="text-white/60 text-[9px] leading-tight font-body">
+                Règle de sécurité active : Chaque ordre engagera strictement 1/3 de ce capital (soit ${(botCapital / 3).toFixed(2)}). 10% de chaque gain est verrouillé au coffre-fort et ne sera jamais risqué par un bot.
+              </p>
+            </div>
           </div>
 
           {/* Start Button */}

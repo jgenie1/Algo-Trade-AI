@@ -54,7 +54,7 @@ export default function TradingTerminalPage() {
     handleClosePosition
   } = useTradingSimulation();
 
-  const { setTradingMode } = useAppState();
+  const { setTradingMode, reserveVault } = useAppState();
 
   if (!isMounted) {
     return (
@@ -124,14 +124,14 @@ export default function TradingTerminalPage() {
                 <div className="text-lg font-bold text-amber-400 font-body mt-0.5">{balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
               </div>
               <div className="px-3 border-r border-white/5">
-                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Equity</div>
-                <div className="text-lg font-bold text-white font-body mt-0.5">{equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
+                <div className="text-[10px] uppercase font-bold text-[#c2ff0c] font-headline flex items-center gap-1">
+                  🔒 Coffre-Fort (10%)
+                </div>
+                <div className="text-lg font-bold text-[#c2ff0c] font-body mt-0.5">${(reserveVault || 0).toFixed(2)}</div>
               </div>
               <div className="px-3 border-r border-white/5">
-                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Marge Démo</div>
-                <div className="text-lg font-bold text-violet-400 font-body mt-0.5">
-                  {activePositions.filter(p => !p.pair.startsWith('SOL:')).reduce((sum, p) => sum + p.amount, 0).toLocaleString('fr-FR')} $
-                </div>
+                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Equity</div>
+                <div className="text-lg font-bold text-white font-body mt-0.5">{equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
               </div>
               <div className="px-3">
                 <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Trades</div>

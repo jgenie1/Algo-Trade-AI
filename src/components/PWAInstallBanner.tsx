@@ -1,42 +1,42 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Download, Smartphone, Monitor, CheckCircle2, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter 
+} from "@/components/ui/dialog";
+import { Download, Smartphone, Share, PlusSquare, CheckCircle2 } from 'lucide-react';
 
 export default function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isIOS, setIsIOS] = useState<boolean>(false);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
-  const [showBanner, setShowBanner] = useState<boolean>(false);
-  const [installedSuccess, setInstalledSuccess] = useState<boolean>(false);
+  const [showIOSModal, setShowIOSModal] = useState<boolean>(false);
+  const [isInstalled, setIsInstalled] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if app is running in standalone PWA mode
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
-      setIsStandalone(true);
-    }
+    // Detect if running in standalone mode (already installed PWA)
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || 
+                             (window.navigator as any).standalone === true;
+    setIsStandalone(isStandaloneMode);
 
-    // Register Service Worker
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js').catch((err) => {
-        console.warn('Service worker registration failed:', err);
-      });
-    }
+    // Detect iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isIosDevice);
 
-    // Catch install prompt
-    const handleBeforeInstallPrompt = (e: any) => {
+    // Capture beforeinstallprompt for Chrome/Android/Desktop
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setShowBanner(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    window.addEventListener('appinstalled', () => {
-      setInstalledSuccess(true);
-      setShowBanner(false);
-      setDeferredPrompt(null);
-    });
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -44,66 +44,76 @@ export default function PWAInstallBanner() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      // Fallback for browsers or desktop manual instruction
-      alert("Pour installer AlgoTrade ERP sur votre appareil :\n\n- Sur Chrome/Edge : Cliquez sur l'icône d'installation dans la barre d'adresse (ou Menu > Installer AlgoTrade ERP).\n- Sur Safari iOS : Cliquez sur Partager > Sur l'écran d'accueil.");
+    if (isIOS) {
+      setShowIOSModal(true);
       return;
     }
 
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstalledSuccess(true);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      setShowIOSModal(true);
     }
-    setDeferredPrompt(null);
-    setShowBanner(false);
   };
 
-  if (isStandalone) {
-    return (
-      <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-[#c2ff0c]/10 border border-[#c2ff0c]/20 rounded-lg text-[10px] text-[#c2ff0c] font-mono font-bold uppercase">
-        <CheckCircle2 className="h-3 w-3" />
-        PWA Mode Actif
-      </div>
-    );
+  if (isStandalone || isInstalled) {
+    return null;
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <>
       <Button
-        size="sm"
-        variant="ghost"
         onClick={handleInstallClick}
-        className="h-8 px-3 text-[10px] bg-[#c2ff0c]/10 hover:bg-[#c2ff0c]/20 text-[#c2ff0c] border border-[#c2ff0c]/20 rounded-xl font-headline uppercase font-bold flex items-center gap-1.5 transition-all duration-300 shadow-[0_0_15px_rgba(194,255,12,0.15)]"
+        className="h-10 px-3 bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 border border-[#c2ff0c]/40 text-[#c2ff0c] font-headline font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
       >
-        <Download className="h-3.5 w-3.5 animate-bounce" />
-        <span>Installer App PWA</span>
+        <Download className="h-4 w-4 text-[#c2ff0c]" />
+        <span className="hidden md:inline uppercase">Installer PWA App</span>
       </Button>
 
-      {showBanner && (
-        <div className="fixed bottom-4 right-4 z-50 max-w-sm bg-[#14101a] border border-[#c2ff0c]/30 rounded-2xl p-4 shadow-2xl space-y-3 animate-in slide-in-from-bottom-5 duration-300">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-[#c2ff0c]/15 text-[#c2ff0c] rounded-xl">
-                <Monitor className="h-5 w-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white font-headline">Installer AlgoTrade ERP</h4>
-                <p className="text-[10px] text-white/50 font-body">Utilisez l'application en mode natif avec support hors-ligne.</p>
-              </div>
+      {/* Guide d'installation iOS Safari / Desktop */}
+      <Dialog open={showIOSModal} onOpenChange={setShowIOSModal}>
+        <DialogContent className="bg-[#140b12] border-emerald-500/30 text-white rounded-3xl p-6 max-w-md shadow-2xl space-y-4 font-body">
+          <DialogHeader className="border-b border-white/10 pb-3">
+            <DialogTitle className="text-xl font-headline font-extrabold text-[#c2ff0c] flex items-center gap-2">
+              <Smartphone className="h-6 w-6" />
+              Installer l'application PWA
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/60 font-body mt-1">
+              Profitez d'une expérience native sans téléchargement sur l'App Store / Play Store.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs text-white/80">
+            <p className="font-bold text-white">Pour installer l'application sur votre écran d'accueil :</p>
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
+              <Share className="h-5 w-5 text-sky-400 shrink-0" />
+              <span>1. Appuyez sur le bouton <strong>Partager</strong> dans la barre de votre navigateur (Safari / Chrome).</span>
             </div>
-            <button onClick={() => setShowBanner(false)} className="text-white/40 hover:text-white">
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
+              <PlusSquare className="h-5 w-5 text-[#c2ff0c] shrink-0" />
+              <span>2. Faites défiler vers le bas et sélectionnez <strong>"Sur l'écran d'accueil"</strong>.</span>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+              <span>3. Confirmez pour lancer l'application en mode plein écran autonome !</span>
+            </div>
           </div>
-          <Button
-            onClick={handleInstallClick}
-            className="w-full h-9 bg-[#c2ff0c] text-black font-headline font-bold text-xs rounded-xl uppercase hover:shadow-[0_0_15px_rgba(194,255,12,0.4)] border-none"
-          >
-            Installer Maintenant (Desktop / Mobile)
-          </Button>
-        </div>
-      )}
-    </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setShowIOSModal(false)}
+              className="w-full h-11 bg-[#c2ff0c] text-black font-extrabold font-headline rounded-2xl text-xs uppercase"
+            >
+              J'ai Compris
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

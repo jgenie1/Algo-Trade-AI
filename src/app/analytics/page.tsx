@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   TrendingUp, TrendingDown, Percent, BarChart2, Zap,
   Clock, ShieldCheck, Activity, Trophy, Target,
-  ArrowUpRight, ArrowDownRight
+  ArrowUpRight, ArrowDownRight, Download
 } from "lucide-react";
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from "@/lib/utils";
 import { useAppState } from "@/context/AppContext";
+import VaultGrowthChart from "@/components/VaultGrowthChart";
+import { exportTransactionsToCSV, exportBotsPerformanceToCSV } from "@/services/exportService";
 
 function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", className = "" }: {
   value: number; decimals?: number; prefix?: string; suffix?: string; className?: string;
@@ -31,7 +33,7 @@ function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", classNa
 }
 
 export default function AnalyticsPage() {
-  const { tradingMode, setTradingMode, activePositions, closedPositions, bots } = useAppState();
+  const { tradingMode, setTradingMode, activePositions, closedPositions, bots, transactions } = useAppState();
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -131,10 +133,10 @@ export default function AnalyticsPage() {
       sub: `${bots.length} bot(s) au total` },
     { label: "Sharpe Ratio", icon: <Target className="h-4 w-4 text-amber-400" />,
       val: <AnimatedNumber value={isNaN(sharpe) ? 0 : sharpe} decimals={2} className="text-2xl font-extrabold text-amber-400 font-body" />,
-      sub: "Rendement ajuste au risque" },
-    { label: "Duree Moy. Trade", icon: <Clock className="h-4 w-4 text-violet-400" />,
+      sub: "Rendement ajusté au risque" },
+    { label: "Durée Moy. Trade", icon: <Clock className="h-4 w-4 text-violet-400" />,
       val: <span className="text-2xl font-extrabold text-violet-400 font-body">{avgDurationStr}</span>,
-      sub: "Duree moyenne par position" },
+      sub: "Durée moyenne par position" },
     { label: "Profit Bots Total", icon: <Trophy className="h-4 w-4 text-[#c2ff0c]" />,
       val: (
         <div className="flex flex-col">
@@ -157,17 +159,30 @@ export default function AnalyticsPage() {
             <BarChart2 className="h-8 w-8 text-[#c2ff0c]" />
             Statistiques & Analyses
           </h1>
-          <p className="text-sm text-white/40 mt-1 font-body">Performances en temps reel, metriques de risque et analyse de rentabilite.</p>
+          <p className="text-sm text-white/40 mt-1 font-body">Performances en temps réel, métriques de risque et analyse du Coffre-Fort.</p>
         </div>
-        <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-xl gap-1 shrink-0">
-          <button onClick={() => setTradingMode("DEMO")} className={cn("px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5", tradingMode === "DEMO" ? "bg-amber-500/25 text-amber-300 border border-amber-500/20" : "text-white/40 hover:text-white/80")}>
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Mode Demo
+
+        <div className="flex items-center gap-2">
+          {/* Export CSV Buttons */}
+          <button
+            onClick={() => exportTransactionsToCSV(transactions)}
+            className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-headline font-bold flex items-center gap-1.5 border border-white/10"
+          >
+            <Download className="h-3.5 w-3.5 text-[#c2ff0c]" />
+            Exporter CSV Transactions
           </button>
-          <button onClick={() => setTradingMode("REAL")} className={cn("px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5", tradingMode === "REAL" ? "bg-purple-600/25 text-purple-300 border border-purple-500/20" : "text-white/40 hover:text-white/80")}>
-            <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" /> Mode Reel
+          <button
+            onClick={() => exportBotsPerformanceToCSV(bots)}
+            className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-headline font-bold flex items-center gap-1.5 border border-white/10"
+          >
+            <Download className="h-3.5 w-3.5 text-[#c2ff0c]" />
+            Rapport Bots CSV
           </button>
         </div>
       </div>
+
+      {/* Graphique de Croissance du Coffre-Fort & Capital */}
+      <VaultGrowthChart />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpi1.map((k, i) => (
@@ -221,13 +236,13 @@ export default function AnalyticsPage() {
             </svg>
           </div>
           <div className="flex justify-between text-[9px] text-white/30 font-body px-1">
-            <span>Depart</span><span>{totalTrades} trades fermes</span><span>Actuel</span>
+            <span>Départ</span><span>{totalTrades} trades fermés</span><span>Actuel</span>
           </div>
         </div>
 
         <div className="lg:col-span-4 bg-[#14101a] border border-white/10 rounded-2xl p-5 space-y-5">
           <h2 className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline flex items-center gap-2">
-            <BarChart2 className="h-4 w-4 text-purple-400" /> Repartition Actifs
+            <BarChart2 className="h-4 w-4 text-purple-400" /> Répartition Actifs
           </h2>
           <div className="space-y-3">
             {distribution.map((item, idx) => (
@@ -244,62 +259,8 @@ export default function AnalyticsPage() {
               </div>
             ))}
           </div>
-          <div className="border-t border-white/5 pt-4 space-y-3">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-white/40 font-body flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Activite bots</span>
-              <span className={cn("font-bold font-body", runningBots > 0 ? "text-emerald-400" : "text-white/40")}>{runningBots > 0 ? "Actif" : "Inactif"}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-white/40 font-body flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Risque</span>
-              <span className={cn("font-bold font-body", maxDD < 5 ? "text-emerald-400" : maxDD < 15 ? "text-amber-400" : "text-rose-400")}>
-                {maxDD < 5 ? "Maitrise" : maxDD < 15 ? "Modere" : "Eleve"}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-white/40 font-body flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Positions</span>
-              <span className="font-bold text-white font-body">{filteredActive.length} ouvertes</span>
-            </div>
-          </div>
         </div>
       </div>
-
-      {filteredClosed.length > 0 && (
-        <div className="bg-[#14101a] border border-white/10 rounded-2xl p-5">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline mb-4 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-white/40" /> Historique ({filteredClosed.length} trades)
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-white/5 text-white/40 font-headline">
-                  <th className="py-2.5 pr-4">Actif</th><th className="py-2.5 pr-4">Type</th>
-                  <th className="py-2.5 pr-4">Entree</th><th className="py-2.5 pr-4">Sortie</th>
-                  <th className="py-2.5 pr-4">Capital</th><th className="py-2.5 text-right">PnL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...filteredClosed].reverse().slice(0, 20).map((p, i) => {
-                  const win = p.profit > 0;
-                  return (
-                    <tr key={p.id || i} className="border-b border-white/5 hover:bg-white/5 transition-colors duration-150">
-                      <td className="py-2.5 pr-4 font-mono text-white/80">{(p.pair || "").replace("FX:", "").replace("-USD", "").replace("SOL:", "")}</td>
-                      <td className="py-2.5 pr-4">
-                        <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold", p.type === "BUY" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400")}>{p.type}</span>
-                      </td>
-                      <td className="py-2.5 pr-4 font-mono text-white/60">{typeof p.entryPrice === "number" ? p.entryPrice.toFixed(5) : "-"}</td>
-                      <td className="py-2.5 pr-4 font-mono text-white/60">{typeof p.exitPrice === "number" ? p.exitPrice.toFixed(5) : "-"}</td>
-                      <td className="py-2.5 pr-4 text-white/60">{typeof p.amount === "number" ? p.amount.toLocaleString("fr-FR") : "-"}{isReal ? " SOL" : " $"}</td>
-                      <td className={cn("py-2.5 text-right font-bold font-mono", win ? "text-emerald-400" : "text-rose-400")}>
-                        {win ? "+" : ""}{typeof p.profit === "number" ? p.profit.toFixed(isReal ? 4 : 2) : "0.00"}{isReal ? " SOL" : " $"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

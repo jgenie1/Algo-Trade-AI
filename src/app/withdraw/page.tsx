@@ -8,7 +8,8 @@ import {
   ShieldAlert,
   RefreshCw,
   Check,
-  History
+  History,
+  Lock
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { getRealSolanaBalance, withdrawSolana } from '@/services/pumpFunService';
@@ -22,17 +23,44 @@ const SOLANA_NETWORK_FEE = 0.00005;
 const PRIORITY_FEE_ESTIMATE = 0.001;
 
 export default function WithdrawPage() {
-  const { tradingMode, setTradingMode, balance, setBalance, transactions, setTransactions } = useAppState();
+  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, setReserveVault, transactions, setTransactions } = useAppState();
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
   const isSolanaWalletActive = !!solanaPubKey;
 
   const [recipientAddress, setRecipientAddress] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [vaultUnlockAmount, setVaultUnlockAmount] = useState('');
+  const [isUnlockingVault, setIsUnlockingVault] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [txHash, setTxHash] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+
+  const handleUnlockVault = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(vaultUnlockAmount) || (reserveVault || 0);
+    if (amt <= 0 || amt > (reserveVault || 0)) {
+      alert("Montant à déverrouiller invalide.");
+      return;
+    }
+    setIsUnlockingVault(true);
+    setTimeout(() => {
+      setReserveVault(prev => Math.max(0, prev - amt));
+      setBalance(prev => prev + amt);
+      setTransactions(prev => [{
+        id: 'tx_vault_' + Math.random().toString(36).substring(2, 9),
+        type: 'DEPOSIT' as const,
+        amount: amt,
+        currency: 'USD',
+        timestamp: Date.now(),
+        status: 'COMPLETED'
+      }, ...(prev || [])]);
+      setIsUnlockingVault(false);
+      setVaultUnlockAmount('');
+      alert(`Succès ! $${amt.toFixed(2)} transférés du Coffre-Fort vers votre Solde Principal.`);
+    }, 600);
+  };
 
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -344,6 +372,61 @@ export default function WithdrawPage() {
               <ShieldAlert className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
               <span>Attention : Les transactions sur le réseau principal Solana sont définitives et irréversibles.</span>
             </div>
+          </div>
+
+          {/* CARD COFFRE-FORT DE RÉSERVE (10% INTOUCHABLE & RÉCUPÉRABLE) */}
+          <div className="bg-gradient-to-br from-[#121c16] via-[#10141d] to-[#0c0d12] border border-emerald-500/25 rounded-2xl p-6 relative overflow-hidden shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-emerald-500/15 pb-3">
+              <div className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-[#c2ff0c]" />
+                <h3 className="text-sm font-extrabold font-headline uppercase text-white tracking-wide">
+                  Coffre-Fort De Réserve (10%)
+                </h3>
+              </div>
+              <span className="text-[9px] bg-[#c2ff0c]/15 text-[#c2ff0c] px-2 py-0.5 rounded-full font-mono font-bold uppercase">
+                INTOUCHABLE & PROTÉGÉ
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-3xl font-extrabold text-[#c2ff0c] font-mono">
+                ${(reserveVault || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-[11px] text-emerald-400 font-mono">
+                ≈ {formatUsdToHtg(reserveVault || 0)}
+              </div>
+            </div>
+
+            {/* Formulaire de Déverrouillage vers le Solde Principal */}
+            <form onSubmit={handleUnlockVault} className="space-y-3 border-t border-white/5 pt-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-white/50 uppercase font-headline">Montant à récupérer ($)</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={vaultUnlockAmount}
+                    onChange={(e) => setVaultUnlockAmount(e.target.value)}
+                    placeholder={`Max: $${(reserveVault || 0).toFixed(2)}`}
+                    className="h-10 bg-white/5 border-white/10 rounded-xl text-xs text-white font-mono"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => setVaultUnlockAmount((reserveVault || 0).toString())}
+                    className="h-10 px-3 bg-white/10 text-[#c2ff0c] font-bold font-headline text-xs rounded-xl"
+                  >
+                    Tout
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isUnlockingVault || (reserveVault || 0) <= 0}
+                className="w-full h-10 bg-[#c2ff0c] text-black font-extrabold font-headline rounded-xl text-xs uppercase hover:shadow-[0_0_15px_rgba(194,255,12,0.3)] border-none"
+              >
+                {isUnlockingVault ? 'Transfert en cours...' : 'Déverrouiller / Transférer au Solde Principal'}
+              </Button>
+            </form>
           </div>
         </div>
       </div>

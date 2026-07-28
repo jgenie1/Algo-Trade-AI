@@ -25,23 +25,31 @@ export const DEFAULT_USER = 'main_terminal';
 export interface AppState {
   tradeMode: 'DEMO' | 'REAL';
   balance: number;
+  reserveVault?: number;
+  reserveVaultSol?: number;
   positions: any[];
   closedPositions: any[];
   bots: any[];
   transactions?: any[];
   botLearnings?: any[];
   botLogs?: any[];
+  cexKeys?: any;
+  notificationSettings?: any;
 }
 
 export const defaultState: AppState = {
   tradeMode: 'DEMO',
   balance: 10000,
+  reserveVault: 0,
+  reserveVaultSol: 0,
   positions: [],
   closedPositions: [],
   bots: [],
   transactions: [],
   botLearnings: [],
-  botLogs: []
+  botLogs: [],
+  cexKeys: null,
+  notificationSettings: null
 };
 
 // Save partial state to Firestore (with sanitization for undefined values and error catching)
