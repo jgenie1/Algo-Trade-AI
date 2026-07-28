@@ -70,6 +70,11 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (!Array.isArray(arr)) return [];
       return arr.map((p: any) => ({
         ...p,
+        leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
+        amount: typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0,
+        entryPrice: typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50,
+        pnl: typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : 0,
+        pnlPercent: typeof p.pnlPercent === 'number' && !isNaN(p.pnlPercent) ? p.pnlPercent : 0,
         mode: p.mode ? p.mode : (p.pair?.startsWith('SOL:') && p.amount < 100 ? 'REAL' : 'DEMO')
       }));
     };

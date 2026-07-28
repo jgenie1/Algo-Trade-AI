@@ -55,11 +55,16 @@ export default function ActivePositionsTable({
             {/* VUE MOBILE (Cartes Tactiles Compactes) */}
             <div className="block md:hidden space-y-3">
               {filteredPositions.map((p) => {
-                const current = livePrices[p.pair] || p.entryPrice;
-                const priceDiff = current - p.entryPrice;
-                const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-                const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
-                const pnlPct = pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100);
+                const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
+                const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+                const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+                const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
+                const priceDiff = current - entry;
+                const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+                const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
+                const profit = isNaN(rawProfit) ? 0 : rawProfit;
+                const rawPnlPct = typeof p.pnlPercent === 'number' && !isNaN(p.pnlPercent) ? p.pnlPercent : (pctDiff * lev * (p.type === 'BUY' ? 100 : -100));
+                const pnlPct = isNaN(rawPnlPct) ? 0 : rawPnlPct;
                 const isProfit = profit >= 0;
                 const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
@@ -69,7 +74,7 @@ export default function ActivePositionsTable({
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-extrabold text-sm text-white">{cleanAsset}</span>
                         <Badge className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border-none", p.type === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400')}>
-                          {p.type} {p.leverage}x
+                          {p.type} {lev}x
                         </Badge>
                         {p.botId && (
                           <span className="bg-[#2e1d44] text-[#b388ff] border border-[#6b3ba7]/30 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase font-headline">
@@ -88,7 +93,7 @@ export default function ActivePositionsTable({
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-white/60 bg-white/5 p-2.5 rounded-xl">
-                      <div>Entrée: <span className="text-white font-bold">{p.entryPrice.toFixed(4)}</span></div>
+                      <div>Entrée: <span className="text-white font-bold">{entry.toFixed(4)}</span></div>
                       <div>Prix: <span className="text-white font-bold">{current.toFixed(4)}</span></div>
                     </div>
 
@@ -120,11 +125,16 @@ export default function ActivePositionsTable({
                 </TableHeader>
                 <TableBody>
                   {filteredPositions.map((p) => {
-                    const current = livePrices[p.pair] || p.entryPrice;
-                    const priceDiff = current - p.entryPrice;
-                    const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-                    const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
-                    const pnlPct = pctDiff * p.leverage * (p.type === 'BUY' ? 100 : -100);
+                    const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
+                    const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+                    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+                    const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
+                    const priceDiff = current - entry;
+                    const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+                    const rawProfit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1));
+                    const profit = isNaN(rawProfit) ? 0 : rawProfit;
+                    const rawPnlPct = typeof p.pnlPercent === 'number' && !isNaN(p.pnlPercent) ? p.pnlPercent : (pctDiff * lev * (p.type === 'BUY' ? 100 : -100));
+                    const pnlPct = isNaN(rawPnlPct) ? 0 : rawPnlPct;
                     const isProfit = profit >= 0;
                     const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
 
@@ -143,9 +153,9 @@ export default function ActivePositionsTable({
                             {p.type}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{p.leverage}x</TableCell>
-                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{p.amount} {tradingMode === 'DEMO' ? '$' : 'SOL'}</TableCell>
-                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{p.entryPrice.toFixed(4)}</TableCell>
+                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{lev}x</TableCell>
+                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{amt} {tradingMode === 'DEMO' ? '$' : 'SOL'}</TableCell>
+                        <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{entry.toFixed(4)}</TableCell>
                         <TableCell className="py-3 px-4 font-mono text-xs text-white/70">{current.toFixed(4)}</TableCell>
                         <TableCell className={cn("py-3 px-4 text-right font-mono font-bold text-xs", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
                           {isProfit ? '+' : ''}{profit.toFixed(tradingMode === 'DEMO' ? 2 : 4)} ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)

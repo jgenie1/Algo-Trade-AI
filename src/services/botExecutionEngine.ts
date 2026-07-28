@@ -93,6 +93,7 @@ export function processBotIteration(
         id: botPosId,
         pair: bot.pair === 'ALL' ? 'SOL:SOLUSDT' : bot.pair,
         type: 'LONG',
+        leverage: 1,
         amount: parseFloat(tradedAmount.toFixed(2)),
         entryPrice: 145.50,
         currentPrice: 145.50 * (1 + tradeFluctuationPct),

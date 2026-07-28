@@ -300,22 +300,31 @@ export function useTradingSimulation() {
   // Compute live equity
   useEffect(() => {
     let totalPnL = 0;
-    activePositions.forEach(p => {
-      const current = livePrices[p.pair] || p.entryPrice;
-      const priceDiff = current - p.entryPrice;
-      const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-      const pnl = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
-      totalPnL += pnl;
+    (activePositions || []).forEach(p => {
+      if (!p) return;
+      const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+      const current = livePrices[p.pair] || entry;
+      const priceDiff = current - entry;
+      const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+      const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
+      const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+      const pnl = pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1);
+      if (!isNaN(pnl)) {
+        totalPnL += pnl;
+      }
     });
 
-    const lockedManualMargin = activePositions
-      .filter(p => !p.botId)
-      .reduce((sum, p) => sum + p.amount, 0);
+    const lockedManualMargin = (activePositions || [])
+      .filter(p => p && !p.botId)
+      .reduce((sum, p) => sum + (typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0), 0);
 
-    const activeBotCapital = bots
-      .reduce((sum, b) => sum + b.capital, 0);
+    const activeBotCapital = (bots || [])
+      .reduce((sum, b) => sum + (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0), 0);
 
-    setEquity(balance + lockedManualMargin + activeBotCapital + totalPnL);
+    const safeBal = typeof balance === 'number' && !isNaN(balance) ? balance : 10000;
+    const calcEquity = safeBal + lockedManualMargin + activeBotCapital + totalPnL;
+
+    setEquity(isNaN(calcEquity) ? safeBal : calcEquity);
   }, [activePositions, livePrices, balance, bots]);
 
   // Refs for intervals
