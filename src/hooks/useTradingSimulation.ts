@@ -300,6 +300,8 @@ export function useTradingSimulation() {
   // Compute live equity
   useEffect(() => {
     let totalPnL = 0;
+    let lockedMargin = 0;
+
     (activePositions || []).forEach(p => {
       if (!p) return;
       const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
@@ -312,10 +314,13 @@ export function useTradingSimulation() {
       if (!isNaN(rawProfit)) {
         totalPnL += rawProfit;
       }
+      if (!isNaN(amt)) {
+        lockedMargin += amt;
+      }
     });
 
     const safeBal = typeof balance === 'number' && !isNaN(balance) ? balance : 10000;
-    const calcEquity = safeBal + totalPnL;
+    const calcEquity = safeBal + lockedMargin + totalPnL;
 
     setEquity(isNaN(calcEquity) ? safeBal : calcEquity);
   }, [activePositions, livePrices, balance]);
@@ -1097,13 +1102,23 @@ export function useTradingSimulation() {
     const p = activePositionsRef.current.find(x => x.id === posId);
     if (!p) return;
 
-    const priceDiff = exitPrice - p.entryPrice;
-    const pctDiff = p.entryPrice > 0 ? (priceDiff / p.entryPrice) : 0;
-    const profit = pctDiff * p.amount * p.leverage * (p.type === 'BUY' ? 1 : -1);
+    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+    const priceDiff = exitPrice - entry;
+    const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+    const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
+    const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+    const profit = pctDiff * amt * lev * (p.type === 'BUY' ? 1 : -1);
 
     const posMode = p.mode || 'DEMO';
-    if (!p.botId && posMode === 'DEMO') {
-      setBalance(bal => bal + p.amount + profit);
+    if (posMode === 'DEMO') {
+      if (profit > 0) {
+        const vaultSkim = profit * 0.10;
+        const netProfit = profit * 0.90;
+        setBalance(bal => bal + amt + netProfit);
+      } else {
+        const returnAmount = Math.max(0, amt + profit);
+        setBalance(bal => bal + returnAmount);
+      }
     }
     
     const closed = {
