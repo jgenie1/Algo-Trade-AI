@@ -50,8 +50,13 @@ interface ClosedPosition {
   amount: number;
   leverage: number;
   profit: number;
+  pnl?: number;
   timestamp: number;
+  closeTimestamp?: number;
   wasBot: boolean;
+  botId?: string;
+  botName?: string;
+  mode?: 'DEMO' | 'REAL';
   buyTxHash?: string;
   sellTxHash?: string;
 }
@@ -976,6 +981,7 @@ export default function TradingTerminalPage() {
         setBalance(bal => bal + p.amount + profit);
       }
       
+      const posMode = (p as any).mode || 'DEMO';
       const closed: ClosedPosition = {
         id: p.id,
         pair: p.pair,
@@ -984,10 +990,15 @@ export default function TradingTerminalPage() {
         exitPrice: exitPrice,
         amount: p.amount,
         leverage: p.leverage,
-        profit: profit,
-        timestamp: Date.now(),
+        profit: parseFloat(profit.toFixed(2)),
+        pnl: parseFloat(profit.toFixed(2)),
+        timestamp: p.timestamp || Date.now(),
+        closeTimestamp: Date.now(),
         wasBot: !!p.botId,
-        buyTxHash: p.txHash
+        botId: p.botId,
+        botName: p.botId,
+        buyTxHash: p.txHash,
+        mode: posMode
       };
 
       setClosedPositions(closedPrev => {

@@ -86,7 +86,8 @@ export default function SaaSERPPage() {
   const totalAumUsd = totalAvailableCashUsd + botAllocatedCapitalUsd + openPositionsValueUsd;
   const convertedAum = formatUsdToHtg(totalAumUsd);
 
-  const totalClosedProfit = closedPositions.reduce((sum, p) => sum + (p.profit || 0), 0);
+  const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const totalClosedProfit = filteredClosed.reduce((sum, p) => sum + (p.profit || 0), 0);
   const formattedClosedProfitUsd = tradingMode === 'REAL' ? totalClosedProfit * solPriceUsd : totalClosedProfit;
 
   // Export Ledger CSV

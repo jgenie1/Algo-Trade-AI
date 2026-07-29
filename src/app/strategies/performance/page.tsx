@@ -43,7 +43,15 @@ export default function PerformancePage() {
     
     // Filter closed trades belonging to these bots
     const botIds = matchingBots.map(b => b.id);
-    const matchingTrades = closedPositions.filter(p => p.wasBot && botIds.includes(p.botId));
+    const matchingTrades = closedPositions.filter(p => {
+      if (!p) return false;
+      const tradeMode = p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO');
+      if (tradeMode !== tradingMode) return false;
+      if (p.botId && botIds.includes(p.botId)) return true;
+      if (p.botName && p.botName.toLowerCase().includes(strategyName.toLowerCase())) return true;
+      if (p.wasBot && (matchingBots.some(b => b.pair === p.pair || b.strategy === strategyName))) return true;
+      return false;
+    });
     
     const totalProfit = matchingTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
     const totalTrades = matchingTrades.length;

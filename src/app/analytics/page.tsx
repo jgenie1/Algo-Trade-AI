@@ -44,8 +44,8 @@ export default function AnalyticsPage() {
   );
 
   const isReal = tradingMode === "REAL";
-  const filteredActive = activePositions.filter(p => isReal ? p.pair?.startsWith("SOL:") : !p.pair?.startsWith("SOL:"));
-  const filteredClosed = closedPositions.filter(p => isReal ? p.pair?.startsWith("SOL:") : !p.pair?.startsWith("SOL:"));
+  const filteredActive = activePositions.filter(p => (p.mode || (p.pair?.startsWith("SOL:") ? "REAL" : "DEMO")) === tradingMode);
+  const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith("SOL:") ? "REAL" : "DEMO")) === tradingMode);
 
   const winningTrades = filteredClosed.filter(p => p.profit > 0).length;
   const losingTrades = filteredClosed.filter(p => p.profit <= 0).length;

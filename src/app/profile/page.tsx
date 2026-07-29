@@ -72,10 +72,11 @@ export default function ProfilePage() {
   }
 
   // Performance calculations
-  const totalTrades = closedPositions.length;
-  const winningTrades = closedPositions.filter(p => p.profit > 0).length;
+  const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const totalTrades = filteredClosed.length;
+  const winningTrades = filteredClosed.filter(p => (p.profit || 0) > 0).length;
   const winRate = totalTrades > 0 ? Math.round((winningTrades / totalTrades) * 100) : 0;
-  const totalNetProfit = closedPositions.reduce((sum, p) => sum + (p.profit || 0), 0);
+  const totalNetProfit = filteredClosed.reduce((sum, p) => sum + (p.profit || 0), 0);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>

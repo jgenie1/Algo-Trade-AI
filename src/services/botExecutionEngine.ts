@@ -28,7 +28,7 @@ export interface BotInstance {
 
 /**
  * VÉRIFICATIONS STRICTES DE SÉCURITÉ FINANCIÈRE DES BOTS :
- * 1. VÉRIFICATION DU SOLDE DISPONIBLE : Avant d'ouvrir une position, le bot vérifie que le solde disponible (hors Coffre-Fort) est suffisant.
+ * 1. VÉRIFICATION DU SOLDE DISPONIBLE : Avant d'ouvrir une position, le bot vérifie que le solde disponible est suffisant.
  * 2. RÈGLE DU CAPITAL ALLOUÉ : La taille de chaque trade est limitée à 1/3 du capital alloué au bot (bot.capital / 3).
  * 3. LIMITE DE PERTE MAXIMALE : Les pertes totales cumulées du bot NE PEUVENT PAS dépasser le capital alloué ($bot.capital).
  * 4. COFFRE-FORT DE RÉSERVE (10%) : 10% de chaque gain réalisé est immédiatement verrouillé au Coffre-Fort intouchable.
@@ -54,165 +54,141 @@ export function processBotIteration(
   const updatedBots = bots.map(bot => {
     if (bot.status !== 'RUNNING') return bot;
 
-    const currentPnL = bot.pnl ?? bot.netProfit ?? 0;
     const allocatedCapital = bot.capital > 0 ? bot.capital : 1000;
-
-    // RÈGLE 1: Taille de chaque trade = 1/3 du capital alloué au bot
     const tradedAmount = parseFloat((allocatedCapital / 3).toFixed(2));
+    const isRealMode = bot.mode === 'REAL' || (bot.pair && bot.pair.startsWith('SOL:'));
 
-    // VÉRIFICATION DU SOLDE DISPONIBLE SUR LE PORTENEUILLE
-    const isRealMode = bot.mode === 'REAL' || bot.pair.startsWith('SOL:');
-    const hasEnoughBalance = isRealMode
-      ? (solanaBalance !== null && solanaBalance >= tradedAmount)
-      : (availableBalance >= tradedAmount);
-
-    const existingPosIndex = currentPositions.findIndex(p => p.botId === bot.id);
-
-    // Si le solde disponible est insuffisant pour ouvrir une NOUVELLE position, bloquer le trade
-    if (!hasEnoughBalance && existingPosIndex < 0) {
-      dispatchAlert(
-        `⚠️ SOLDE INSUFFISANT BOT - ${bot.name || bot.strategy}`,
-        `Le bot a tenté d'engager 1/3 de son budget ($${tradedAmount}), mais le solde disponible ($${isRealMode ? solanaBalance?.toFixed(2) + ' SOL' : availableBalance.toFixed(2) + ' $'}) est insuffisant. Trade suspendu.`,
-        'STOP_LOSS'
-      );
-      return {
-        ...bot,
-        status: 'PAUSED' as const
-      };
-    }
-
-    // Levier adapté selon la stratégie
     const botLeverage = bot.leverage || (
       bot.strategy.includes('Sniper') || bot.strategy.includes('Momentum') ? 20 :
       bot.strategy.includes('Arbitrage') ? 5 : 10
     );
 
-    // Fluctuation simulée basée sur le levier
-    const tradeFluctuationPct = (Math.random() - 0.48) * 0.015;
-    const rawDeltaPnL = tradedAmount * tradeFluctuationPct * (botLeverage / 10);
+    const pairSymbol = (!bot.pair || bot.pair === 'ALL' || bot.pair === 'SOLANA') ? 'FX:EURUSD' : bot.pair;
+    const realMarketPrice = getRealMarketBasePrice(pairSymbol);
 
-    let netDeltaPnL = rawDeltaPnL;
-
-    // RÈGLE DES GAINS : 10% DE CÔTÉ AU COFFRE-FORT DE RÉSERVE
-    if (rawDeltaPnL > 0) {
-      const vaultSkim = rawDeltaPnL * 0.10;
-      netDeltaPnL = rawDeltaPnL * 0.90;
-      if (isRealMode) {
-        totalProfitSkimmedSol += vaultSkim;
-      } else {
-        totalProfitSkimmedUsd += vaultSkim;
-      }
-    }
-
-    const rawNewPnL = currentPnL + netDeltaPnL;
-
-    // RÈGLE DE PERTE MAXIMAL STRICTE : Ne peut JAMAIS dépasser le capital alloué
-    const newPnL = Math.max(-allocatedCapital, rawNewPnL);
-    const newPnLPercent = (newPnL / allocatedCapital) * 100;
-
-    botsChanged = true;
-
-    // Paramètres de risque
-    const sl = bot.stopLossPct || 3.0;
-    const tp = bot.takeProfitPct || 8.0;
-    const botDisplayName = bot.name || `Bot ${bot.strategy} (${bot.pair})`;
-
-    const pairSymbol = bot.pair === 'ALL' ? 'FX:EURUSD' : bot.pair;
-    const basePrice = getRealMarketBasePrice(pairSymbol);
-    const currentPrice = basePrice * (1 + tradeFluctuationPct);
+    // Position active associée à ce bot
+    const existingPosIndex = currentPositions.findIndex(p => p && p.botId === bot.id);
 
     if (existingPosIndex >= 0) {
-      // Mettre à jour la position existante du bot en direct
+      const existingPos = currentPositions[existingPosIndex];
+      const entryPrice = typeof existingPos.entryPrice === 'number' && existingPos.entryPrice > 0 ? existingPos.entryPrice : realMarketPrice;
+      const currentPrice = typeof existingPos.currentPrice === 'number' && existingPos.currentPrice > 0 ? existingPos.currentPrice : realMarketPrice;
+
+      const isLong = existingPos.type === 'BUY' || existingPos.type === 'LONG';
+      const priceDiff = currentPrice - entryPrice;
+      const pctDiff = entryPrice > 0 ? (priceDiff / entryPrice) : 0;
+
+      // PnL Réel calculé exclusivement selon la variation du prix du marché
+      const tradeProfit = pctDiff * existingPos.amount * botLeverage * (isLong ? 1 : -1);
+      const tradePnlPct = pctDiff * botLeverage * (isLong ? 100 : -100);
+
+      // Mettre à jour la position active dans la table avec les vraies données de marché
       currentPositions[existingPosIndex] = {
-        ...currentPositions[existingPosIndex],
-        currentPrice: parseFloat(currentPrice.toFixed(4)),
-        pnl: parseFloat(newPnL.toFixed(2)),
-        pnlPercent: parseFloat(newPnLPercent.toFixed(2)),
+        ...existingPos,
+        currentPrice,
+        pnl: parseFloat(tradeProfit.toFixed(2)),
+        pnlPercent: parseFloat(tradePnlPct.toFixed(2)),
         leverage: botLeverage
       };
-    } else {
-      // Créer la position unique initiale du bot avec ID unique
-      const botPosId = `pos_bot_${bot.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      currentPositions.unshift({
-        id: botPosId,
-        pair: pairSymbol,
-        type: 'LONG',
-        leverage: botLeverage,
-        amount: tradedAmount,
-        entryPrice: basePrice,
-        currentPrice: parseFloat(currentPrice.toFixed(4)),
-        pnl: parseFloat(newPnL.toFixed(2)),
-        pnlPercent: parseFloat(newPnLPercent.toFixed(2)),
-        botId: bot.id,
-        botName: botDisplayName,
-        timestamp: Date.now(),
-        mode: bot.mode
-      });
-    }
 
-    const isStopped = newPnL <= -allocatedCapital;
-    const isSL = newPnLPercent <= -sl;
-    const isTP = newPnLPercent >= tp;
+      const slPct = bot.stopLossPct || 3.0;
+      const tpPct = bot.takeProfitPct || 8.0;
 
-    // Fermeture de la position si limite atteinte
-    if (isStopped || isSL || isTP) {
-      const closedPosIndex = currentPositions.findIndex(p => p.botId === bot.id);
-      if (closedPosIndex >= 0) {
-        const [closedPos] = currentPositions.splice(closedPosIndex, 1);
+      const isSL = tradePnlPct <= -slPct;
+      const isTP = tradePnlPct >= tpPct;
+      const isMaxLoss = tradeProfit <= -allocatedCapital;
+
+      if (isSL || isTP || isMaxLoss) {
+        // FERMETURE DU TRADE AU PRIX DU MARCHÉ !
+        const [closedPos] = currentPositions.splice(existingPosIndex, 1);
+        const realizedProfit = parseFloat(tradeProfit.toFixed(2));
+        const botDisplayName = bot.name || `Bot ${bot.strategy}`;
+
+        // Sécuriser 10% au Coffre-Fort si le trade est réellement gagnant sur le marché
+        if (realizedProfit > 0) {
+          const vaultSkim = realizedProfit * 0.10;
+          if (isRealMode) {
+            totalProfitSkimmedSol += vaultSkim;
+          } else {
+            totalProfitSkimmedUsd += vaultSkim;
+          }
+        }
+
         newlyClosedPositions.push({
-          ...closedPos,
+          id: closedPos.id || `pos_closed_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          pair: closedPos.pair,
+          type: closedPos.type || 'BUY',
+          entryPrice: closedPos.entryPrice || entryPrice,
+          exitPrice: currentPrice,
+          amount: closedPos.amount || tradedAmount,
+          leverage: botLeverage,
+          profit: realizedProfit,
+          pnl: realizedProfit,
+          timestamp: closedPos.timestamp || Date.now(),
           closeTimestamp: Date.now(),
-          profit: closedPos.pnl,
-          pnl: closedPos.pnl
+          wasBot: true,
+          botId: bot.id,
+          botName: botDisplayName,
+          mode: bot.mode || (closedPos.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')
         });
+
+        // Mettre à jour le bilan du bot exclusivement avec le résultat réel du marché
+        const prevNet = bot.netProfit ?? bot.pnl ?? 0;
+        const currentNetProfit = parseFloat((prevNet + realizedProfit).toFixed(2));
+        const currentTotalTrades = (bot.totalTrades ?? bot.tradesCount ?? 0) + 1;
+        const currentWinningTrades = (bot.winningTrades ?? 0) + (realizedProfit >= 0 ? 1 : 0);
+        const currentPnLPercent = parseFloat(((currentNetProfit / allocatedCapital) * 100).toFixed(2));
+
+        botsChanged = true;
+
+        if (isMaxLoss) {
+          dispatchAlert(
+            `⛔ ARRÊT DE SÉCURITÉ BOT - ${botDisplayName}`,
+            `Le bot a atteint la limite de perte de son budget ($${allocatedCapital}). Le bot est mis en pause.`,
+            'STOP_LOSS'
+          );
+          return {
+            ...bot,
+            status: 'STOPPED' as const,
+            pnl: currentNetProfit,
+            netProfit: currentNetProfit,
+            pnlPercent: currentPnLPercent,
+            totalTrades: currentTotalTrades,
+            tradesCount: currentTotalTrades,
+            winningTrades: currentWinningTrades
+          };
+        }
+
+        if (isTP) {
+          dispatchAlert(
+            `🎯 TAKE-PROFIT ATTEINT - ${botDisplayName}`,
+            `Trade fermé au marché avec profit (+${tradePnlPct.toFixed(1)}%). Gains réels: +$${realizedProfit.toFixed(2)} (10% sécurisé au Coffre-Fort).`,
+            'TRADE'
+          );
+        } else if (isSL) {
+          dispatchAlert(
+            `🚨 STOP-LOSS DÉCLENCHÉ - ${botDisplayName}`,
+            `Trade fermé au marché suite au Stop-Loss (${tradePnlPct.toFixed(1)}%). Perte réelle: -$${Math.abs(realizedProfit).toFixed(2)}`,
+            'STOP_LOSS'
+          );
+        }
+
+        return {
+          ...bot,
+          pnl: currentNetProfit,
+          netProfit: currentNetProfit,
+          pnlPercent: currentPnLPercent,
+          totalTrades: currentTotalTrades,
+          tradesCount: currentTotalTrades,
+          winningTrades: currentWinningTrades
+        };
       }
     }
 
-    // Gestion des arrêt de sécurité et alertes
-    if (isStopped) {
-      dispatchAlert(
-        `⛔ ARRÊT DE SÉCURITÉ BOT - ${botDisplayName}`,
-        `Le bot a atteint la limite de perte maximale de son capital alloué ($${allocatedCapital}). Le bot est stoppé automatiquement.`,
-        'STOP_LOSS'
-      );
-      return {
-        ...bot,
-        status: 'STOPPED' as const,
-        pnl: parseFloat(newPnL.toFixed(2)),
-        netProfit: parseFloat(newPnL.toFixed(2)),
-        pnlPercent: -100,
-        tradesCount: (bot.tradesCount || bot.totalTrades || 0) + 1
-      };
-    }
-
-    if (isSL) {
-      dispatchAlert(
-        `🚨 STOP-LOSS DÉCLENCHÉ - ${botDisplayName}`,
-        `Position (Budget $${tradedAmount}, Levier ${botLeverage}x) fermée suite au Stop-Loss (-${sl}%). PnL: $${newPnL.toFixed(2)}`,
-        'STOP_LOSS'
-      );
-    } else if (isTP) {
-      dispatchAlert(
-        `🎯 TAKE-PROFIT ATTEINT - ${botDisplayName}`,
-        `Position (Budget $${tradedAmount}, Levier ${botLeverage}x) fermée avec profit (+${tp}%). 10% du gain sécurisé au Coffre-Fort ! PnL: +$${newPnL.toFixed(2)}`,
-        'TRADE'
-      );
-    }
-
-    const currentTradesCount = bot.tradesCount ?? bot.totalTrades ?? 0;
-
-    return {
-      ...bot,
-      leverage: botLeverage,
-      pnl: parseFloat(newPnL.toFixed(2)),
-      netProfit: parseFloat(newPnL.toFixed(2)),
-      pnlPercent: parseFloat(newPnLPercent.toFixed(2)),
-      tradesCount: currentTradesCount + 1,
-      totalTrades: currentTradesCount + 1
-    };
+    return bot;
   });
 
-  // Mise à jour du Coffre-Fort de Réserve (10%)
+  // Mise à jour du Coffre-Fort de Réserve (10%) uniquement sur gains réels du marché
   if (totalProfitSkimmedUsd > 0 && onUpdateReserveVault) {
     onUpdateReserveVault(prev => parseFloat((prev + totalProfitSkimmedUsd).toFixed(2)));
   }
@@ -220,7 +196,6 @@ export function processBotIteration(
     onUpdateReserveVaultSol(prev => parseFloat((prev + totalProfitSkimmedSol).toFixed(4)));
   }
 
-  // Synchro des positions dans la table globale
   onUpdatePositions(currentPositions);
 
   if (newlyClosedPositions.length > 0 && onUpdateClosedPositions) {

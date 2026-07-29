@@ -48,9 +48,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   // Prevents sending local updates to Firestore during an onSnapshot load
   const isIncomingSync = useRef(false);
   // CRITICAL: Gates ALL Firestore saves until initial data load is done.
-  // Without this, the save effect fires on mount with empty arrays and
-  // overwrites existing Firestore data before the snapshot arrives.
   const isInitialized = useRef(false);
+  // Track last synced state string to break Firestore feedback loops
+  const lastStateHashRef = useRef<string>('');
 
   // 1. Firebase Anonymous Authentication
   useEffect(() => {
@@ -138,7 +138,16 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (snapshot.exists()) {
         const data = snapshot.data() as Partial<AppState>;
         
+        // Prevent feedback loop if incoming data is identical
+        const incomingHash = JSON.stringify(data);
+        if (incomingHash === lastStateHashRef.current) {
+          isInitialized.current = true;
+          setIsLoading(false);
+          return;
+        }
+
         isIncomingSync.current = true;
+        lastStateHashRef.current = incomingHash;
         
         if (data.tradeMode !== undefined) {
           setTradingMode(data.tradeMode);
@@ -195,7 +204,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         
         setTimeout(() => {
           isIncomingSync.current = false;
-        }, 50);
+        }, 200);
       } else {
         loadFromLocalStorage();
       }
@@ -256,21 +265,27 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     const storedCex = localStorage.getItem('algo_trade_cex_keys');
     const storedNotif = localStorage.getItem('algo_trade_notification_settings');
 
+    const currentStateObj = {
+      tradeMode: tradingMode,
+      balance,
+      reserveVault,
+      reserveVaultSol,
+      positions: activePositions,
+      closedPositions,
+      bots,
+      transactions,
+      botLearnings,
+      botLogs,
+      cexKeys: storedCex ? JSON.parse(storedCex) : undefined,
+      notificationSettings: storedNotif ? JSON.parse(storedNotif) : undefined
+    };
+
+    const currentStateHash = JSON.stringify(currentStateObj);
+    if (currentStateHash === lastStateHashRef.current) return;
+
     const timer = setTimeout(() => {
-      saveFullState({
-        tradeMode: tradingMode,
-        balance,
-        reserveVault,
-        reserveVaultSol,
-        positions: activePositions,
-        closedPositions,
-        bots,
-        transactions,
-        botLearnings,
-        botLogs,
-        cexKeys: storedCex ? JSON.parse(storedCex) : undefined,
-        notificationSettings: storedNotif ? JSON.parse(storedNotif) : undefined
-      });
+      lastStateHashRef.current = currentStateHash;
+      saveFullState(currentStateObj);
     }, 500);
 
     return () => clearTimeout(timer);

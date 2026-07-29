@@ -242,16 +242,14 @@ export function useTradingSimulation() {
               const coin = await fetchPumpCoin(mint);
               if (coin) {
                 const lastClose = coin.virtual_sol_reserves / coin.virtual_token_reserves;
-                setLivePrices(prev => {
-                  const oldPrice = prev[pairVal];
-                  if (oldPrice) {
-                    setPriceDirections(dir => ({
-                      ...dir,
-                      [pairVal]: lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat'
-                    }));
-                  }
-                  return { ...prev, [pairVal]: lastClose };
-                });
+                const oldPrice = livePrices[pairVal];
+                if (oldPrice) {
+                  setPriceDirections(dir => ({
+                    ...dir,
+                    [pairVal]: lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat'
+                  }));
+                }
+                setLivePrices(prev => ({ ...prev, [pairVal]: lastClose }));
               }
             } catch (e) {}
           }
@@ -260,16 +258,14 @@ export function useTradingSimulation() {
             const candles = await fetchLiveMarketData(pairVal, '15');
             if (candles.length > 0) {
               const lastClose = candles[candles.length - 1].close;
-              setLivePrices(prev => {
-                const oldPrice = prev[pairVal];
-                if (oldPrice) {
-                  setPriceDirections(dir => ({
-                    ...dir,
-                    [pairVal]: lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat'
-                  }));
-                }
-                return { ...prev, [pairVal]: lastClose };
-              });
+              const oldPrice = livePrices[pairVal];
+              if (oldPrice) {
+                setPriceDirections(dir => ({
+                  ...dir,
+                  [pairVal]: lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat'
+                }));
+              }
+              setLivePrices(prev => ({ ...prev, [pairVal]: lastClose }));
             }
           } catch (e) {}
         }
@@ -1155,9 +1151,13 @@ export function useTradingSimulation() {
       exitPrice: exitPrice,
       amount: p.amount,
       leverage: p.leverage,
-      profit: profit,
-      timestamp: Date.now(),
+      profit: parseFloat(profit.toFixed(2)),
+      pnl: parseFloat(profit.toFixed(2)),
+      timestamp: p.timestamp || Date.now(),
+      closeTimestamp: Date.now(),
       wasBot: !!p.botId,
+      botId: p.botId,
+      botName: p.botName,
       buyTxHash: p.txHash,
       mode: posMode
     };
