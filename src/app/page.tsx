@@ -198,35 +198,49 @@ export default function TradingTerminalPage() {
 
       {/* Main Tabs Layout */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full">
-        <TabsList className="flex w-full bg-white/5 border border-white/10 p-1 rounded-xl gap-1 h-auto mb-6">
+        <TabsList className="flex w-full bg-black/40 border border-white/15 p-1.5 rounded-xl gap-2 h-auto mb-6">
           <TabsTrigger
             value="manual"
-            className="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 hover:text-white"
+            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/20 data-[state=active]:text-white text-slate-300 hover:text-white"
           >
-            <Zap className="inline-block h-3.5 w-3.5 mr-1" />
-            Trading Manuel
+            <Zap className="inline-block h-4 w-4 mr-1.5 text-amber-400" />
+            Trading Manuel & Analyse
           </TabsTrigger>
           <TabsTrigger
             value="bots"
-            className="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 hover:text-white"
+            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/20 data-[state=active]:text-white text-slate-300 hover:text-white"
           >
-            <Bot className="inline-block h-3.5 w-3.5 mr-1" />
-            Bots Automatiques
+            <Bot className="inline-block h-4 w-4 mr-1.5 text-[#c2ff0c]" />
+            Bots Automatiques & Intelligence
           </TabsTrigger>
           {tradingMode === 'REAL' && (
             <TabsTrigger
               value="wallets"
-              className="flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 hover:text-white flex items-center justify-center gap-1"
+              className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/20 data-[state=active]:text-white text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
             >
-              <span className="text-xs">💳</span>
-              Multi-Wallets
+              <span className="text-sm">💳</span>
+              Multi-Wallets Solana
             </TabsTrigger>
           )}
         </TabsList>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-5">
-            <TabsContent value="manual" className="m-0">
+        {/* TAB 1: TRADING MANUEL & CENTRE D'ANALYSE MULTI-ACTIFS */}
+        <TabsContent value="manual" className="m-0 focus-visible:outline-none">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left/Center Column: Centre d'Analyse Multi-Actifs (7 cols) */}
+            <div className="lg:col-span-7">
+              <MarketRadarAndChart
+                selectedPair={selectedPair}
+                setSelectedPair={setSelectedPair}
+                livePrices={livePrices}
+                priceDirections={priceDirections}
+                botLogs={botLogs}
+                bots={bots}
+              />
+            </div>
+
+            {/* Right Column: Passer un Ordre (5 cols) */}
+            <div className="lg:col-span-5">
               <ManualOrderForm
                 livePrices={livePrices}
                 priceDirections={priceDirections}
@@ -237,48 +251,38 @@ export default function TradingTerminalPage() {
                 selectedPair={selectedPair}
                 setSelectedPair={setSelectedPair}
               />
-            </TabsContent>
-
-            <TabsContent value="bots" className="m-0">
-              <TradingBotsManager
-                solanaBalance={solanaBalance}
-                setSolanaBalance={setSolanaBalance}
-                isSolanaWalletActive={isSolanaWalletActive}
-                addBotLog={addBotLog}
-                handleToggleBot={handleToggleBot}
-                handleDeleteBot={handleDeleteBot}
-                livePrices={livePrices}
-              />
-            </TabsContent>
-
-            {tradingMode === 'REAL' && (
-              <TabsContent value="wallets" className="m-0">
-                <MultiWalletsManager
-                  subWallets={subWallets}
-                  isSolanaWalletActive={isSolanaWalletActive}
-                  disperseAmount={disperseAmount}
-                  setDisperseAmount={setDisperseAmount}
-                  isDispersing={isDispersing}
-                  disperseTxHash={disperseTxHash}
-                  disperseError={disperseError}
-                  handleDisperseSOL={handleDisperseSOL}
-                />
-              </TabsContent>
-            )}
+            </div>
           </div>
+        </TabsContent>
 
-          {/* Right Column: Multi-Asset Radar & Interactive Pro Chart */}
-          <div className="lg:col-span-7">
-            <MarketRadarAndChart
-              selectedPair={selectedPair}
-              setSelectedPair={setSelectedPair}
-              livePrices={livePrices}
-              priceDirections={priceDirections}
-              botLogs={botLogs}
-              bots={bots}
+        {/* TAB 2: BOTS AUTOMATIQUES & INTELLIGENCE (PLEIN ÉCRAN 100%) */}
+        <TabsContent value="bots" className="m-0 focus-visible:outline-none space-y-6">
+          <TradingBotsManager
+            solanaBalance={solanaBalance}
+            setSolanaBalance={setSolanaBalance}
+            isSolanaWalletActive={isSolanaWalletActive}
+            addBotLog={addBotLog}
+            handleToggleBot={handleToggleBot}
+            handleDeleteBot={handleDeleteBot}
+            livePrices={livePrices}
+          />
+        </TabsContent>
+
+        {/* TAB 3: MULTI-WALLETS SOLANA */}
+        {tradingMode === 'REAL' && (
+          <TabsContent value="wallets" className="m-0 focus-visible:outline-none">
+            <MultiWalletsManager
+              subWallets={subWallets}
+              isSolanaWalletActive={isSolanaWalletActive}
+              disperseAmount={disperseAmount}
+              setDisperseAmount={setDisperseAmount}
+              isDispersing={isDispersing}
+              disperseTxHash={disperseTxHash}
+              disperseError={disperseError}
+              handleDisperseSOL={handleDisperseSOL}
             />
-          </div>
-        </div>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Position Details Modal overlay */}
