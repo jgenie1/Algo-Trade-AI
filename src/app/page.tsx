@@ -155,7 +155,7 @@ export default function TradingTerminalPage() {
               </div>
               <div className="px-4">
                 <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Trades</div>
-                <div className="text-xl font-extrabold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => !p.pair.startsWith('SOL:')).length}</div>
+                <div className="text-xl font-extrabold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => (p.mode || 'DEMO') === 'DEMO').length}</div>
               </div>
             </>
           ) : (

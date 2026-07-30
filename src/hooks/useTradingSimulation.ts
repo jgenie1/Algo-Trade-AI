@@ -333,7 +333,7 @@ export function useTradingSimulation() {
     const safeVault = typeof reserveVault === 'number' && !isNaN(reserveVault) ? reserveVault : 0;
     const calcEquity = safeBal + lockedManualMargin + activeBotsCapitalAndPnL + totalManualPnL + safeVault;
 
-    setEquity(isNaN(calcEquity) ? safeBal : calcEquity);
+    setEquity(isNaN(calcEquity) ? safeBal : parseFloat(calcEquity.toFixed(2)));
   }, [activePositions, livePrices, balance, bots, reserveVault]);
 
   // Refs for intervals
