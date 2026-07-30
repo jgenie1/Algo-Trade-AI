@@ -702,6 +702,11 @@ export function useTradingSimulation() {
             for (const currentPair of pairsToScan) {
               if (signalOpened) break;
 
+              // Prevent opening multiple positions on the exact same pair for the same bot
+              if (activePositionsRef.current.some(p => p.pair === currentPair && p.botId === bot.id)) {
+                continue;
+              }
+
               const fetchedCandles = await fetchLiveMarketData(currentPair, bot.timeframe);
               if (!fetchedCandles || fetchedCandles.length < 15) continue;
               
@@ -977,7 +982,7 @@ export function useTradingSimulation() {
                 };
 
                 setActivePositions(prev => {
-                  if (prev.some(x => x.id === newPos.id)) return prev;
+                  if (prev.some(x => x.id === newPos.id || (x.botId === bot.id && x.pair === newPos.pair))) return prev;
                   return [...prev, newPos];
                 });
 

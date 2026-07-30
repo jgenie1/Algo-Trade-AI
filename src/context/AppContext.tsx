@@ -70,24 +70,33 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
     const sanitizePositions = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
-      return arr
-        .filter((p: any) => p && p.pair !== 'ALL' && p.pair !== 'SOLANA')
-        .map((p: any) => {
-          const cleanPair = !p.pair ? 'FX:EURUSD' : p.pair;
-          const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-          const amt = parseFloat(rawAmt.toFixed(2));
-          const expectedBase = getRealMarketBasePrice(cleanPair);
-          const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
-          const entry = isInvalidEntry ? expectedBase : p.entryPrice;
-          return {
-            ...p,
-            pair: cleanPair,
-            amount: amt,
-            entryPrice: entry,
-            leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
-            mode: p.mode ? p.mode : (cleanPair.startsWith('SOL:') && amt < 100 ? 'REAL' : 'DEMO')
-          };
+      const seenKeys = new Set<string>();
+      const cleaned: any[] = [];
+
+      for (const p of arr) {
+        if (!p || p.pair === 'ALL' || p.pair === 'SOLANA') continue;
+        const cleanPair = !p.pair ? 'FX:EURUSD' : p.pair;
+        const key = `${p.botId || 'manual'}_${cleanPair}`;
+        if (seenKeys.has(key)) continue; // Skip duplicate active position for same bot & pair!
+        seenKeys.add(key);
+
+        const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+        const amt = parseFloat(rawAmt.toFixed(2));
+        const expectedBase = getRealMarketBasePrice(cleanPair);
+        const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
+        const entry = isInvalidEntry ? expectedBase : p.entryPrice;
+
+        cleaned.push({
+          ...p,
+          pair: cleanPair,
+          amount: amt,
+          entryPrice: entry,
+          leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
+          mode: p.mode ? p.mode : (cleanPair.startsWith('SOL:') && amt < 100 ? 'REAL' : 'DEMO')
         });
+      }
+
+      return cleaned;
     };
 
     const sanitizeBots = (arr: any[]) => {
