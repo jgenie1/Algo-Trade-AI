@@ -66,7 +66,8 @@ export default function VaultGrowthChart() {
             <XAxis dataKey="day" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} />
             <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} />
             <Tooltip 
-              contentStyle={{ backgroundColor: '#1e1728', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: '11px' }}
+              contentStyle={{ backgroundColor: '#1e1728', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', color: '#fff', fontSize: '11px' }}
+              formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)} ${tradingMode === 'REAL' ? 'SOL' : '$'}`, '']}
             />
             <Area type="monotone" dataKey="Solde" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorBalance)" />
             <Area type="monotone" dataKey="CoffreFort" stroke="#c2ff0c" strokeWidth={2} fillOpacity={1} fill="url(#colorVault)" />

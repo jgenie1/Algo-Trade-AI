@@ -188,7 +188,7 @@ export default function MarketRadarAndChart({
                     priceDirections[actualPair] === 'up' ? 'text-emerald-400' :
                     priceDirections[actualPair] === 'down' ? 'text-rose-400' : 'text-white'
                   )}>
-                    {currentPrice ? currentPrice.toFixed(currentPrice > 100 ? 2 : 5) : '—'}
+                    {currentPrice ? currentPrice.toFixed(currentPrice > 100 ? 2 : (currentPrice < 10 ? 4 : 2)) : '—'}
                   </span>
                   {priceDirections[actualPair] === 'up' && <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />}
                   {priceDirections[actualPair] === 'down' && <TrendingDown className="h-3.5 w-3.5 text-rose-400" />}
@@ -303,7 +303,7 @@ export default function MarketRadarAndChart({
                         "text-sm font-bold font-mono transition-colors",
                         item.dir === 'up' ? "text-emerald-400" : item.dir === 'down' ? "text-rose-400" : "text-white"
                       )}>
-                        {item.price ? item.price.toFixed(item.price > 100 ? 2 : 5) : '—'}
+                        {item.price ? item.price.toFixed(item.price > 100 ? 2 : (item.price < 10 ? 4 : 2)) : '—'}
                       </div>
                       <div className={cn(
                         "text-[10px] font-bold font-body flex items-center justify-end gap-1",

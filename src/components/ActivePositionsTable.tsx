@@ -93,9 +93,10 @@ export default function ActivePositionsTable({
                       </div>
                     </div>
 
+                    {/* Dynamic price precision formatting */}
                     <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 bg-black/40 p-3 rounded-xl border border-white/10">
-                      <div>Entrée: <span className="text-white font-extrabold">{entry.toFixed(2)}</span></div>
-                      <div>Prix: <span className="text-white font-extrabold">{current.toFixed(2)}</span></div>
+                      <div>Entrée: <span className="text-white font-extrabold">{entry.toFixed(entry > 50 ? 2 : 4)}</span></div>
+                      <div>Prix: <span className="text-white font-extrabold">{current.toFixed(current > 50 ? 2 : 4)}</span></div>
                     </div>
 
                     <Button
@@ -157,8 +158,8 @@ export default function ActivePositionsTable({
                         </TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{lev}x</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(2)} {tradingMode === 'DEMO' ? '$' : 'SOL'}</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{entry.toFixed(2)}</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{current.toFixed(2)}</TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{entry.toFixed(entry > 50 ? 2 : 4)}</TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{current.toFixed(current > 50 ? 2 : 4)}</TableCell>
                         <TableCell className={cn("py-3.5 px-4 text-right font-mono font-extrabold text-sm", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
                           {isProfit ? '+' : ''}{profit.toFixed(2)} ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
                         </TableCell>
