@@ -279,24 +279,7 @@ export function useTradingSimulation() {
     return () => clearInterval(interval);
   }, [selectedPair, activePositions.length, bots.length]);
 
-  // Noise simulation
-  useEffect(() => {
-    const noiseInterval = setInterval(() => {
-      setLivePrices(prev => {
-        const nextPrices = { ...prev };
-        Object.keys(nextPrices).forEach(key => {
-          const basePrice = nextPrices[key];
-          const isMeme = key.startsWith('SOL:');
-          const volatility = isMeme ? 0.025 : 0.0001;
-          const jitterPercent = (Math.random() - 0.48) * volatility;
-          nextPrices[key] = basePrice * (1 + jitterPercent);
-        });
-        return nextPrices;
-      });
-    }, 1000);
 
-    return () => clearInterval(noiseInterval);
-  }, []);
 
   // Compute live equity based on free balance, locked margins, active bots and live PnL
   useEffect(() => {

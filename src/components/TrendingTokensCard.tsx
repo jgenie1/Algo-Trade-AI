@@ -23,56 +23,57 @@ export default function TrendingTokensCard() {
   const fetchPrices = async () => {
     setRefreshing(true);
     try {
-      // 1. Fetch real BNB price from PancakeSwap BSC Contract
-      let bnbPriceNum = 582.45; // baseline fallback
-      try {
-        const bnbPriceStr = await getBnbPrice();
-        if (bnbPriceStr) {
-          bnbPriceNum = parseFloat(bnbPriceStr);
+      // Direct 100% Real Live Binance 24h Ticker API
+      const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","BNBUSDT","LINKUSDT"]', {
+        cache: 'no-store'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const findSymbol = (sym: string) => data.find((d: any) => d.symbol === sym);
+          const btc = findSymbol('BTCUSDT');
+          const eth = findSymbol('ETHUSDT');
+          const bnb = findSymbol('BNBUSDT');
+          const link = findSymbol('LINKUSDT');
+
+          const updatedTokens: TokenDisplay[] = [
+            {
+              name: 'Bitcoin',
+              symbol: 'BTC',
+              iconUrl: tokenList.find(t => t.symbol === 'BTC')?.iconUrl || '',
+              price: btc ? parseFloat(btc.lastPrice) : 65000.00,
+              change24h: btc ? parseFloat(btc.priceChangePercent) : 0
+            },
+            {
+              name: 'Ethereum',
+              symbol: 'ETH',
+              iconUrl: tokenList.find(t => t.symbol === 'ETH')?.iconUrl || '',
+              price: eth ? parseFloat(eth.lastPrice) : 3400.00,
+              change24h: eth ? parseFloat(eth.priceChangePercent) : 0
+            },
+            {
+              name: 'Binance Coin',
+              symbol: 'BNB',
+              iconUrl: tokenList.find(t => t.symbol === 'BNB')?.iconUrl || '',
+              price: bnb ? parseFloat(bnb.lastPrice) : 580.00,
+              change24h: bnb ? parseFloat(bnb.priceChangePercent) : 0
+            },
+            {
+              name: 'Chainlink',
+              symbol: 'LINK',
+              iconUrl: tokenList.find(t => t.symbol === 'LINK')?.iconUrl || '',
+              price: link ? parseFloat(link.lastPrice) : 14.50,
+              change24h: link ? parseFloat(link.priceChangePercent) : 0
+            }
+          ];
+
+          setTokens(updatedTokens);
+          return;
         }
-      } catch (err) {
-        console.error("Could not fetch BNB price from BSC contract, using fallback", err);
       }
-
-      // 2. Setup token list with dynamically simulated prices
-      const btcPrice = 98000 + (Math.random() - 0.5) * 120;
-      const ethPrice = 3250 + (Math.random() - 0.5) * 8;
-      const linkPrice = 18.4 + (Math.random() - 0.5) * 0.1;
-
-      const updatedTokens: TokenDisplay[] = [
-        {
-          name: 'Bitcoin',
-          symbol: 'BTC',
-          iconUrl: tokenList.find(t => t.symbol === 'BTC')?.iconUrl || '',
-          price: btcPrice,
-          change24h: 2.45 + (Math.random() - 0.5) * 0.2
-        },
-        {
-          name: 'Ethereum',
-          symbol: 'ETH',
-          iconUrl: tokenList.find(t => t.symbol === 'ETH')?.iconUrl || '',
-          price: ethPrice,
-          change24h: -1.12 + (Math.random() - 0.5) * 0.15
-        },
-        {
-          name: 'Binance Coin',
-          symbol: 'BNB',
-          iconUrl: tokenList.find(t => t.symbol === 'BNB')?.iconUrl || '',
-          price: bnbPriceNum,
-          change24h: 4.88 + (Math.random() - 0.5) * 0.3
-        },
-        {
-          name: 'Chainlink',
-          symbol: 'LINK',
-          iconUrl: tokenList.find(t => t.symbol === 'LINK')?.iconUrl || '',
-          price: linkPrice,
-          change24h: -0.75 + (Math.random() - 0.5) * 0.4
-        }
-      ];
-
-      setTokens(updatedTokens);
     } catch (e) {
-      console.error("Error fetching token prices:", e);
+      console.error("Error fetching Binance token prices:", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
