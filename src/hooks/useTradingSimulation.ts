@@ -1041,21 +1041,40 @@ export function useTradingSimulation() {
         let shouldClose = false;
         let closeReason = '';
 
-        if (isLong) {
-          if (p.sl && current <= p.sl) {
+        if (p.botId) {
+          const botConfig = botsRef.current.find(b => b.id === p.botId);
+          const botCap = botConfig?.capital || 1000;
+          const maxTradeLossLimit = -0.04 * botCap;
+          
+          const entry = p.entryPrice || current;
+          const priceDiff = current - entry;
+          const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+          const lev = p.leverage || 1;
+          const liveProfit = pctDiff * p.amount * lev * (isLong ? 1 : -1);
+
+          if (liveProfit <= maxTradeLossLimit) {
             shouldClose = true;
-            closeReason = `Stop Loss suiveur déclenché (${current.toFixed(5)} <= ${p.sl})`;
-          } else if (p.tp && current >= p.tp) {
-            shouldClose = true;
-            closeReason = `Take Profit déclenché (${current.toFixed(5)} >= ${p.tp})`;
+            closeReason = `Arrêt d'urgence anti-perte (Perte de position contenue à max 4% du capital du bot)`;
           }
-        } else {
-          if (p.sl && current >= p.sl) {
-            shouldClose = true;
-            closeReason = `Stop Loss suiveur déclenché (${current.toFixed(5)} >= ${p.sl})`;
-          } else if (p.tp && current <= p.tp) {
-            shouldClose = true;
-            closeReason = `Take Profit déclenché (${current.toFixed(5)} <= ${p.tp})`;
+        }
+
+        if (!shouldClose) {
+          if (isLong) {
+            if (p.sl && current <= p.sl) {
+              shouldClose = true;
+              closeReason = `Stop Loss suiveur déclenché (${current.toFixed(5)} <= ${p.sl})`;
+            } else if (p.tp && current >= p.tp) {
+              shouldClose = true;
+              closeReason = `Take Profit déclenché (${current.toFixed(5)} >= ${p.tp})`;
+            }
+          } else {
+            if (p.sl && current >= p.sl) {
+              shouldClose = true;
+              closeReason = `Stop Loss suiveur déclenché (${current.toFixed(5)} >= ${p.sl})`;
+            } else if (p.tp && current <= p.tp) {
+              shouldClose = true;
+              closeReason = `Take Profit déclenché (${current.toFixed(5)} <= ${p.tp})`;
+            }
           }
         }
 

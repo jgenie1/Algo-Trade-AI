@@ -82,24 +82,33 @@ export function processBotIteration(
       const tradeProfit = pctDiff * existingPos.amount * botLeverage * (isLong ? 1 : -1);
       const tradePnlPct = pctDiff * botLeverage * (isLong ? 100 : -100);
 
+      // Trailing Peak Profit Tracker to maximize gains
+      const currentHighestPnl = Math.max(existingPos.highestPnlPct || 0, tradePnlPct);
+
       // Mettre à jour la position active dans la table avec les vraies données de marché
       currentPositions[existingPosIndex] = {
         ...existingPos,
         currentPrice,
         pnl: parseFloat(tradeProfit.toFixed(2)),
         pnlPercent: parseFloat(tradePnlPct.toFixed(2)),
+        highestPnlPct: currentHighestPnl,
         leverage: botLeverage
       };
 
       const slPct = bot.stopLossPct || 3.0;
       const tpPct = bot.takeProfitPct || 8.0;
 
-      const isSL = tradePnlPct <= -slPct;
+      // SÉCURITÉ FINANCIÈRE ABSOLUE : Un trade ne peut JAMAIS perdre plus de 4% du capital alloué au bot !
+      const singleTradeMaxLossUsd = -0.04 * allocatedCapital;
+      const isSL = tradePnlPct <= -slPct || tradeProfit <= singleTradeMaxLossUsd;
       const isTP = tradePnlPct >= tpPct;
+      
+      // Trailing Profit Lock : Si le trade a atteint +2.5% de profit et retombe de 1.2%, verrouiller les gains immédiatement
+      const isTrailingLock = currentHighestPnl >= 2.5 && tradePnlPct <= (currentHighestPnl - 1.2);
       const isMaxLoss = tradeProfit <= -allocatedCapital;
 
-      if (isSL || isTP || isMaxLoss) {
-        // FERMETURE DU TRADE AU PRIX DU MARCHÉ !
+      if (isSL || isTP || isTrailingLock || isMaxLoss) {
+        // FERMETURE DU TRADE AU PRIX DU MARCHÉ POUR PROTÉGER LE CAPITAL
         const [closedPos] = currentPositions.splice(existingPosIndex, 1);
         const realizedProfit = parseFloat(tradeProfit.toFixed(2));
         const botDisplayName = bot.name || `Bot ${bot.strategy}`;
@@ -159,16 +168,16 @@ export function processBotIteration(
           };
         }
 
-        if (isTP) {
+        if (isTP || isTrailingLock) {
           dispatchAlert(
-            `🎯 TAKE-PROFIT ATTEINT - ${botDisplayName}`,
+            `🎯 TAKE-PROFIT / GAINS SÉCURISÉS - ${botDisplayName}`,
             `Trade fermé au marché avec profit (+${tradePnlPct.toFixed(1)}%). Gains réels: +$${realizedProfit.toFixed(2)} (10% sécurisé au Coffre-Fort).`,
             'TRADE'
           );
         } else if (isSL) {
           dispatchAlert(
-            `🚨 STOP-LOSS DÉCLENCHÉ - ${botDisplayName}`,
-            `Trade fermé au marché suite au Stop-Loss (${tradePnlPct.toFixed(1)}%). Perte réelle: -$${Math.abs(realizedProfit).toFixed(2)}`,
+            `🚨 STOP-LOSS PROTECTION - ${botDisplayName}`,
+            `Trade fermé par précaution anti-perte (${tradePnlPct.toFixed(1)}%). Perte contenue: -$${Math.abs(realizedProfit).toFixed(2)} (Capital préservé).`,
             'STOP_LOSS'
           );
         }
