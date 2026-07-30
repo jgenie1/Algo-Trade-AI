@@ -1,6 +1,4 @@
 
-'use server';
-
 import { ethers } from "ethers";
 
 const BSCSCAN_API_KEY = process.env.BSCSCAN_API_KEY;

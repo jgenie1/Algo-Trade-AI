@@ -1,6 +1,4 @@
 
-'use server';
-
 import { ethers } from "ethers";
 import uniswapV2RouterAbi from '@/abi/uniswap-v2-router-abi.json';
 
