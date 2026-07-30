@@ -257,6 +257,17 @@ export default function TradingTerminalPage() {
 
         {/* TAB 2: BOTS AUTOMATIQUES & INTELLIGENCE (PLEIN ÉCRAN 100%) */}
         <TabsContent value="bots" className="m-0 focus-visible:outline-none space-y-6">
+          {/* Centre d'Analyse Multi-Actifs & Graphique Pro */}
+          <MarketRadarAndChart
+            selectedPair={selectedPair}
+            setSelectedPair={setSelectedPair}
+            livePrices={livePrices}
+            priceDirections={priceDirections}
+            botLogs={botLogs}
+            bots={bots}
+          />
+
+          {/* Gestionnaire de Bots & Grille 2x2 de Monitoring */}
           <TradingBotsManager
             solanaBalance={solanaBalance}
             setSolanaBalance={setSolanaBalance}
