@@ -64,16 +64,7 @@ export default function TradingTerminalPage() {
     }
   };
 
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-          <span className="text-sm text-white/50 font-body">Chargement du terminal...</span>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="w-full max-w-full space-y-6 text-white px-1 sm:px-2" suppressHydrationWarning>

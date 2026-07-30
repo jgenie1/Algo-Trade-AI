@@ -147,9 +147,13 @@ export function useTradingSimulation() {
   const [subWallets, setSubWallets] = useState<SubWallet[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Load sub-wallets
+  // Fast unconditional mount flag
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  // Load sub-wallets
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedSubs = localStorage.getItem('trade_sub_wallets');
       if (storedSubs) {
