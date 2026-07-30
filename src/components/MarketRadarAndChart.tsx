@@ -89,69 +89,69 @@ export default function MarketRadarAndChart({
   });
 
   return (
-    <Card className="bg-[#14101a] border border-white/10 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col h-[620px] overflow-hidden">
+    <Card className="bg-[#150f21] border border-white/15 rounded-2xl p-5 md:p-6 shadow-2xl flex flex-col h-[660px] overflow-hidden">
       {/* Header Bar */}
-      <CardHeader className="p-0 pb-4 border-b border-white/5 shrink-0">
+      <CardHeader className="p-0 pb-4 border-b border-white/10 shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           {/* Main Title & Active Pair Display */}
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#c2ff0c]/10 border border-[#c2ff0c]/20 rounded-xl text-[#c2ff0c]">
-              <Globe className="h-4 w-4 animate-spin-slow" />
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-[#c2ff0c]/15 border border-[#c2ff0c]/30 rounded-xl text-[#c2ff0c]">
+              <Globe className="h-5 w-5 animate-spin-slow" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-headline">
+                <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline">
                   Centre d'Analyse Multi-Actifs
                 </CardTitle>
-                <Badge className="bg-[#c2ff0c]/15 text-[#c2ff0c] text-[9px] font-headline uppercase font-bold border-none">
+                <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-headline uppercase font-bold border-none">
                   Live Stream 24/7
                 </Badge>
               </div>
-              <p className="text-[11px] text-white/40 font-body">
+              <p className="text-xs text-slate-300 font-medium font-body mt-0.5">
                 Scanneur de marché en temps réel & graphiques multi-indicateurs pour bots algorithmiques.
               </p>
             </div>
           </div>
 
           {/* Sub-tab Navigation */}
-          <div className="flex bg-white/5 border border-white/10 p-1 rounded-xl gap-1 shrink-0">
+          <div className="flex bg-black/40 border border-white/15 p-1.5 rounded-xl gap-1 shrink-0">
             <Button
               variant="ghost"
               onClick={() => setActiveTab('chart')}
               className={cn(
-                "px-3 py-1.5 h-auto text-[10px] font-bold uppercase rounded-lg transition-all font-headline flex items-center gap-1 border-none",
+                "px-3.5 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all font-headline flex items-center gap-1.5 border-none",
                 activeTab === 'chart' 
-                  ? "bg-white/15 text-white shadow-md font-extrabold" 
-                  : "text-white/40 hover:text-white hover:bg-white/5"
+                  ? "bg-white/20 text-white shadow-md font-black" 
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
               )}
             >
-              <BarChart2 className="h-3 w-3 text-[#c2ff0c]" />
+              <BarChart2 className="h-3.5 w-3.5 text-[#c2ff0c]" />
               Graphique Pro
             </Button>
             <Button
               variant="ghost"
               onClick={() => setActiveTab('radar')}
               className={cn(
-                "px-3 py-1.5 h-auto text-[10px] font-bold uppercase rounded-lg transition-all font-headline flex items-center gap-1 border-none",
+                "px-3.5 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all font-headline flex items-center gap-1.5 border-none",
                 activeTab === 'radar' 
-                  ? "bg-white/15 text-white shadow-md font-extrabold" 
-                  : "text-white/40 hover:text-white hover:bg-white/5"
+                  ? "bg-white/20 text-white shadow-md font-black" 
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
               )}
             >
-              <Eye className="h-3 w-3 text-cyan-400" />
+              <Eye className="h-3.5 w-3.5 text-cyan-400" />
               Radar Actifs ({radarList.length})
             </Button>
             <Button
               variant="ghost"
               onClick={() => setActiveTab('ai')}
               className={cn(
-                "px-3 py-1.5 h-auto text-[10px] font-bold uppercase rounded-lg transition-all font-headline flex items-center gap-1 border-none",
+                "px-3.5 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all font-headline flex items-center gap-1.5 border-none",
                 activeTab === 'ai' 
-                  ? "bg-white/15 text-white shadow-md font-extrabold" 
-                  : "text-white/40 hover:text-white hover:bg-white/5"
+                  ? "bg-white/20 text-white shadow-md font-black" 
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
               )}
             >
-              <Zap className="h-3 w-3 text-amber-400" />
+              <Zap className="h-3.5 w-3.5 text-amber-400" />
               Signaux IA
             </Button>
           </div>

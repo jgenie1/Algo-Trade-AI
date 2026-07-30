@@ -69,45 +69,61 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
     const sanitizePositions = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
-      return arr.map((p: any) => {
-        const cleanPair = (p.pair === 'ALL' || !p.pair) ? 'FX:EURUSD' : p.pair;
-        const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-        const amt = parseFloat(rawAmt.toFixed(2));
-        const expectedBase = getRealMarketBasePrice(cleanPair);
-        const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
-        const entry = isInvalidEntry ? expectedBase : p.entryPrice;
-        return {
-          ...p,
-          pair: cleanPair,
-          amount: amt,
-          entryPrice: entry,
-          leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
-          mode: p.mode ? p.mode : (cleanPair.startsWith('SOL:') && amt < 100 ? 'REAL' : 'DEMO')
-        };
-      });
+      return arr
+        .filter((p: any) => p && p.pair !== 'ALL' && p.pair !== 'SOLANA')
+        .map((p: any) => {
+          const cleanPair = !p.pair ? 'FX:EURUSD' : p.pair;
+          const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+          const amt = parseFloat(rawAmt.toFixed(2));
+          const expectedBase = getRealMarketBasePrice(cleanPair);
+          const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
+          const entry = isInvalidEntry ? expectedBase : p.entryPrice;
+          return {
+            ...p,
+            pair: cleanPair,
+            amount: amt,
+            entryPrice: entry,
+            leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
+            mode: p.mode ? p.mode : (cleanPair.startsWith('SOL:') && amt < 100 ? 'REAL' : 'DEMO')
+          };
+        });
     };
 
     const sanitizeBots = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
-      return arr.map((b: any) => ({
-        ...b,
-        mode: b.mode ? b.mode : (b.strategy === 'Pump.fun Sniper Bot' && b.capital < 100 ? 'REAL' : 'DEMO')
-      }));
+      return arr.map((b: any) => {
+        const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000;
+        // Fix any corrupt/inflated capital numbers
+        const cleanCap = (rawCap > 100000 || rawCap <= 0) ? 1000 : parseFloat(rawCap.toFixed(2));
+        const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
+        const cleanProfit = parseFloat(rawProfit.toFixed(2));
+
+        return {
+          ...b,
+          capital: cleanCap,
+          netProfit: cleanProfit,
+          pnl: cleanProfit,
+          mode: b.mode ? b.mode : (b.strategy === 'Pump.fun Sniper Bot' && cleanCap < 100 ? 'REAL' : 'DEMO')
+        };
+      });
     };
 
     const sanitizeClosed = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
-      return arr.map((c: any) => {
-        const val = typeof c.profit === 'number' && !isNaN(c.profit) 
-          ? c.profit 
-          : (typeof c.pnl === 'number' && !isNaN(c.pnl) ? c.pnl : 0);
-        return {
-          ...c,
-          profit: val,
-          pnl: val,
-          mode: c.mode ? c.mode : (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')
-        };
-      });
+      return arr
+        .filter((c: any) => c && c.pair !== 'ALL' && c.pair !== 'SOLANA')
+        .map((c: any) => {
+          const rawVal = typeof c.profit === 'number' && !isNaN(c.profit) 
+            ? c.profit 
+            : (typeof c.pnl === 'number' && !isNaN(c.pnl) ? c.pnl : 0);
+          const cleanVal = parseFloat(rawVal.toFixed(2));
+          return {
+            ...c,
+            profit: cleanVal,
+            pnl: cleanVal,
+            mode: c.mode ? c.mode : (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')
+          };
+        });
     };
 
     const loadFromLocalStorage = () => {

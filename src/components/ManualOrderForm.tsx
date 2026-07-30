@@ -190,14 +190,14 @@ export default function ManualOrderForm({
   const activePairPrice = livePrices[selectedPair] || 0;
 
   return (
-    <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-5 shadow-xl">
-      <CardHeader className="p-0 flex flex-row justify-between items-center space-y-0">
-        <CardTitle className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline">
+    <Card className="bg-[#150f21] border-white/15 rounded-2xl p-6 space-y-5 shadow-2xl">
+      <CardHeader className="p-0 flex flex-row justify-between items-center space-y-0 border-b border-white/10 pb-3">
+        <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline">
           Passer un Ordre
         </CardTitle>
-        <div className="flex items-center gap-1.5 text-xs text-white/40 font-body">
-          <Activity className="h-3 w-3 text-emerald-400 animate-pulse" />
-          Flux direct
+        <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-400 font-body">
+          <Activity className="h-4 w-4 text-emerald-400 animate-pulse" />
+          Flux Direct Live
         </div>
       </CardHeader>
 
@@ -209,15 +209,15 @@ export default function ManualOrderForm({
         {tradingMode === 'DEMO' ? (
           <>
             {/* Pair Selection */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-white/40 uppercase font-headline">Paire de devises (Démo)</label>
+            <div className="space-y-2">
+              <label className="text-xs font-extrabold text-slate-200 uppercase tracking-wider font-headline">Paire de Devises (Démo)</label>
               <Select value={selectedPair} onValueChange={setSelectedPair}>
-                <SelectTrigger className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-sm focus:ring-[#c2ff0c] text-white font-body">
+                <SelectTrigger className="w-full h-11 bg-black/40 border border-white/15 rounded-xl px-4 text-sm font-bold focus:ring-[#c2ff0c] text-white font-body">
                   <SelectValue placeholder="Choisir une paire" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#14101a] border-white/10 text-white">
+                <SelectContent className="bg-[#150f21] border-white/15 text-white">
                   {currencyPairs.map(c => (
-                    <SelectItem key={c.value} value={c.value} className="focus:bg-white/10 focus:text-white cursor-pointer">
+                    <SelectItem key={c.value} value={c.value} className="focus:bg-white/10 focus:text-white cursor-pointer font-semibold text-xs">
                       {c.label}
                     </SelectItem>
                   ))}
@@ -226,18 +226,18 @@ export default function ManualOrderForm({
             </div>
 
             {/* Price Display */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 flex justify-between items-center">
-              <span className="text-xs text-white/50 font-body">Prix Actuel :</span>
+            <div className="bg-black/40 border border-white/15 rounded-xl p-4 flex justify-between items-center">
+              <span className="text-xs font-extrabold uppercase text-slate-200 font-body">Prix Actuel :</span>
               <div className="flex items-center gap-2">
                 <span className={cn(
-                  "text-xl font-bold font-body transition-colors duration-300",
+                  "text-2xl font-black font-mono transition-colors duration-300",
                   priceDirections[selectedPair] === 'up' ? 'text-emerald-400' :
                   priceDirections[selectedPair] === 'down' ? 'text-rose-400' : 'text-white'
                 )}>
                   {activePairPrice ? activePairPrice.toFixed(5) : 'Chargement...'}
                 </span>
-                {priceDirections[selectedPair] === 'up' && <TrendingUp className="h-4 w-4 text-emerald-400" />}
-                {priceDirections[selectedPair] === 'down' && <TrendingDown className="h-4 w-4 text-rose-400" />}
+                {priceDirections[selectedPair] === 'up' && <TrendingUp className="h-5 w-5 text-emerald-400" />}
+                {priceDirections[selectedPair] === 'down' && <TrendingDown className="h-5 w-5 text-rose-400" />}
               </div>
             </div>
 

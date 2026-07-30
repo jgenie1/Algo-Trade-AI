@@ -68,19 +68,19 @@ export default function TradingTerminalPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>
+    <div className="w-full max-w-full space-y-6 text-white px-1 sm:px-2" suppressHydrationWarning>
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-5">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 pb-5">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight font-headline">Terminal de Trading Algorithmique</h1>
-          <p className="text-sm text-white/40 mt-1 font-body">Gerez vos ordres manuellement ou lancez vos robots de trading en démo ou en réel on-chain.</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight font-headline text-white">Terminal de Trading Algorithmique</h1>
+          <p className="text-sm sm:text-base text-slate-300 font-medium mt-1 font-body">Gérez vos ordres manuellement ou lancez vos robots de trading en démo ou en réel on-chain.</p>
         </div>
       </div>
 
       {/* Full-width Stats & Mode Bar */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-white/5 border border-white/10 rounded-2xl p-4 w-full">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#140f1d] border border-white/15 rounded-2xl p-5 w-full shadow-2xl">
         {/* Mode Toggle Switch (Demo vs Real) */}
-        <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-xl gap-1 shrink-0">
+        <div className="flex items-center bg-black/40 border border-white/15 p-1.5 rounded-xl gap-1 shrink-0">
           <Button
             variant="ghost"
             onClick={() => {
@@ -88,13 +88,13 @@ export default function TradingTerminalPage() {
               setActiveTab('manual');
             }}
             className={cn(
-              "px-3.5 py-1.5 h-auto text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
+              "px-4 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-2 border-none",
               tradingMode === 'DEMO'
-                ? "bg-amber-500/25 text-amber-300 border border-amber-500/20 shadow-md shadow-amber-500/5 font-extrabold"
-                : "text-white/40 hover:text-white/80 hover:bg-white/5"
+                ? "bg-amber-500/30 text-amber-300 border border-amber-500/30 shadow-md shadow-amber-500/10 font-black"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
             )}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
             Mode Démo (Simulé)
           </Button>
           <Button
@@ -104,13 +104,13 @@ export default function TradingTerminalPage() {
               setActiveTab('manual');
             }}
             className={cn(
-              "px-3.5 py-1.5 h-auto text-[10px] font-bold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 border-none",
+              "px-4 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-2 border-none",
               tradingMode === 'REAL'
-                ? "bg-purple-600/25 text-purple-300 border border-purple-500/20 shadow-md shadow-purple-500/5 font-extrabold"
-                : "text-white/40 hover:text-white/80 hover:bg-white/5"
+                ? "bg-purple-600/35 text-purple-200 border border-purple-500/30 shadow-md shadow-purple-500/10 font-black"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
             )}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+            <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
             Mode Réel (Solana)
           </Button>
         </div>
@@ -119,68 +119,68 @@ export default function TradingTerminalPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex items-center gap-4 lg:gap-8 flex-1 justify-end">
           {tradingMode === 'DEMO' ? (
             <>
-              <div className="px-3 border-r border-white/5">
-                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Solde Démo</div>
-                <div className="text-lg font-bold text-amber-400 font-body mt-0.5">{balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
+              <div className="px-4 border-r border-white/10">
+                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Solde Démo</div>
+                <div className="text-xl font-extrabold text-amber-400 font-body mt-0.5">{balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
               </div>
-              <div className="px-3 border-r border-white/5">
-                <div className="text-[10px] uppercase font-bold text-[#c2ff0c] font-headline flex items-center gap-1">
+              <div className="px-4 border-r border-white/10">
+                <div className="text-xs uppercase font-extrabold text-[#c2ff0c] font-headline flex items-center gap-1 tracking-wide">
                   🔒 Coffre-Fort (10%)
                 </div>
-                <div className="text-lg font-bold text-[#c2ff0c] font-body mt-0.5">${(Number(reserveVault) || 0).toFixed(2)}</div>
+                <div className="text-xl font-extrabold text-[#c2ff0c] font-body mt-0.5">${(Number(reserveVault) || 0).toFixed(2)}</div>
               </div>
-              <div className="px-3 border-r border-white/5">
-                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Equity</div>
-                <div className="text-lg font-bold text-white font-body mt-0.5">{equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
+              <div className="px-4 border-r border-white/10">
+                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Equity</div>
+                <div className="text-xl font-extrabold text-white font-body mt-0.5">{equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
               </div>
-              <div className="px-3">
-                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Trades</div>
-                <div className="text-lg font-bold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => !p.pair.startsWith('SOL:')).length}</div>
+              <div className="px-4">
+                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Trades</div>
+                <div className="text-xl font-extrabold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => !p.pair.startsWith('SOL:')).length}</div>
               </div>
             </>
           ) : (
             <>
-              <div className="px-3 border-r border-white/5 flex flex-col justify-center">
-                <div className="text-[10px] uppercase font-bold text-purple-400 font-headline flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse inline-block" />
+              <div className="px-4 border-r border-white/10 flex flex-col justify-center">
+                <div className="text-xs uppercase font-extrabold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
+                  <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse inline-block" />
                   Solde Réel (SOL / USD / HTG)
                 </div>
-                <div className="text-lg font-bold text-purple-300 font-body mt-0.5 flex flex-col">
-                  <div className="flex items-center gap-1.5">
+                <div className="text-xl font-extrabold text-purple-200 font-body mt-0.5 flex flex-col">
+                  <div className="flex items-center gap-2">
                     <span>{solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : '0.000 SOL'}</span>
                     {solanaPubKey && (
-                      <span className="text-[9px] text-white/40 font-mono">({solanaPubKey.slice(0, 4)}...{solanaPubKey.slice(-4)})</span>
+                      <span className="text-xs text-slate-300 font-mono">({solanaPubKey.slice(0, 4)}...{solanaPubKey.slice(-4)})</span>
                     )}
                   </div>
                   {solanaBalance !== null && (
-                    <span className="text-[10px] text-emerald-400 font-mono font-semibold">
+                    <span className="text-xs text-emerald-400 font-mono font-bold">
                       {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="px-3 border-r border-white/5">
-                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Allocations Sniper (Réel)</div>
-                <div className="text-lg font-bold text-violet-400 font-body mt-0.5">
+              <div className="px-4 border-r border-white/10">
+                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Allocations Sniper (Réel)</div>
+                <div className="text-xl font-extrabold text-violet-300 font-body mt-0.5">
                   {activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').reduce((sum, p) => sum + p.amount, 0).toFixed(2)} SOL
                 </div>
-                <span className="text-[10px] text-white/40 font-mono block">
+                <span className="text-xs text-slate-300 font-mono block">
                   {formatSolToUsdAndHtg(activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').reduce((sum, p) => sum + p.amount, 0)).combinedLabel}
                 </span>
               </div>
-              <div className="px-3 border-r border-white/5">
-                <div className="text-[10px] uppercase font-bold text-white/40 font-headline">Snipes Actifs</div>
-                <div className="text-lg font-bold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').length}</div>
+              <div className="px-4 border-r border-white/10">
+                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Snipes Actifs</div>
+                <div className="text-xl font-extrabold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').length}</div>
               </div>
               {rpcLatency !== null && nodeBlockHeight !== null && (
-                <div className="px-3 flex flex-col justify-center">
-                  <div className="text-[10px] uppercase font-bold text-cyan-400 font-headline flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse inline-block" />
+                <div className="px-4 flex flex-col justify-center">
+                  <div className="text-xs uppercase font-extrabold text-cyan-400 font-headline flex items-center gap-1 tracking-wide">
+                    <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse inline-block" />
                     Chainstack Latency
                   </div>
-                  <div className="text-lg font-bold text-cyan-300 font-body mt-0.5 flex items-center gap-1.5">
+                  <div className="text-xl font-extrabold text-cyan-300 font-body mt-0.5 flex items-center gap-2">
                     <span>{rpcLatency} ms</span>
-                    <span className="text-[9px] text-white/40 font-mono">(Block: {nodeBlockHeight.toLocaleString()})</span>
+                    <span className="text-xs text-slate-300 font-mono">(Block: {nodeBlockHeight.toLocaleString()})</span>
                   </div>
                 </div>
               )}

@@ -1261,8 +1261,9 @@ export function useTradingSimulation() {
           const isWin = profitVal >= 0;
           const nextWins = (b.winningTrades || 0) + (isWin ? 1 : 0);
           const nextLosses = isWin ? 0 : (b.consecutiveLosses || 0) + 1;
-          const nextNetProfit = (b.netProfit || 0) + profitVal;
-          const nextCapital = Math.max(0, b.capital + profitVal);
+          const nextNetProfit = parseFloat(((b.netProfit || 0) + profitVal).toFixed(2));
+          // Capital remains the allocated budget assigned by user, rounded cleanly to 2 decimals
+          const cleanCapital = typeof b.capital === 'number' && !isNaN(b.capital) ? parseFloat(b.capital.toFixed(2)) : 1000;
 
           let nextStatus = b.status;
           let nextMultiplier = b.selectivityMultiplier || 1.0;
@@ -1273,8 +1274,8 @@ export function useTradingSimulation() {
             nextMultiplier = Math.min(2.0, nextMultiplier + 0.35);
           }
 
-          const maxDrawdownLimit = -0.15 * b.capital;
-          if (nextCapital <= 0) {
+          const maxDrawdownLimit = -0.15 * cleanCapital;
+          if (cleanCapital <= 0) {
             nextStatus = 'STOPPED';
             circuitBreakerLogs.push({ id: b.id, strategy: b.strategy, message: `[CIRCUIT BREAKER] Capital épuisé. Arrêt.` });
           } else if (nextNetProfit <= maxDrawdownLimit) {
@@ -1287,11 +1288,12 @@ export function useTradingSimulation() {
 
           return {
             ...b,
-            capital: nextCapital,
+            capital: cleanCapital,
             totalTrades: nextTotal,
             winningTrades: nextWins,
             consecutiveLosses: nextLosses,
             netProfit: nextNetProfit,
+            pnl: nextNetProfit,
             selectivityMultiplier: nextMultiplier,
             status: nextStatus
           };
