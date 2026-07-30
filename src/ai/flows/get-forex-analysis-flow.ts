@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Un flux IA qui analyse le marché Forex et fournit des signaux de trading.
  */
