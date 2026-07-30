@@ -6,7 +6,8 @@ import {
   Play, 
   Square, 
   Trash2, 
-  History 
+  History,
+  RotateCcw
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
@@ -86,6 +87,7 @@ export default function TradingBotsManager({
     botLearnings, 
     setBotLearnings, 
     closedPositions, 
+    resetDemoData,
     isLoading 
   } = useAppState();
 
@@ -357,9 +359,27 @@ export default function TradingBotsManager({
                 <Bot className="h-5 w-5 text-[#c2ff0c]" />
                 <span>{tradingMode === 'DEMO' ? "Mes Bots Démo" : "Mes Bots Réels"} ({filteredBots.length})</span>
               </div>
-              <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-bold border-none uppercase font-headline">
-                {filteredBots.filter(b => b.status === 'RUNNING').length} En Cours
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-bold border-none uppercase font-headline">
+                  {filteredBots.filter(b => b.status === 'RUNNING').length} En Cours
+                </Badge>
+                {tradingMode === 'DEMO' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (window.confirm("Êtes-vous sûr de vouloir tout réinitialiser en Mode Démo (remise du solde à 10 000 $, suppression des bots et positions démo) ?\n\n- Remarque : Les apprentissages IA accumulés seront intégralement conservés et utilisables en Mode Réel.")) {
+                        resetDemoData();
+                      }
+                    }}
+                    title="Réinitialiser les bots/positions démo. Les apprentissages IA restent conservés."
+                    className="h-7 px-2.5 text-[10px] font-extrabold uppercase rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 flex items-center gap-1 font-headline"
+                  >
+                    <RotateCcw className="h-3 w-3 text-rose-300" />
+                    Réinitialiser
+                  </Button>
+                )}
+              </div>
             </CardTitle>
           </CardHeader>
 

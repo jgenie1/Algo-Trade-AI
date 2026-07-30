@@ -27,6 +27,7 @@ interface AppContextType {
   setBotLearnings: React.Dispatch<React.SetStateAction<any[]>>;
   botLogs: any[];
   setBotLogs: React.Dispatch<React.SetStateAction<any[]>>;
+  resetDemoData: () => void;
   isLoading: boolean;
 }
 
@@ -307,6 +308,16 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     return () => clearTimeout(timer);
   }, [tradingMode, balance, reserveVault, reserveVaultSol, activePositions, closedPositions, bots, transactions, botLearnings, botLogs]);
 
+  const resetDemoData = () => {
+    setBalance(10000);
+    setReserveVault(0);
+    setActivePositions(prev => (prev || []).filter((p: any) => (p.mode || 'DEMO') === 'REAL'));
+    setClosedPositions(prev => (prev || []).filter((c: any) => (c.mode || 'DEMO') === 'REAL'));
+    setBots(prev => (prev || []).filter((b: any) => (b.mode || 'DEMO') === 'REAL'));
+    setBotLogs([]);
+    // Note: botLearnings ARE INTENTIONALLY PRESERVED for Real mode usage!
+  };
+
   return (
     <AppContext.Provider value={{
       tradingMode,
@@ -329,6 +340,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       setBotLearnings,
       botLogs,
       setBotLogs,
+      resetDemoData,
       isLoading
     }}>
       {children}

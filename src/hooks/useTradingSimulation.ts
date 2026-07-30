@@ -125,6 +125,7 @@ export function useTradingSimulation() {
     setBotLogs,
     botLearnings,
     setBotLearnings,
+    resetDemoData,
     isLoading: isAppLoading
   } = useAppState();
 
@@ -1394,6 +1395,7 @@ export function useTradingSimulation() {
     handleToggleBot,
     handleDeleteBot,
     handleDisperseSOL,
-    handleClosePosition
+    handleClosePosition,
+    resetDemoData
   };
 }

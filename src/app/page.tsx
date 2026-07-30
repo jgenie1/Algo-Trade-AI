@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { 
   Activity,
   Zap,
-  Bot
+  Bot,
+  RotateCcw
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useTradingSimulation } from '@/hooks/useTradingSimulation';
@@ -51,10 +52,17 @@ export default function TradingTerminalPage() {
     handleToggleBot,
     handleDeleteBot,
     handleDisperseSOL,
-    handleClosePosition
+    handleClosePosition,
+    resetDemoData
   } = useTradingSimulation();
 
   const { setTradingMode, reserveVault } = useAppState();
+
+  const handleResetDemo = () => {
+    if (window.confirm("Êtes-vous sûr de vouloir tout réinitialiser en Mode Démo (remise du solde à 10 000 $, suppression des bots et positions démo) ?\n\n- Remarque : Les apprentissages IA accumulés seront intégralement conservés et utilisables en Mode Réel.")) {
+      resetDemoData();
+    }
+  };
 
   if (!isMounted) {
     return (
@@ -113,6 +121,18 @@ export default function TradingTerminalPage() {
             <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
             Mode Réel (Solana)
           </Button>
+
+          {tradingMode === 'DEMO' && (
+            <Button
+              variant="ghost"
+              onClick={handleResetDemo}
+              title="Réinitialiser le solde à 10 000 $, effacer les bots & positions démo. Les apprentissages IA restent conservés pour le mode réel."
+              className="px-3 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 ml-2"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-rose-400" />
+              Réinitialiser Démo
+            </Button>
+          )}
         </div>
 
         {/* Portfolio Stats Panel */}
