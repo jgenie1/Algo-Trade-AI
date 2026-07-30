@@ -101,7 +101,6 @@ export default function TradingBotsManager({
   const [priorityFee, setPriorityFee] = useState<number>(0.005);
   const [autoVolume, setAutoVolume] = useState<boolean>(false);
   const [botCustomRules, setBotCustomRules] = useState<string>('');
-  const [activeMonitorTab, setActiveMonitorTab] = useState<'all' | 'bots' | 'ai' | 'logs' | 'history'>('all');
 
   const handleStartBot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -348,391 +347,299 @@ export default function TradingBotsManager({
         </form>
       </Card>
 
-      {/* CENTRE UNIFIÉ DE MONITORING & PERFORMANCE DES BOTS */}
-      <div className="space-y-4">
-        {/* Navigation Bar pour filtrer ou afficher le 2x2 Grid */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#150f21] border border-white/15 p-3 rounded-2xl shadow-xl">
-          <div className="flex items-center gap-2 pl-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#c2ff0c] animate-pulse" />
-            <span className="text-sm font-extrabold font-headline uppercase tracking-wider text-white">
-              Centre d'Activité & Intelligence
-            </span>
-          </div>
+      {/* GRILLE 2x2 DES 4 MODULES DE MONITORING & PERFORMANCE DES BOTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-full">
+        {/* MODULE 1: MES BOTS */}
+        <Card className="bg-[#150f21] border border-white/15 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+          <CardHeader className="p-0 mb-4 border-b border-white/10 pb-3">
+            <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-[#c2ff0c]" />
+                <span>{tradingMode === 'DEMO' ? "Mes Bots Démo" : "Mes Bots Réels"} ({filteredBots.length})</span>
+              </div>
+              <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-bold border-none uppercase font-headline">
+                {filteredBots.filter(b => b.status === 'RUNNING').length} En Cours
+              </Badge>
+            </CardTitle>
+          </CardHeader>
 
-          <div className="flex flex-wrap items-center gap-1.5 bg-black/40 border border-white/15 p-1.5 rounded-xl">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveMonitorTab('all')}
-              className={cn(
-                "h-9 px-3.5 text-xs font-extrabold uppercase rounded-lg transition-all font-headline border-none",
-                activeMonitorTab === 'all'
-                  ? "bg-[#c2ff0c] text-black shadow-md font-black"
-                  : "text-slate-300 hover:text-white hover:bg-white/10"
-              )}
-            >
-              🌐 Vue 2x2 Grille
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveMonitorTab('bots')}
-              className={cn(
-                "h-9 px-3.5 text-xs font-extrabold uppercase rounded-lg transition-all font-headline border-none",
-                activeMonitorTab === 'bots'
-                  ? "bg-white/20 text-white shadow-md font-black"
-                  : "text-slate-300 hover:text-white hover:bg-white/10"
-              )}
-            >
-              🤖 Mes Bots ({filteredBots.length})
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveMonitorTab('ai')}
-              className={cn(
-                "h-9 px-3.5 text-xs font-extrabold uppercase rounded-lg transition-all font-headline border-none",
-                activeMonitorTab === 'ai'
-                  ? "bg-purple-600/35 text-purple-200 shadow-md font-black"
-                  : "text-slate-300 hover:text-white hover:bg-white/10"
-              )}
-            >
-              🧠 Apprentissage IA ({botLearnings.length})
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveMonitorTab('logs')}
-              className={cn(
-                "h-9 px-3.5 text-xs font-extrabold uppercase rounded-lg transition-all font-headline border-none",
-                activeMonitorTab === 'logs'
-                  ? "bg-violet-600/35 text-violet-200 shadow-md font-black"
-                  : "text-slate-300 hover:text-white hover:bg-white/10"
-              )}
-            >
-              📜 Journal ({botLogs.length})
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveMonitorTab('history')}
-              className={cn(
-                "h-9 px-3.5 text-xs font-extrabold uppercase rounded-lg transition-all font-headline border-none",
-                activeMonitorTab === 'history'
-                  ? "bg-emerald-600/35 text-emerald-200 shadow-md font-black"
-                  : "text-slate-300 hover:text-white hover:bg-white/10"
-              )}
-            >
-              📊 Clôtures ({filteredClosed.length})
-            </Button>
-          </div>
-        </div>
+          <CardContent className="p-0 flex-1">
+            {filteredBots.length === 0 ? (
+              <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">
+                <Bot className="h-7 w-7 text-white/30 mb-2" />
+                <span>{tradingMode === 'DEMO' ? "Aucun bot démo configuré actuellement." : "Aucun sniper SOL configuré actuellement."}</span>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                {filteredBots.map((b, idx) => (
+                  <div key={b.id ? `${b.id}_${idx}` : `bot_${idx}`} className="bg-black/40 border border-white/15 rounded-xl p-4 space-y-3 relative overflow-hidden group">
+                    <div className={cn(
+                      "absolute top-0 right-0 h-2.5 w-2.5 rounded-full m-3.5",
+                      b.status === 'RUNNING' ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
+                    )} />
 
-        {/* CONTENU DES PANNEAUX (GRILLE 2x2 OU VUE UNIQUE) */}
-        <div className={cn(
-          "gap-5",
-          activeMonitorTab === 'all' ? "grid grid-cols-1 lg:grid-cols-2" : "flex flex-col"
-        )}>
-          {/* MODULE 1: MES BOTS */}
-          {(activeMonitorTab === 'all' || activeMonitorTab === 'bots') && (
-            <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-[#c2ff0c]" />
-                    <span>{tradingMode === 'DEMO' ? "Mes Bots Démo" : "Mes Bots Réels"} ({filteredBots.length})</span>
-                  </div>
-                  <Badge className="bg-[#c2ff0c]/15 text-[#c2ff0c] text-[9px] font-bold border-none uppercase font-headline">
-                    {filteredBots.filter(b => b.status === 'RUNNING').length} En Cours
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent className="p-0 flex-1">
-                {filteredBots.length === 0 ? (
-                  <div className="border border-dashed border-white/10 rounded-xl p-8 text-center text-white/30 font-body text-xs flex flex-col items-center justify-center min-h-[140px]">
-                    <Bot className="h-6 w-6 text-white/20 mb-2" />
-                    <span>{tradingMode === 'DEMO' ? "Aucun bot démo configuré actuellement." : "Aucun sniper SOL configuré actuellement."}</span>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                    {filteredBots.map((b, idx) => (
-                      <div key={b.id ? `${b.id}_${idx}` : `bot_${idx}`} className="bg-white/5 border border-white/10 rounded-xl p-3.5 space-y-2.5 relative overflow-hidden group">
-                        <div className={cn(
-                          "absolute top-0 right-0 h-2 w-2 rounded-full m-3",
-                          b.status === 'RUNNING' ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
-                        )} />
-
-                        <div className="flex justify-between items-start pr-4">
-                          <div>
-                            <div className="text-xs font-body font-semibold flex items-center gap-1">
-                              {b.strategy === 'Pump.fun Sniper Bot' ? (
-                                <span className="text-purple-400 font-bold">🟣 Stream Solana (Pump.fun)</span>
-                              ) : b.pair === 'ALL' ? (
-                                <span className="text-[#c2ff0c] font-bold">🤖 Scan Multi-Actifs</span>
-                              ) : (
-                                <>
-                                  <span className="text-white/60 font-bold">{b.pair.replace('FX:', '').replace('-USD', '').replace('=', '')}</span>
-                                  <span className="text-white/40">— {b.timeframe}m</span>
-                                </>
-                              )}
-                            </div>
-                            <div className="text-xs font-bold font-headline mt-0.5 flex items-center gap-1.5 text-white">
-                              <span>{b.strategy}</span>
-                              {b.riskProfile && (
-                                <Badge className={cn(
-                                  "text-[8px] px-1.5 py-0.2 rounded font-headline uppercase font-bold border-none",
-                                  b.riskProfile === 'CONSERVATIVE' && "bg-emerald-500/10 text-emerald-400",
-                                  b.riskProfile === 'MODERATE' && "bg-amber-500/10 text-amber-400",
-                                  b.riskProfile === 'AGGRESSIVE' && "bg-rose-500/10 text-rose-400"
-                                )}>
-                                  {b.riskProfile === 'CONSERVATIVE' ? 'Sûr' : b.riskProfile === 'AGGRESSIVE' ? 'Risque' : 'Modéré'}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="text-[11px] font-bold text-slate-300 font-mono mt-1">
-                              Capital: {(typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <span className={cn(
-                              "font-bold font-mono text-xs block",
-                              (b.netProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
-                            )}>
-                              {(b.netProfit || 0) >= 0 ? '+' : ''}{(b.netProfit || 0).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
-                            </span>
-                            <span className="text-[9px] text-white/40 font-mono block">PnL Net</span>
-                          </div>
+                    <div className="flex justify-between items-start pr-4">
+                      <div>
+                        <div className="text-xs font-body font-bold flex items-center gap-1.5">
+                          {b.strategy === 'Pump.fun Sniper Bot' ? (
+                            <span className="text-purple-400 font-bold">🟣 Stream Solana (Pump.fun)</span>
+                          ) : b.pair === 'ALL' ? (
+                            <span className="text-[#c2ff0c] font-bold">🤖 Scan Multi-Actifs</span>
+                          ) : (
+                            <>
+                              <span className="text-slate-200 font-bold">{b.pair.replace('FX:', '').replace('-USD', '').replace('=', '')}</span>
+                              <span className="text-slate-400">— {b.timeframe}m</span>
+                            </>
+                          )}
                         </div>
-
-                        <div className="flex gap-2 pt-1 border-t border-white/5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleBot(b.id)}
-                            className={cn(
-                              "flex-1 h-7 text-[10px] font-semibold rounded-md border flex items-center justify-center gap-1 transition-all",
-                              b.status === 'RUNNING'
-                                ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
-                                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-                            )}
-                          >
-                            {b.status === 'RUNNING' ? <Square className="h-2.5 w-2.5 fill-amber-400" /> : <Play className="h-2.5 w-2.5 fill-emerald-400" />}
-                            {b.status === 'RUNNING' ? 'Pause' : 'Lancer'}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteBot(b.id)}
-                            className="h-7 px-2 rounded-md border border-white/15 text-white/50 hover:text-rose-400 hover:bg-rose-500/10"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                        <div className="text-xs font-bold font-headline mt-1 flex items-center gap-1.5 text-white">
+                          <span>{b.strategy}</span>
+                          {b.riskProfile && (
+                            <Badge className={cn(
+                              "text-[9px] px-2 py-0.5 rounded font-headline uppercase font-bold border-none",
+                              b.riskProfile === 'CONSERVATIVE' && "bg-emerald-500/20 text-emerald-300",
+                              b.riskProfile === 'MODERATE' && "bg-amber-500/20 text-amber-300",
+                              b.riskProfile === 'AGGRESSIVE' && "bg-rose-500/20 text-rose-300"
+                            )}>
+                              {b.riskProfile === 'CONSERVATIVE' ? 'Sûr' : b.riskProfile === 'AGGRESSIVE' ? 'Risque' : 'Modéré'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs font-extrabold text-slate-200 font-mono mt-1">
+                          Capital: {(typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
-          {/* MODULE 2: MOTEUR D'APPRENTISSAGE & FEEDBACK IA */}
-          {(activeMonitorTab === 'all' || activeMonitorTab === 'ai') && (
-            <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-              <CardHeader className="p-0 mb-4">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline flex items-center gap-2">
-                    <span className="text-purple-400">🧠</span>
-                    <span>Moteur d'Apprentissage & Feedback IA ({botLearnings.length})</span>
-                  </CardTitle>
-                  {botLearnings.length > 0 && (
-                    <Button
-                      variant="link"
-                      onClick={() => setBotLearnings([])}
-                      className="h-auto p-0 text-[10px] text-white/40 hover:text-white font-body underline-offset-4"
-                    >
-                      Réinitialiser
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-0 flex-1">
-                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                  {botLearnings.length === 0 ? (
-                    <div className="border border-dashed border-white/5 rounded-xl p-8 text-center text-white/30 font-body text-xs flex flex-col items-center justify-center min-h-[140px]">
-                      <span className="text-xl mb-1">🧠</span>
-                      <span>Le bot n'a rencontré aucun échec pour l'instant. Il apprendra automatiquement de ses pertes futures.</span>
+                      <div className="text-right">
+                        <span className={cn(
+                          "font-extrabold font-mono text-sm block",
+                          (b.netProfit || 0) >= 0 ? "text-[#c2ff0c]" : "text-rose-400"
+                        )}>
+                          {(b.netProfit || 0) >= 0 ? '+' : ''}{(b.netProfit || 0).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                        </span>
+                        <span className="text-xs text-slate-300 font-extrabold font-mono block">PnL Net</span>
+                      </div>
                     </div>
-                  ) : (
-                    botLearnings.map((l, idx) => (
-                      <div key={l.id ? `${l.id}_${idx}` : `lrn_${idx}`} className="bg-purple-950/10 border border-purple-500/10 hover:border-purple-500/20 rounded-xl p-3 flex justify-between items-center gap-3 transition-all">
-                        <div className="space-y-1">
-                          <div className="text-[10px] text-purple-400 font-headline uppercase font-bold flex items-center gap-1.5">
-                            <span>Leçon #{(l.id || '').replace('lrn_', '')}</span>
-                            <span className="text-white/20">•</span>
-                            <span className="text-white/60 font-body normal-case">Perte évitée: {(l.lossAmount || 0).toFixed(2)} $</span>
-                          </div>
-                          <p className="text-xs text-white/80 font-body leading-relaxed">{l.learningEffect}</p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <span className="text-[9px] text-white/30 font-body block">{l.timestamp ? new Date(l.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}</span>
-                          <Badge className="mt-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-500/20 text-purple-300 font-headline uppercase border-none">
-                            Actif
+
+                    <div className="flex gap-2 pt-2 border-t border-white/10">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleBot(b.id)}
+                        className={cn(
+                          "flex-1 h-8 text-xs font-extrabold uppercase rounded-lg border flex items-center justify-center gap-1.5 transition-all font-headline",
+                          b.status === 'RUNNING'
+                            ? "bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30"
+                            : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30"
+                        )}
+                      >
+                        {b.status === 'RUNNING' ? <Square className="h-3 w-3 fill-amber-300" /> : <Play className="h-3 w-3 fill-emerald-300" />}
+                        {b.status === 'RUNNING' ? 'Pause' : 'Lancer'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteBot(b.id)}
+                        className="h-8 px-3 rounded-lg border border-white/15 text-slate-300 hover:text-rose-400 hover:bg-rose-500/20"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* MODULE 2: MOTEUR D'APPRENTISSAGE & FEEDBACK IA */}
+        <Card className="bg-[#150f21] border border-white/15 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+          <CardHeader className="p-0 mb-4 border-b border-white/10 pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center gap-2">
+                <span className="text-purple-400">🧠</span>
+                <span>Moteur d'Apprentissage & Feedback IA ({botLearnings.length})</span>
+              </CardTitle>
+              {botLearnings.length > 0 && (
+                <Button
+                  variant="link"
+                  onClick={() => setBotLearnings([])}
+                  className="h-auto p-0 text-xs text-slate-300 hover:text-white font-extrabold underline-offset-4"
+                >
+                  Réinitialiser
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0 flex-1">
+            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+              {botLearnings.length === 0 ? (
+                <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">
+                  <span className="text-2xl mb-1">🧠</span>
+                  <span>Le bot n'a rencontré aucun échec pour l'instant. Il apprendra automatiquement de ses pertes futures.</span>
+                </div>
+              ) : (
+                botLearnings.map((l, idx) => (
+                  <div key={l.id ? `${l.id}_${idx}` : `lrn_${idx}`} className="bg-purple-950/20 border border-purple-500/25 hover:border-purple-500/40 rounded-xl p-3.5 flex justify-between items-center gap-3 transition-all">
+                    <div className="space-y-1">
+                      <div className="text-xs text-purple-300 font-headline uppercase font-extrabold flex items-center gap-2">
+                        <span>Leçon #{(l.id || '').replace('lrn_', '')}</span>
+                        <span className="text-white/20">•</span>
+                        <span className="text-slate-200 font-body normal-case font-bold">Perte évitée: {(l.lossAmount || 0).toFixed(2)} $</span>
+                      </div>
+                      <p className="text-xs text-white font-body font-medium leading-relaxed">{l.learningEffect}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="text-xs text-slate-300 font-body block">{l.timestamp ? new Date(l.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}</span>
+                      <Badge className="mt-1 px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/30 text-purple-200 font-headline uppercase border-none">
+                        Actif
+                      </Badge>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* MODULE 3: JOURNAL D'ACTIVITÉ DES BOTS */}
+        <Card className="bg-[#150f21] border border-white/15 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+          <CardHeader className="p-0 mb-4 border-b border-white/10 pb-3">
+            <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bot className="h-5 w-5 text-violet-400" />
+                <span>Journal d'Activité des Bots</span>
+              </div>
+              <Badge className="bg-violet-500/25 text-violet-200 text-xs font-bold border-none uppercase font-headline">
+                {botLogs.length} Événements
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="p-0 flex-1">
+            <div className="h-[300px] overflow-y-auto border border-white/15 rounded-xl bg-black/50 p-3.5 font-mono text-xs space-y-2">
+              {botLogs.length === 0 ? (
+                <div className="text-center text-slate-300 py-16 font-body text-sm font-medium">Aucune activité enregistrée.</div>
+              ) : (
+                botLogs.map((log, idx) => (
+                  <div key={log.id ? `${log.id}_${idx}` : `log_${idx}`} className="flex items-start gap-2 border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
+                    <span className="text-slate-300 font-bold shrink-0">
+                      {new Date(log.timestamp).toLocaleTimeString('fr-FR')}
+                    </span>
+                    <span className={cn(
+                      "font-extrabold shrink-0",
+                      log.type === 'trade' ? "text-[#c2ff0c]" :
+                      log.type === 'error' ? "text-rose-400" : "text-cyan-300"
+                    )}>
+                      [{log.botName}]
+                    </span>
+                    <span className="text-slate-100 font-medium">{log.message}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* MODULE 4: HISTORIQUE DES CLÔTURES */}
+        <Card className="bg-[#150f21] border border-white/15 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+          <CardHeader className="p-0 mb-4 border-b border-white/10 pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center gap-2">
+                <History className="h-5 w-5 text-slate-300" />
+                <span>{tradingMode === 'DEMO' ? "Historique Démo" : "Historique Réel (SOL)"} ({filteredClosed.length})</span>
+              </CardTitle>
+              {filteredClosed.length > 0 && (
+                <Badge className={cn(
+                  "text-xs font-mono font-bold px-2.5 py-1 border-none",
+                  netRealizedPnL >= 0 ? "bg-emerald-500/25 text-emerald-300" : "bg-rose-500/25 text-rose-300"
+                )}>
+                  PnL: {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-0 flex-1">
+            {/* Clean 4-KPI Bar */}
+            {filteredClosed.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3.5 p-3 bg-black/40 border border-white/15 rounded-xl text-xs font-mono">
+                <div>
+                  <span className="text-xs text-emerald-400 uppercase font-headline block font-extrabold">Gains</span>
+                  <span className="text-sm font-black text-emerald-400">+{totalGains.toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-rose-400 uppercase font-headline block font-extrabold">Pertes</span>
+                  <span className="text-sm font-black text-rose-400">-{totalLosses.toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-300 uppercase font-headline block font-extrabold">PnL Net</span>
+                  <span className={cn("text-sm font-black", netRealizedPnL >= 0 ? "text-[#c2ff0c]" : "text-rose-400")}>
+                    {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-violet-300 uppercase font-headline block font-extrabold">Win Rate</span>
+                  <span className="text-sm font-black text-violet-300">{overallWinRate.toFixed(0)}%</span>
+                </div>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="border border-white/15 rounded-xl p-6 flex items-center gap-3 bg-black/20">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
+                <span className="text-xs text-slate-300 font-medium font-body">Chargement de l'historique...</span>
+              </div>
+            ) : filteredClosed.length === 0 ? (
+              <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">
+                <History className="h-7 w-7 text-white/30 mb-2" />
+                <span>Aucune transaction clôturée pour le moment.</span>
+              </div>
+            ) : (
+              <div className="max-h-[230px] overflow-y-auto space-y-2 pr-1">
+                {filteredClosed.map((h, idx) => {
+                  if (!h) return null;
+                  const entryP = typeof h.entryPrice === 'number' && !isNaN(h.entryPrice) ? h.entryPrice : 0;
+                  const exitP = typeof h.exitPrice === 'number' && !isNaN(h.exitPrice) ? h.exitPrice : entryP;
+                  const profitVal = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : 0;
+                  const isProfit = profitVal >= 0;
+                  const cleanPair = (h.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+
+                  return (
+                    <div key={h.id ? `${h.id}_${idx}` : `closed_${idx}`} className="bg-black/40 border border-white/15 rounded-xl p-3 flex justify-between items-center text-xs">
+                      <div>
+                        <div className="font-extrabold text-sm text-white flex items-center gap-2">
+                          {cleanPair}
+                          <Badge className={cn(
+                            "text-[9px] font-bold px-2 py-0.5 rounded uppercase border-none",
+                            h.type === 'BUY' ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"
+                          )}>
+                            {h.type === 'BUY' ? 'LONG' : 'SHORT'} {h.leverage || 1}x
                           </Badge>
                         </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* MODULE 3: JOURNAL D'ACTIVITÉ DES BOTS */}
-          {(activeMonitorTab === 'all' || activeMonitorTab === 'logs') && (
-            <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-              <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-violet-400" />
-                    <span>Journal d'Activité des Bots</span>
-                  </div>
-                  <Badge className="bg-violet-500/15 text-violet-300 text-[9px] font-bold border-none uppercase font-headline">
-                    {botLogs.length} Événements
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent className="p-0 flex-1">
-                <div className="h-[280px] overflow-y-auto border border-white/5 rounded-xl bg-black/40 p-3 font-mono text-[10px] space-y-2">
-                  {botLogs.length === 0 ? (
-                    <div className="text-center text-white/20 py-12 font-body">Aucune activité enregistrée.</div>
-                  ) : (
-                    botLogs.map((log, idx) => (
-                      <div key={log.id ? `${log.id}_${idx}` : `log_${idx}`} className="flex items-start gap-2 border-b border-white/5 pb-1.5 last:border-b-0 last:pb-0">
-                        <span className="text-white/30 shrink-0">
-                          {new Date(log.timestamp).toLocaleTimeString('fr-FR')}
-                        </span>
-                        <span className={cn(
-                          "font-bold shrink-0",
-                          log.type === 'trade' ? "text-[#c2ff0c]" :
-                          log.type === 'error' ? "text-rose-400" : "text-cyan-400"
-                        )}>
-                          [{log.botName}]
-                        </span>
-                        <span className="text-white/70">{log.message}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* MODULE 4: HISTORIQUE DES CLÔTURES */}
-          {(activeMonitorTab === 'all' || activeMonitorTab === 'history') && (
-            <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-              <CardHeader className="p-0 mb-4">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-white/70 font-headline flex items-center gap-2">
-                    <History className="h-4 w-4 text-white/40" />
-                    <span>{tradingMode === 'DEMO' ? "Historique Démo" : "Historique Réel (SOL)"} ({filteredClosed.length})</span>
-                  </CardTitle>
-                  {filteredClosed.length > 0 && (
-                    <Badge className={cn(
-                      "text-[10px] font-mono font-bold px-2 py-0.5 border-none",
-                      netRealizedPnL >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                    )}>
-                      PnL: {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-0 flex-1">
-                {/* Clean 4-KPI Bar */}
-                {filteredClosed.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-3 p-2 bg-white/5 border border-white/10 rounded-xl text-xs font-mono">
-                    <div>
-                      <span className="text-[8px] text-emerald-400 uppercase font-headline block">Gains</span>
-                      <span className="text-xs font-bold text-emerald-400">+{totalGains.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] text-rose-400 uppercase font-headline block">Pertes</span>
-                      <span className="text-xs font-bold text-rose-400">-{totalLosses.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] text-white/50 uppercase font-headline block">PnL Net</span>
-                      <span className={cn("text-xs font-bold", netRealizedPnL >= 0 ? "text-[#c2ff0c]" : "text-rose-400")}>
-                        {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(2)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[8px] text-violet-400 uppercase font-headline block">Win Rate</span>
-                      <span className="text-xs font-bold text-violet-300">{overallWinRate.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                )}
-
-                {isLoading ? (
-                  <div className="border border-white/5 rounded-xl p-4 flex items-center gap-3">
-                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-                    <span className="text-xs text-white/30 font-body">Chargement de l'historique...</span>
-                  </div>
-                ) : filteredClosed.length === 0 ? (
-                  <div className="border border-dashed border-white/10 rounded-xl p-8 text-center text-white/30 font-body text-xs flex flex-col items-center justify-center min-h-[140px]">
-                    <History className="h-6 w-6 text-white/20 mb-2" />
-                    <span>Aucune transaction clôturée pour le moment.</span>
-                  </div>
-                ) : (
-                  <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1">
-                    {filteredClosed.map((h, idx) => {
-                      if (!h) return null;
-                      const entryP = typeof h.entryPrice === 'number' && !isNaN(h.entryPrice) ? h.entryPrice : 0;
-                      const exitP = typeof h.exitPrice === 'number' && !isNaN(h.exitPrice) ? h.exitPrice : entryP;
-                      const profitVal = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : 0;
-                      const isProfit = profitVal >= 0;
-                      const cleanPair = (h.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-
-                      return (
-                        <div key={h.id ? `${h.id}_${idx}` : `closed_${idx}`} className="bg-white/5 border border-white/5 rounded-xl p-2.5 flex justify-between items-center text-xs">
-                          <div>
-                            <div className="font-bold flex items-center gap-1.5">
-                              {cleanPair}
-                              <Badge className={cn(
-                                "text-[8px] font-bold px-1.5 py-0.2 rounded uppercase border-none",
-                                h.type === 'BUY' ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
-                              )}>
-                                {h.type === 'BUY' ? 'LONG' : 'SHORT'} {h.leverage || 1}x
-                              </Badge>
-                            </div>
-                            <div className="text-[10px] text-white/40 font-body">
-                              Entrée: {entryP.toFixed(entryP > 100 ? 2 : 4)} | Sortie: {exitP.toFixed(entryP > 100 ? 2 : 4)}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className={cn(
-                              "font-bold text-xs block font-body",
-                              isProfit ? "text-emerald-400" : "text-rose-400"
-                            )}>
-                              {isProfit ? '+' : ''}{profitVal.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
-                            </span>
-                            <span className="text-[9px] text-white/30 block font-body">
-                              {h.timestamp ? new Date(h.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}
-                            </span>
-                          </div>
+                        <div className="text-xs text-slate-300 font-mono font-medium mt-0.5">
+                          Entrée: {entryP.toFixed(entryP > 100 ? 2 : 4)} | Sortie: {exitP.toFixed(entryP > 100 ? 2 : 4)}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={cn(
+                          "font-extrabold text-sm block font-mono",
+                          isProfit ? "text-[#c2ff0c]" : "text-rose-400"
+                        )}>
+                          {isProfit ? '+' : ''}{profitVal.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                        </span>
+                        <span className="text-xs text-slate-400 block font-body">
+                          {h.timestamp ? new Date(h.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
