@@ -55,38 +55,26 @@ export default function SaaSERPPage() {
     });
   }, []);
 
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-          <span className="text-sm text-white/50">Chargement de la Console SaaS ERP Enterprise...</span>
-        </div>
-      </div>
-    );
-  }
-
   // Calculated Financial Metrics for ERP Balance Sheet
   const solPriceUsd = 145.0;
   const solValueUsd = (solanaBalance || 0) * solPriceUsd;
   const demoBalanceUsd = balance;
   const totalAvailableCashUsd = tradingMode === 'REAL' ? solValueUsd : demoBalanceUsd;
 
-  const botAllocatedCapitalUsd = bots.reduce((sum, b) => {
+  const botAllocatedCapitalUsd = (bots || []).reduce((sum, b) => {
     const cap = b.capital || 0;
     return sum + (tradingMode === 'REAL' ? cap * solPriceUsd : cap);
   }, 0);
 
-  const openPositionsValueUsd = activePositions.reduce((sum, p) => {
-    const current = p.entryPrice; // Approximation
-    const val = p.amount * current;
+  const openPositionsValueUsd = (activePositions || []).reduce((sum, p) => {
+    const current = p.entryPrice;
     return sum + (p.pair.startsWith('SOL:') ? p.amount * solPriceUsd : p.amount);
   }, 0);
 
   const totalAumUsd = totalAvailableCashUsd + botAllocatedCapitalUsd + openPositionsValueUsd;
   const convertedAum = formatUsdToHtg(totalAumUsd);
 
-  const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const filteredClosed = (closedPositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
   const totalClosedProfit = filteredClosed.reduce((sum, p) => sum + (p.profit || 0), 0);
   const formattedClosedProfitUsd = tradingMode === 'REAL' ? totalClosedProfit * solPriceUsd : totalClosedProfit;
 
@@ -120,43 +108,42 @@ export default function SaaSERPPage() {
     document.body.removeChild(link);
   };
 
+  // Render page immediately (no blocking hydration spinner)
   const currentOrgObj = ORGANIZATIONS.find(o => o.id === selectedOrg) || ORGANIZATIONS[0];
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>
+    <div className="w-full max-w-full space-y-6 text-white px-1 sm:px-2" suppressHydrationWarning>
       {/* Header & Organization Switcher */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[#c2ff0c]/15 text-[#c2ff0c] border border-[#c2ff0c]/20">
-              <Building2 className="h-7 w-7" />
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-[#140f1d] border border-white/15 rounded-2xl p-5 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-2xl bg-[#c2ff0c]/15 text-[#c2ff0c] border border-[#c2ff0c]/30 shadow-lg shadow-[#c2ff0c]/10">
+            <Building2 className="h-8 w-8" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-headline text-white">
+                Console SaaS ERP Enterprise
+              </h1>
+              <Badge className="bg-[#c2ff0c] text-black font-extrabold text-[10px] uppercase px-2.5 py-0.5 font-headline border-none shadow-md">
+                ERP Suite v4.2
+              </Badge>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight font-headline">
-                  Console SaaS ERP Enterprise
-                </h1>
-                <Badge className="bg-[#c2ff0c] text-black font-extrabold text-[9px] uppercase px-2 py-0.5 font-headline border-none">
-                  ERP Suite v4.2
-                </Badge>
-              </div>
-              <p className="text-xs text-white/50 mt-1 font-body">
-                Pilotage comptable, audit financier du grand livre, gestion multi-organisations et contrôle des risques quantitatifs.
-              </p>
-            </div>
+            <p className="text-xs sm:text-sm text-slate-300 font-medium mt-1 font-body">
+              Pilotage comptable, audit financier du grand livre, gestion multi-organisations et contrôle des risques quantitatifs.
+            </p>
           </div>
         </div>
 
         {/* Right Action Bar */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           {/* Org Selector */}
-          <div className="flex items-center gap-2 bg-[#14101a] border border-white/10 p-1.5 rounded-xl flex-1 sm:flex-initial">
-            <span className="text-[10px] uppercase font-bold text-white/40 font-headline pl-2 hidden sm:inline">Organisation:</span>
+          <div className="flex items-center gap-2 bg-black/40 border border-white/15 p-1.5 rounded-xl flex-1 sm:flex-initial">
+            <span className="text-[10px] uppercase font-extrabold text-slate-400 font-headline pl-2 hidden sm:inline">Organisation:</span>
             <Select value={selectedOrg} onValueChange={setSelectedOrg}>
-              <SelectTrigger className="h-9 w-[220px] bg-white/5 border-white/10 rounded-lg text-xs font-semibold text-white font-headline">
+              <SelectTrigger className="h-9 w-[220px] bg-white/5 border-white/15 rounded-lg text-xs font-bold text-white font-headline">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#14101a] border-white/10 text-white font-headline text-xs">
+              <SelectContent className="bg-[#14101a] border-white/15 text-white font-headline text-xs">
                 {ORGANIZATIONS.map(org => (
                   <SelectItem key={org.id} value={org.id}>
                     {org.name}
@@ -168,7 +155,7 @@ export default function SaaSERPPage() {
 
           <Button
             onClick={handleExportLedgerCSV}
-            className="h-10 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl text-xs font-semibold font-headline flex items-center gap-2 transition-all"
+            className="h-10 px-4 bg-white/10 hover:bg-white/15 text-white border border-white/15 rounded-xl text-xs font-extrabold font-headline flex items-center gap-2 transition-all shadow-md"
           >
             <FileSpreadsheet className="h-4 w-4 text-[#c2ff0c]" />
             Exporter le Grand Livre CSV
@@ -177,12 +164,12 @@ export default function SaaSERPPage() {
       </div>
 
       {/* ERP Suite Navigation Tabs */}
-      <div className="flex border-b border-white/10 gap-6 overflow-x-auto">
+      <div className="flex w-full bg-black/40 border border-white/15 p-1.5 rounded-xl gap-2 overflow-x-auto">
         {[
-          { id: 'overview', label: 'Bilan Comptable & AUM', icon: BarChart3 },
-          { id: 'ledger', label: 'Grand Livre & Audit', icon: FileSpreadsheet },
-          { id: 'risk', label: 'Suite Contrôle des Risques & Kill-Switch', icon: ShieldAlert },
-          { id: 'license', label: 'Licence SaaS & Télémétrie API', icon: Cpu }
+          { id: 'overview', label: 'Bilan Comptable & AUM', icon: BarChart3, color: 'text-[#c2ff0c]' },
+          { id: 'ledger', label: 'Grand Livre & Audit', icon: FileSpreadsheet, color: 'text-cyan-400' },
+          { id: 'risk', label: 'Contrôle des Risques & Kill-Switch', icon: ShieldAlert, color: 'text-rose-400' },
+          { id: 'license', label: 'Licence SaaS & Télémétrie API', icon: Cpu, color: 'text-purple-400' }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -191,15 +178,14 @@ export default function SaaSERPPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                "pb-3 text-xs font-bold font-headline transition-all relative flex items-center gap-2 whitespace-nowrap shrink-0 border-none bg-transparent",
-                isActive ? "text-[#c2ff0c]" : "text-white/40 hover:text-white/80"
+                "flex-1 py-2.5 px-4 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center justify-center gap-2 whitespace-nowrap border-none cursor-pointer",
+                isActive 
+                  ? "bg-white/20 text-white shadow-lg shadow-white/5 border border-white/20" 
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={cn("h-4 w-4", tab.color)} />
               {tab.label}
-              {isActive && (
-                <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#c2ff0c] shadow-[0_0_10px_#c2ff0c]" />
-              )}
             </button>
           );
         })}

@@ -127,74 +127,68 @@ export default function TradingTerminalPage() {
         </div>
 
         {/* Portfolio Stats Panel */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex items-center gap-4 lg:gap-8 flex-1 justify-end">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4 flex-1 justify-end">
           {tradingMode === 'DEMO' ? (
             <>
-              <div className="px-4 border-r border-white/10">
-                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Solde Démo</div>
-                <div className="text-xl font-extrabold text-amber-400 font-body mt-0.5">{balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Solde Démo</div>
+                <div className="text-lg sm:text-xl font-extrabold text-amber-400 font-body">{balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
               </div>
-              <div className="px-4 border-r border-white/10">
-                <div className="text-xs uppercase font-extrabold text-[#c2ff0c] font-headline flex items-center gap-1 tracking-wide">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-[#c2ff0c] font-headline flex items-center gap-1 tracking-wide">
                   🔒 Coffre-Fort (10%)
                 </div>
-                <div className="text-xl font-extrabold text-[#c2ff0c] font-body mt-0.5">${(Number(reserveVault) || 0).toFixed(2)}</div>
+                <div className="text-lg sm:text-xl font-extrabold text-[#c2ff0c] font-body">${(Number(reserveVault) || 0).toFixed(2)}</div>
               </div>
-              <div className="px-4 border-r border-white/10">
-                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Equity</div>
-                <div className="text-xl font-extrabold text-white font-body mt-0.5">{equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Equity</div>
+                <div className="text-lg sm:text-xl font-extrabold text-white font-body">{equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
               </div>
-              <div className="px-4">
-                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Trades</div>
-                <div className="text-xl font-extrabold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => (p.mode || 'DEMO') === 'DEMO').length}</div>
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Trades</div>
+                <div className="text-lg sm:text-xl font-extrabold text-cyan-400 font-body">{activePositions.filter(p => (p.mode || 'DEMO') === 'DEMO').length}</div>
               </div>
             </>
           ) : (
             <>
-              <div className="px-4 border-r border-white/10 flex flex-col justify-center">
-                <div className="text-xs uppercase font-extrabold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
                   <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse inline-block" />
-                  Solde Réel (SOL / USD / HTG)
+                  Solde Réel
                 </div>
-                <div className="text-xl font-extrabold text-purple-200 font-body mt-0.5 flex flex-col">
-                  <div className="flex items-center gap-2">
+                <div className="text-lg sm:text-xl font-extrabold text-purple-200 font-body flex flex-col">
+                  <div className="flex items-center gap-1.5">
                     <span>{solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : '0.000 SOL'}</span>
-                    {solanaPubKey && (
-                      <span className="text-xs text-slate-300 font-mono">({solanaPubKey.slice(0, 4)}...{solanaPubKey.slice(-4)})</span>
-                    )}
                   </div>
                   {solanaBalance !== null && (
-                    <span className="text-xs text-emerald-400 font-mono font-bold">
+                    <span className="text-[10px] text-emerald-400 font-mono font-bold">
                       {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="px-4 border-r border-white/10">
-                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Allocations Sniper (Réel)</div>
-                <div className="text-xl font-extrabold text-violet-300 font-body mt-0.5">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Allocations Sniper</div>
+                <div className="text-lg sm:text-xl font-extrabold text-violet-300 font-body">
                   {activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').reduce((sum, p) => sum + p.amount, 0).toFixed(2)} SOL
                 </div>
-                <span className="text-xs text-slate-300 font-mono block">
+                <span className="text-[10px] text-slate-300 font-mono block">
                   {formatSolToUsdAndHtg(activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').reduce((sum, p) => sum + p.amount, 0)).combinedLabel}
                 </span>
               </div>
-              <div className="px-4 border-r border-white/10">
-                <div className="text-xs uppercase font-extrabold text-slate-300 font-headline tracking-wide">Snipes Actifs</div>
-                <div className="text-xl font-extrabold text-cyan-400 font-body mt-0.5">{activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').length}</div>
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Snipes Actifs</div>
+                <div className="text-lg sm:text-xl font-extrabold text-cyan-400 font-body">{activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').length}</div>
               </div>
-              {rpcLatency !== null && nodeBlockHeight !== null && (
-                <div className="px-4 flex flex-col justify-center">
-                  <div className="text-xs uppercase font-extrabold text-cyan-400 font-headline flex items-center gap-1 tracking-wide">
-                    <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse inline-block" />
-                    Chainstack Latency
-                  </div>
-                  <div className="text-xl font-extrabold text-cyan-300 font-body mt-0.5 flex items-center gap-2">
-                    <span>{rpcLatency} ms</span>
-                    <span className="text-xs text-slate-300 font-mono">(Block: {nodeBlockHeight.toLocaleString()})</span>
-                  </div>
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
+                <div className="text-[10px] uppercase font-extrabold text-cyan-400 font-headline flex items-center gap-1 tracking-wide">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse inline-block" />
+                  Latency RPC
                 </div>
-              )}
+                <div className="text-lg sm:text-xl font-extrabold text-cyan-300 font-body flex items-center gap-1.5">
+                  <span>{rpcLatency !== null ? `${rpcLatency} ms` : 'Connecté'}</span>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -212,14 +206,14 @@ export default function TradingTerminalPage() {
         <TabsList className="flex w-full bg-black/40 border border-white/15 p-1.5 rounded-xl gap-2 h-auto mb-6">
           <TabsTrigger
             value="manual"
-            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/20 data-[state=active]:text-white text-slate-300 hover:text-white"
+            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-amber-500/25 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/30 text-slate-300 hover:text-white"
           >
             <Zap className="inline-block h-4 w-4 mr-1.5 text-amber-400" />
             Trading Manuel & Analyse
           </TabsTrigger>
           <TabsTrigger
             value="bots"
-            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/20 data-[state=active]:text-white text-slate-300 hover:text-white"
+            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-slate-300 hover:text-white"
           >
             <Bot className="inline-block h-4 w-4 mr-1.5 text-[#c2ff0c]" />
             Bots Automatiques & Intelligence
@@ -227,7 +221,7 @@ export default function TradingTerminalPage() {
           {tradingMode === 'REAL' && (
             <TabsTrigger
               value="wallets"
-              className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-white/20 data-[state=active]:text-white text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
+              className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
             >
               <span className="text-sm">💳</span>
               Multi-Wallets Solana
