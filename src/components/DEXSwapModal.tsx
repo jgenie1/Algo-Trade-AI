@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap } from '@/services/dexSwapService';
 import { useAppState } from '@/context/AppContext';
+import { formatUsdToHtg } from '@/lib/utils';
 
 interface DEXSwapModalProps {
   isOpen: boolean;
@@ -271,7 +272,7 @@ export default function DEXSwapModal({ isOpen, onClose }: DEXSwapModalProps) {
                 </div>
                 <div className="flex justify-between text-white/60">
                   <span>Frais Réseau Estimés :</span>
-                  <span className="text-amber-400 font-bold">${quote.estimatedFeeUsd}</span>
+                  <span className="text-amber-400 font-bold">${quote.estimatedFeeUsd} ({formatUsdToHtg(Number(quote.estimatedFeeUsd) || 0)})</span>
                 </div>
               </div>
             )}

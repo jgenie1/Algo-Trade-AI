@@ -91,7 +91,14 @@ export async function sendDiscordNotification(webhookUrl: string, title: string,
 export async function dispatchAlert(title: string, message: string, type: 'TRADE' | 'STOP_LOSS' | 'BOT_SIGNAL' | 'TEST') {
   const settings = getNotificationSettings();
 
-  const formattedTelegramMsg = `🤖 <b>Algo-Trade-AI Alert</b>\n\n📌 <b>${title}</b>\n${message}\n\n⏱️ <i>${new Date().toLocaleTimeString()}</i>`;
+  const iconMap = {
+    TRADE: "📊",
+    STOP_LOSS: "🛑 [STOP LOSS URGENT]",
+    BOT_SIGNAL: "⚡ [SIGNAL IA]",
+    TEST: "🧪 [TEST SYSTEM]"
+  };
+
+  const formattedTelegramMsg = `🤖 <b>Algo-Trade-AI Alert</b>\n${iconMap[type]} <b>${title}</b>\n\n${message}\n\n⏱️ <i>${new Date().toLocaleTimeString('fr-FR')}</i>`;
 
   if (settings.telegramEnabled && settings.telegramBotToken && settings.telegramChatId) {
     await sendTelegramNotification(settings.telegramBotToken, settings.telegramChatId, formattedTelegramMsg);

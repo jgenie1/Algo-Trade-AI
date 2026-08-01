@@ -108,9 +108,10 @@ export async function runBacktest(
 
       if (exitPrice !== null) {
         const priceDiff = exitPrice - pos.entryPrice;
-        const pctDiff = priceDiff / pos.entryPrice;
-        const profit = pctDiff * pos.amount * leverage * (pos.type === 'BUY' ? 1 : -1);
-        const profitPct = pctDiff * leverage * (pos.type === 'BUY' ? 100 : -100);
+        const pctDiff = pos.entryPrice > 0 ? (priceDiff / pos.entryPrice) : 0;
+        const rawProfit = pctDiff * pos.amount * leverage * (pos.type === 'BUY' ? 1 : -1);
+        const profit = Math.max(-pos.amount, rawProfit);
+        const profitPct = (profit / pos.amount) * 100;
 
         balance += profit;
         if (profit >= 0) grossProfit += profit;

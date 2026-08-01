@@ -144,7 +144,11 @@ export default function MultiWalletsManager({
                     </span>
                   </TableCell>
                   <TableCell className="py-2.5 text-right pr-3 font-bold text-purple-300 font-body text-xs border-none">
-                    {w.balance !== null ? `${w.balance.toFixed(4)} SOL` : '0.0000 SOL'}
+                    {w.balance !== null ? (
+                      `${w.balance.toFixed(4)} SOL`
+                    ) : (
+                      <span className="text-white/30 text-[10px] animate-pulse">Chargement RPC...</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

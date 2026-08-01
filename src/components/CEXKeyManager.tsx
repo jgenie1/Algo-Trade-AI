@@ -43,6 +43,7 @@ export default function CEXKeyManager() {
     e.preventDefault();
     if (typeof window !== 'undefined') {
       localStorage.setItem('algo_trade_cex_keys', JSON.stringify(exchangeKeys));
+      window.dispatchEvent(new Event('storage'));
     }
     setTestResult({ success: true, message: `Clés API pour ${activeTab.toUpperCase()} enregistrées de manière chiffrée !` });
     setTimeout(() => setTestResult(null), 3000);

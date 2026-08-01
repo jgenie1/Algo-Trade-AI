@@ -165,14 +165,26 @@ export default function AnalyticsPage() {
         <div className="flex items-center gap-2">
           {/* Export CSV Buttons */}
           <button
-            onClick={() => exportTransactionsToCSV(transactions)}
+            onClick={() => {
+              if (!transactions || transactions.length === 0) {
+                alert("Aucune transaction enregistrée à exporter pour le moment.");
+                return;
+              }
+              exportTransactionsToCSV(transactions);
+            }}
             className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-headline font-bold flex items-center gap-1.5 border border-white/10"
           >
             <Download className="h-3.5 w-3.5 text-[#c2ff0c]" />
             Exporter CSV Transactions
           </button>
           <button
-            onClick={() => exportBotsPerformanceToCSV(bots)}
+            onClick={() => {
+              if (!bots || bots.length === 0) {
+                alert("Aucun robot de trading configuré pour le rapport CSV.");
+                return;
+              }
+              exportBotsPerformanceToCSV(bots);
+            }}
             className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-headline font-bold flex items-center gap-1.5 border border-white/10"
           >
             <Download className="h-3.5 w-3.5 text-[#c2ff0c]" />

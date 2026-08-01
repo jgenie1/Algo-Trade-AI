@@ -424,6 +424,11 @@ export default function TradingBotsManager({
                               {b.riskProfile === 'CONSERVATIVE' ? 'Sûr' : b.riskProfile === 'AGGRESSIVE' ? 'Risque' : 'Modéré'}
                             </Badge>
                           )}
+                          {b.customRules && (
+                            <Badge className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase font-headline">
+                              Règles IA Personnalisées
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-xs font-extrabold text-slate-200 font-mono mt-1">
                           Capital: {(typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
