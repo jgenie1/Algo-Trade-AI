@@ -7,7 +7,7 @@
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
-    "postbuild": "node -e \"if (require('fs').existsSync('.next/standalone')) { require('fs').cpSync('.next/standalone', 'dist', {recursive: true, force: true}); require('fs').cpSync('.next/static', 'dist/.next/static', {recursive: true, force: true}); if (require('fs').existsSync('public')) require('fs').cpSync('public', 'dist/public', {recursive: true, force: true}); }\"",
+    "postbuild": "node -e \"if (require('fs').existsSync('.next/standalone')) { require('fs').mkdirSync('.next/standalone/.next', {recursive: true}); require('fs').cpSync('.next/static', '.next/standalone/.next/static', {recursive: true, force: true}); if (require('fs').existsSync('public')) require('fs').cpSync('public', '.next/standalone/public', {recursive: true, force: true}); require('fs').cpSync('.next/standalone', 'dist', {recursive: true, force: true}); }\"",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
