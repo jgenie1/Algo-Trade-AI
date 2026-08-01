@@ -64,7 +64,19 @@ export default function TradingTerminalPage() {
     }
   };
 
-
+  if (!isMounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[70vh] w-full">
+        <div className="flex flex-col items-center gap-4 p-8 bg-[#140f1d] border border-white/10 rounded-3xl shadow-2xl">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#c2ff0c] border-t-transparent" />
+          <div className="flex flex-col items-center text-center">
+            <span className="text-base font-extrabold font-headline text-white">Chargement du terminal...</span>
+            <span className="text-xs text-white/50 font-body mt-1">Initialisation des flux de marché & du moteur algorithmique...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-full space-y-6 text-white px-1 sm:px-2" suppressHydrationWarning>
