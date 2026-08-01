@@ -256,7 +256,7 @@ export default function Header() {
       </div>
 
       {/* Right side: Actions, Notifications, Settings, Profile */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 max-w-full overflow-x-auto no-scrollbar">
         {/* Panic Kill Switch 1-Clic */}
         <PanicKillSwitch />
 

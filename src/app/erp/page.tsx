@@ -266,7 +266,7 @@ export default function SaaSERPPage() {
                   {solanaBalance !== null ? solanaBalance.toFixed(2) : '0.00'} SOL
                 </div>
                 <div className="text-xs text-purple-300 font-mono">
-                  {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
+                  {formatSolToUsdAndHtg(solanaBalance || 0).combinedLabel}
                 </div>
                 <div className="text-[10px] text-white/40 pt-2 border-t border-white/5">
                   Réseau: Solana Mainnet · RPC: Chainstack Dedicated Node

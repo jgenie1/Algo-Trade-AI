@@ -218,8 +218,8 @@ export default function StrategyMarketplace() {
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-3 border-b border-white/5 pb-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-extrabold font-headline text-white">{strat.name}</h3>
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <h3 className="text-base sm:text-lg font-extrabold font-headline text-white truncate min-w-0">{strat.name}</h3>
                     {strat.isPopular && (
                       <Badge className="bg-amber-500/20 text-amber-300 font-headline text-[9px] uppercase border-none">
                         TOP POPULAIRE

@@ -247,7 +247,7 @@ export default function DepositPage() {
                           type="text"
                           readOnly
                           value={solanaPubKey}
-                          className="flex-1 bg-black/45 border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white/80 select-all h-9"
+                          className="flex-1 min-w-0 bg-black/45 border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-white/80 select-all h-9 truncate"
                         />
                         <Button
                           onClick={handleCopyAddress}
