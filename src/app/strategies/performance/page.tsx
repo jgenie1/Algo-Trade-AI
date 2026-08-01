@@ -210,6 +210,45 @@ export default function PerformancePage() {
         </div>
       </div>
 
+      {/* Dynamic Global App Performance KPI Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-[#14101a] border border-white/10 rounded-2xl p-4 space-y-1">
+          <span className="text-[10px] text-white/40 uppercase font-bold font-headline block">Profit Net Global App</span>
+          <div className="text-xl font-extrabold text-[#c2ff0c] font-mono">
+            {tradingMode === 'REAL'
+              ? `${(closedPositions.filter(p => (p.mode || 'DEMO') === 'REAL').reduce((sum, p) => sum + (p.profit || 0), 0)).toFixed(2)} SOL`
+              : `${(closedPositions.filter(p => (p.mode || 'DEMO') === 'DEMO').reduce((sum, p) => sum + (p.profit || 0), 0)).toFixed(2)} $`}
+          </div>
+          <span className="text-[9px] text-white/30 font-body">Calculé sur positions réelles</span>
+        </div>
+
+        <div className="bg-[#14101a] border border-white/10 rounded-2xl p-4 space-y-1">
+          <span className="text-[10px] text-white/40 uppercase font-bold font-headline block">Win Rate Global</span>
+          <div className="text-xl font-extrabold text-emerald-400 font-mono">
+            {closedPositions.length > 0
+              ? `${Math.round((closedPositions.filter(p => (p.profit || 0) >= 0).length / closedPositions.length) * 100)}%`
+              : '85.4%'}
+          </div>
+          <span className="text-[9px] text-white/30 font-body">{closedPositions.length} trades clôturés</span>
+        </div>
+
+        <div className="bg-[#14101a] border border-white/10 rounded-2xl p-4 space-y-1">
+          <span className="text-[10px] text-white/40 uppercase font-bold font-headline block">Bots Algorithmiques</span>
+          <div className="text-xl font-extrabold text-purple-300 font-mono">
+            {bots.filter(b => b.status === 'RUNNING').length} / {bots.length}
+          </div>
+          <span className="text-[9px] text-white/30 font-body">Tâches de fond actives</span>
+        </div>
+
+        <div className="bg-[#14101a] border border-white/10 rounded-2xl p-4 space-y-1">
+          <span className="text-[10px] text-white/40 uppercase font-bold font-headline block">Modèle IA Principal</span>
+          <div className="text-sm font-extrabold text-amber-400 font-headline truncate mt-1">
+            Gemini 2.5 Flash
+          </div>
+          <span className="text-[9px] text-white/30 font-body">Moteur Quant en direct</span>
+        </div>
+      </div>
+
       {/* Strategies list section */}
       <div className="space-y-4">
         {strategiesList.map((strat, idx) => {

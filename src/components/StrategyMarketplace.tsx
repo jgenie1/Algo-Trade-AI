@@ -211,7 +211,53 @@ export default function StrategyMarketplace() {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Active App Bots Section (Dynamic App State) */}
+      {bots.length > 0 && (
+        <div className="space-y-4 bg-purple-950/20 border border-purple-500/30 rounded-3xl p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-[#c2ff0c]" />
+              <h2 className="text-lg font-bold font-headline text-white">Vos Bots & Stratégies d'App en Tâche de Fond ({bots.length})</h2>
+            </div>
+            <Link href="/?tab=bots" className="text-xs text-[#c2ff0c] font-headline font-bold hover:underline">
+              Gérer dans le Terminal →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {bots.map(bot => {
+              const pnlVal = bot.pnl || 0;
+              const isProfit = pnlVal >= 0;
+              return (
+                <div key={bot.id} className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3 font-mono">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold font-headline text-white truncate max-w-[140px]">{bot.name}</span>
+                    <Badge className={bot.status === 'RUNNING' ? 'bg-emerald-500/20 text-emerald-300 text-[9px]' : 'bg-amber-500/20 text-amber-300 text-[9px]'}>
+                      {bot.status === 'RUNNING' ? 'EN EXÉCUTION' : 'EN PAUSE'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/40">Paire:</span>
+                    <span className="text-purple-300 font-bold">{bot.pair}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/40">PnL Direct:</span>
+                    <span className={isProfit ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                      {isProfit ? '+' : ''}{pnlVal.toFixed(2)} {bot.mode === 'REAL' ? 'SOL' : '$'} ({bot.pnlPercent || 0}%)
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-white/30 pt-1 border-t border-white/5 flex justify-between">
+                    <span>Capital: {bot.capital} {bot.mode === 'REAL' ? 'SOL' : '$'}</span>
+                    <span>Modèle: {bot.aiModel || 'Gemini 2.5'}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Community Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredStrategies.map(strat => (
           <Card key={strat.id} className="bg-[#14101a] border-white/10 hover:border-[#c2ff0c]/50 transition-all rounded-3xl p-6 space-y-5 flex flex-col justify-between">
