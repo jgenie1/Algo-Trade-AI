@@ -12,7 +12,8 @@ import {
   History,
   HelpCircle,
   Info,
-  Lock
+  Lock,
+  Wallet
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
@@ -41,6 +42,38 @@ export default function DepositPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [activeGuideTab, setActiveGuideTab] = useState<GuideTab>('exchanges');
+  const [connectedWeb3Wallet, setConnectedWeb3Wallet] = useState<{ name: string; address: string; chain: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('connected_web3_wallet');
+      if (stored) {
+        try { setConnectedWeb3Wallet(JSON.parse(stored)); } catch (e) {}
+      }
+    }
+  }, []);
+
+  const connectWeb3Wallet = async () => {
+    try {
+      const win = window as any;
+      const solanaObj = win.solana || win.solflare || win.backpack;
+      if (solanaObj) {
+        const resp = await solanaObj.connect();
+        const pubKey = resp?.publicKey ? resp.publicKey.toString() : solanaObj.publicKey?.toString();
+        if (pubKey) {
+          const providerName = solanaObj.isPhantom ? "Phantom Solana" : solanaObj.isSolflare ? "Solflare Solana" : "Solana Web3 Wallet";
+          const w = { name: providerName, address: pubKey, chain: "Solana" };
+          localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+          setConnectedWeb3Wallet(w);
+          alert(`Portefeuille Web3 (${providerName}) connecté avec succès !\nAdresse : ${pubKey}`);
+          return;
+        }
+      }
+      alert("Extension Phantom, Solflare ou Backpack introuvable dans votre navigateur.");
+    } catch (err: any) {
+      alert("Erreur de connexion Web3 Wallet : " + (err.message || err));
+    }
+  };
 
   const handleUnlockVault = (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,6 +269,33 @@ export default function DepositPage() {
                   <p className="text-xs text-white/40 mt-1 font-body leading-relaxed">
                     Envoyez des jetons SOL vers cette adresse. Le crédit sera détecté automatiquement sur la blockchain Solana.
                   </p>
+                </div>
+                {/* Web3 Wallet Quick Connection Panel */}
+                <div className="bg-purple-950/20 border border-purple-500/25 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4 text-[#c2ff0c]" />
+                      <span className="text-xs font-bold font-headline text-white">Portefeuille Web3 Direct</span>
+                    </div>
+                    {connectedWeb3Wallet ? (
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        {connectedWeb3Wallet.name} Connecté
+                      </span>
+                    ) : (
+                      <Button
+                        onClick={connectWeb3Wallet}
+                        size="sm"
+                        className="h-7 px-3 bg-purple-600 hover:bg-purple-500 text-white font-bold text-[10px] rounded-lg border-none"
+                      >
+                        Connecter Web3
+                      </Button>
+                    )}
+                  </div>
+                  {connectedWeb3Wallet && (
+                    <div className="text-xs font-mono text-purple-300 bg-black/40 p-2.5 rounded-xl border border-white/5 truncate">
+                      {connectedWeb3Wallet.address}
+                    </div>
+                  )}
                 </div>
 
                 {solanaPubKey ? (

@@ -9,7 +9,8 @@ import {
   RefreshCw,
   Check,
   History,
-  Lock
+  Lock,
+  Wallet
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { getRealSolanaBalance, withdrawSolana } from '@/services/pumpFunService';
@@ -36,6 +37,44 @@ export default function WithdrawPage() {
   const [txHash, setTxHash] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [connectedWeb3Wallet, setConnectedWeb3Wallet] = useState<{ name: string; address: string; chain: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('connected_web3_wallet');
+      if (stored) {
+        try { setConnectedWeb3Wallet(JSON.parse(stored)); } catch (e) {}
+      }
+    }
+  }, []);
+
+  const handleFillConnectedWeb3Address = async () => {
+    if (connectedWeb3Wallet && connectedWeb3Wallet.address) {
+      setRecipientAddress(connectedWeb3Wallet.address);
+      alert(`Adresse ${connectedWeb3Wallet.name} insérée : ${connectedWeb3Wallet.address}`);
+      return;
+    }
+    try {
+      const win = window as any;
+      const solanaObj = win.solana || win.solflare || win.backpack;
+      if (solanaObj) {
+        const resp = await solanaObj.connect();
+        const pubKey = resp?.publicKey ? resp.publicKey.toString() : solanaObj.publicKey?.toString();
+        if (pubKey) {
+          const providerName = solanaObj.isPhantom ? "Phantom Solana" : solanaObj.isSolflare ? "Solflare Solana" : "Solana Web3 Wallet";
+          const w = { name: providerName, address: pubKey, chain: "Solana" };
+          localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+          setConnectedWeb3Wallet(w);
+          setRecipientAddress(pubKey);
+          alert(`Portefeuille (${providerName}) connecté et adresse insérée !\n${pubKey}`);
+          return;
+        }
+      }
+      alert("Extension Phantom, Solflare ou Backpack introuvable.");
+    } catch (err: any) {
+      alert("Erreur Web3 Wallet : " + (err.message || err));
+    }
+  };
 
   const handleUnlockVault = (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,7 +260,18 @@ export default function WithdrawPage() {
             <form onSubmit={handleWithdraw} className="space-y-4">
               {tradingMode === 'REAL' && (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Adresse destinataire (Solana Wallet CA)</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Adresse destinataire (Solana Wallet CA)</label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleFillConnectedWeb3Address}
+                      className="h-6 text-[10px] bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/30 rounded-md font-bold px-2 flex items-center gap-1 border-none"
+                    >
+                      <Wallet className="h-3 w-3 text-[#c2ff0c]" />
+                      {connectedWeb3Wallet ? `Utiliser ${connectedWeb3Wallet.name}` : "Remplir avec Web3 Wallet"}
+                    </Button>
+                  </div>
                   <Input
                     type="text"
                     required
