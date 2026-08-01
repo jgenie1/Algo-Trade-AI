@@ -1,13 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { 
-  Activity,
-  Zap,
-  Bot,
-  RotateCcw
-} from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { Zap, Bot } from 'lucide-react';
 import { useTradingSimulation } from '@/hooks/useTradingSimulation';
 import { useAppState } from '@/context/AppContext';
 import ActivePositionsTable from '@/components/ActivePositionsTable';
@@ -16,12 +10,12 @@ import TradingBotsManager from '@/components/TradingBotsManager';
 import MultiWalletsManager from '@/components/MultiWalletsManager';
 import PositionDetailsModal from '@/components/PositionDetailsModal';
 import MarketRadarAndChart from '@/components/MarketRadarAndChart';
+import PortfolioStatsHeader from '@/components/PortfolioStatsHeader';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
 
 export default function TradingTerminalPage() {
   const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'wallets'>('manual');
-  
+
   const {
     isMounted,
     tradingMode,
@@ -37,7 +31,6 @@ export default function TradingTerminalPage() {
     setSolanaBalance,
     isSolanaWalletActive,
     rpcLatency,
-    nodeBlockHeight,
     disperseAmount,
     setDisperseAmount,
     isDispersing,
@@ -59,7 +52,12 @@ export default function TradingTerminalPage() {
   const { setTradingMode, reserveVault } = useAppState();
 
   const handleResetDemo = () => {
-    if (window.confirm("Êtes-vous sûr de vouloir tout réinitialiser en Mode Démo (remise du solde à 10 000 $, suppression des bots et positions démo) ?\n\n- Remarque : Les apprentissages IA accumulés seront intégralement conservés et utilisables en Mode Réel.")) {
+    const confirmMsg =
+      "Êtes-vous sûr de vouloir tout réinitialiser en Mode Démo " +
+      "(remise du solde à 10 000 $, suppression des bots et positions démo) ?\n\n" +
+      "- Remarque : Les apprentissages IA accumulés seront intégralement conservés.";
+
+    if (window.confirm(confirmMsg)) {
       resetDemoData();
     }
   };
@@ -70,8 +68,12 @@ export default function TradingTerminalPage() {
         <div className="flex flex-col items-center gap-4 p-8 bg-[#140f1d] border border-white/10 rounded-3xl shadow-2xl">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#c2ff0c] border-t-transparent" />
           <div className="flex flex-col items-center text-center">
-            <span className="text-base font-extrabold font-headline text-white">Chargement du terminal...</span>
-            <span className="text-xs text-white/50 font-body mt-1">Initialisation des flux de marché & du moteur algorithmique...</span>
+            <span className="text-base font-extrabold font-headline text-white">
+              Chargement du terminal...
+            </span>
+            <span className="text-xs text-white/50 font-body mt-1">
+              Initialisation des flux de marché & du moteur algorithmique...
+            </span>
           </div>
         </div>
       </div>
@@ -83,137 +85,37 @@ export default function TradingTerminalPage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 pb-5">
         <div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight font-headline text-white">Terminal de Trading Algorithmique</h1>
-          <p className="text-sm sm:text-base text-slate-300 font-medium mt-1 font-body">Gérez vos ordres manuellement ou lancez vos robots de trading en démo ou en réel on-chain.</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight font-headline text-white">
+            Terminal de Trading Algorithmique
+          </h1>
+          <p className="text-sm sm:text-base text-slate-300 font-medium mt-1 font-body">
+            Gérez vos ordres manuellement ou lancez vos robots de trading en démo ou en réel.
+          </p>
         </div>
       </div>
 
-      {/* Full-width Stats & Mode Bar */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#140f1d] border border-white/15 rounded-2xl p-5 w-full shadow-2xl">
-        {/* Mode Toggle Switch (Demo vs Real) */}
-        <div className="flex items-center bg-black/40 border border-white/15 p-1.5 rounded-xl gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setTradingMode('DEMO');
-              setActiveTab('manual');
-            }}
-            className={cn(
-              "px-4 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-2 border-none",
-              tradingMode === 'DEMO'
-                ? "bg-amber-500/30 text-amber-300 border border-amber-500/30 shadow-md shadow-amber-500/10 font-black"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            )}
-          >
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            Mode Démo (Simulé)
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setTradingMode('REAL');
-              setActiveTab('manual');
-            }}
-            className={cn(
-              "px-4 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-2 border-none",
-              tradingMode === 'REAL'
-                ? "bg-purple-600/35 text-purple-200 border border-purple-500/30 shadow-md shadow-purple-500/10 font-black"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            )}
-          >
-            <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
-            Mode Réel (Solana)
-          </Button>
+      {/* Header Stats Bar */}
+      <PortfolioStatsHeader
+        tradingMode={tradingMode}
+        setTradingMode={setTradingMode}
+        balance={balance}
+        reserveVault={reserveVault}
+        equity={equity}
+        activePositions={activePositions}
+        solanaBalance={solanaBalance}
+        rpcLatency={rpcLatency}
+        handleResetDemo={handleResetDemo}
+        onSelectTab={(tab) => setActiveTab(tab)}
+      />
 
-          {tradingMode === 'DEMO' && (
-            <Button
-              variant="ghost"
-              onClick={handleResetDemo}
-              title="Réinitialiser le solde à 10 000 $, effacer les bots & positions démo. Les apprentissages IA restent conservés pour le mode réel."
-              className="px-3 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 ml-2"
-            >
-              <RotateCcw className="h-3.5 w-3.5 text-rose-400" />
-              Réinitialiser Démo
-            </Button>
-          )}
-        </div>
-
-        {/* Portfolio Stats Panel */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4 flex-1 justify-end">
-          {tradingMode === 'DEMO' ? (
-            <>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Solde Démo</div>
-                <div className="text-lg sm:text-xl font-extrabold text-amber-400 font-body">{balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-[#c2ff0c] font-headline flex items-center gap-1 tracking-wide">
-                  🔒 Coffre-Fort (10%)
-                </div>
-                <div className="text-lg sm:text-xl font-extrabold text-[#c2ff0c] font-body">${(Number(reserveVault) || 0).toFixed(2)}</div>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Equity</div>
-                <div className="text-lg sm:text-xl font-extrabold text-white font-body">{equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $</div>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Trades</div>
-                <div className="text-lg sm:text-xl font-extrabold text-cyan-400 font-body">{activePositions.filter(p => (p.mode || 'DEMO') === 'DEMO').length}</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
-                  <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse inline-block" />
-                  Solde Réel
-                </div>
-                <div className="text-lg sm:text-xl font-extrabold text-purple-200 font-body flex flex-col">
-                  <div className="flex items-center gap-1.5">
-                    <span>{solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : '0.000 SOL'}</span>
-                  </div>
-                  {solanaBalance !== null && (
-                    <span className="text-[10px] text-emerald-400 font-mono font-bold">
-                      {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Allocations Sniper</div>
-                <div className="text-lg sm:text-xl font-extrabold text-violet-300 font-body">
-                  {activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').reduce((sum, p) => sum + p.amount, 0).toFixed(2)} SOL
-                </div>
-                <span className="text-[10px] text-slate-300 font-mono block">
-                  {formatSolToUsdAndHtg(activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').reduce((sum, p) => sum + p.amount, 0)).combinedLabel}
-                </span>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">Snipes Actifs</div>
-                <div className="text-lg sm:text-xl font-extrabold text-cyan-400 font-body">{activePositions.filter(p => (p.mode || 'DEMO') === 'REAL').length}</div>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
-                <div className="text-[10px] uppercase font-extrabold text-cyan-400 font-headline flex items-center gap-1 tracking-wide">
-                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse inline-block" />
-                  Latency RPC
-                </div>
-                <div className="text-lg sm:text-xl font-extrabold text-cyan-300 font-body flex items-center gap-1.5">
-                  <span>{rpcLatency !== null ? `${rpcLatency} ms` : 'Connecté'}</span>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* SECTION A: ACTIVE POSITIONS (FULL WIDTH) */}
+      {/* Active Positions Table */}
       <ActivePositionsTable
         livePrices={livePrices}
         setSelectedPosition={setSelectedPosition}
         handleClosePosition={handleClosePosition}
       />
 
-      {/* Main Tabs Layout */}
+      {/* Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full">
         <TabsList className="flex w-full bg-black/40 border border-white/15 p-1.5 rounded-xl gap-2 h-auto mb-6">
           <TabsTrigger
@@ -223,6 +125,7 @@ export default function TradingTerminalPage() {
             <Zap className="inline-block h-4 w-4 mr-1.5 text-amber-400" />
             Trading Manuel & Analyse
           </TabsTrigger>
+
           <TabsTrigger
             value="bots"
             className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-slate-300 hover:text-white"
@@ -230,6 +133,7 @@ export default function TradingTerminalPage() {
             <Bot className="inline-block h-4 w-4 mr-1.5 text-[#c2ff0c]" />
             Bots Automatiques & Intelligence
           </TabsTrigger>
+
           {tradingMode === 'REAL' && (
             <TabsTrigger
               value="wallets"
@@ -241,10 +145,9 @@ export default function TradingTerminalPage() {
           )}
         </TabsList>
 
-        {/* TAB 1: TRADING MANUEL & CENTRE D'ANALYSE MULTI-ACTIFS */}
+        {/* Tab 1: Manual Trading & Analysis */}
         <TabsContent value="manual" className="m-0 focus-visible:outline-none">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left/Center Column: Centre d'Analyse Multi-Actifs (7 cols) */}
             <div className="lg:col-span-7">
               <MarketRadarAndChart
                 selectedPair={selectedPair}
@@ -256,7 +159,6 @@ export default function TradingTerminalPage() {
               />
             </div>
 
-            {/* Right Column: Passer un Ordre (5 cols) */}
             <div className="lg:col-span-5">
               <ManualOrderForm
                 livePrices={livePrices}
@@ -272,9 +174,8 @@ export default function TradingTerminalPage() {
           </div>
         </TabsContent>
 
-        {/* TAB 2: BOTS AUTOMATIQUES & INTELLIGENCE (PLEIN ÉCRAN 100%) */}
+        {/* Tab 2: Automatic Bots & Intelligence */}
         <TabsContent value="bots" className="m-0 focus-visible:outline-none space-y-6">
-          {/* Centre d'Analyse Multi-Actifs & Graphique Pro */}
           <MarketRadarAndChart
             selectedPair={selectedPair}
             setSelectedPair={setSelectedPair}
@@ -284,7 +185,6 @@ export default function TradingTerminalPage() {
             bots={bots}
           />
 
-          {/* Gestionnaire de Bots & Grille 2x2 de Monitoring */}
           <TradingBotsManager
             solanaBalance={solanaBalance}
             setSolanaBalance={setSolanaBalance}
@@ -296,7 +196,7 @@ export default function TradingTerminalPage() {
           />
         </TabsContent>
 
-        {/* TAB 3: MULTI-WALLETS SOLANA */}
+        {/* Tab 3: Solana Multi-Wallets */}
         {tradingMode === 'REAL' && (
           <TabsContent value="wallets" className="m-0 focus-visible:outline-none">
             <MultiWalletsManager
@@ -313,7 +213,7 @@ export default function TradingTerminalPage() {
         )}
       </Tabs>
 
-      {/* Position Details Modal overlay */}
+      {/* Position Details Modal */}
       {selectedPosition && (
         <PositionDetailsModal
           position={selectedPosition}
