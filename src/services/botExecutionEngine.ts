@@ -55,8 +55,10 @@ export function processBotIteration(
     if (bot.status !== 'RUNNING') return bot;
 
     const allocatedCapital = bot.capital > 0 ? bot.capital : 1000;
-    const tradedAmount = parseFloat((allocatedCapital / 3).toFixed(2));
     const isRealMode = bot.mode === 'REAL' || (bot.pair && bot.pair.startsWith('SOL:'));
+    const tradedAmount = (isRealMode || allocatedCapital < 10) 
+      ? parseFloat((allocatedCapital / 3).toFixed(4)) 
+      : parseFloat((allocatedCapital / 3).toFixed(2));
 
     const botLeverage = bot.leverage || (
       bot.strategy.includes('Sniper') || bot.strategy.includes('Momentum') ? 20 :

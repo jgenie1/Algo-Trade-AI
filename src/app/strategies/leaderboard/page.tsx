@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
+import { getRealSolanaBalance } from '@/services/pumpFunService';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -135,7 +136,7 @@ const REAL_LEADERBOARD_ENTRIES: LeaderboardEntry[] = [
     creator: "SolDev Alpha",
     strategy: "Solana Sniper (Ultra-Précoce)",
     strategyCategory: "Pump.fun Sniper Bot",
-    defaultPair: "SOL Memecoins",
+    defaultPair: "SOL:$WIF",
     pnl: "+1,480.95 %",
     monthlyPnlVal: 1480.95,
     winRate: "83.1%",
@@ -155,7 +156,7 @@ const REAL_LEADERBOARD_ENTRIES: LeaderboardEntry[] = [
     creator: "PumpSeeker",
     strategy: "Solana Sniper (Momentum)",
     strategyCategory: "Pump.fun Sniper Bot",
-    defaultPair: "SOL Memecoins",
+    defaultPair: "SOL:$BONK",
     pnl: "+845.30 %",
     monthlyPnlVal: 845.30,
     winRate: "76.4%",
@@ -175,7 +176,7 @@ const REAL_LEADERBOARD_ENTRIES: LeaderboardEntry[] = [
     creator: "RaydiumLabs",
     strategy: "Raydium Migration Frontrun",
     strategyCategory: "Pump.fun Sniper Bot",
-    defaultPair: "RAY/SOL",
+    defaultPair: "SOL:RAYDIUM",
     pnl: "+310.42 %",
     monthlyPnlVal: 310.42,
     winRate: "91.0%",
@@ -195,7 +196,7 @@ const REAL_LEADERBOARD_ENTRIES: LeaderboardEntry[] = [
     creator: "MemeQuant",
     strategy: "Solana Sniper (Momentum)",
     strategyCategory: "Pump.fun Sniper Bot",
-    defaultPair: "SOL Memecoins",
+    defaultPair: "SOL:$TRUMP",
     pnl: "+125.80 %",
     monthlyPnlVal: 125.80,
     winRate: "64.2%",
@@ -259,7 +260,7 @@ export default function LeaderboardPage() {
     return bots.some(b => b.name === `[Copy] ${entry.name}` && b.status === 'RUNNING');
   };
 
-  const handleCopyTrader = (entry: LeaderboardEntry) => {
+  const handleCopyTrader = async (entry: LeaderboardEntry) => {
     // 1. If already copied, provide direct management option
     if (isEntryCopied(entry)) {
       alert(`La stratégie "${entry.name}" est déjà active dans vos Robots de Trading ! Vous pouvez la gérer directement dans le Dashboard.`);
@@ -277,11 +278,11 @@ export default function LeaderboardPage() {
         return;
       }
     } else {
-      // Real Solana Mode Check
-      const storedSolBal = localStorage.getItem('trade_sol_balance');
-      const solBal = storedSolBal ? parseFloat(storedSolBal) : 0;
+      // Real Solana Mode Check via getRealSolanaBalance API
+      const res = await getRealSolanaBalance();
+      const solBal = (res && res.success && typeof res.balance === 'number') ? res.balance : 0;
       if (solBal < requiredCapitalSol) {
-        alert(`Solde Solana insuffisant (${solBal.toFixed(3)} SOL disponibles). Requis : ${requiredCapitalSol} SOL pour démarrer le Copy-Trading en Mode Réel.`);
+        alert(`Solde Solana insuffisant (${solBal.toFixed(3)} SOL disponibles). Requis : ${requiredCapitalSol} SOL pour démarrer le Copy-Trading en Mode Réel sur la Blockchain.`);
         return;
       }
     }

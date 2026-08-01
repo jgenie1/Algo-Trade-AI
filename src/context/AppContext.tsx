@@ -81,7 +81,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         seenKeys.add(key);
 
         const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-        const amt = parseFloat(rawAmt.toFixed(2));
+        const amt = rawAmt < 1 ? parseFloat(rawAmt.toFixed(4)) : parseFloat(rawAmt.toFixed(2));
         const expectedBase = getRealMarketBasePrice(cleanPair);
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
