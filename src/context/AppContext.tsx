@@ -320,9 +320,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const resetDemoData = () => {
     setBalance(10000);
     setReserveVault(0);
-    setActivePositions(prev => (prev || []).filter((p: any) => (p.mode || 'DEMO') === 'REAL'));
-    setClosedPositions(prev => (prev || []).filter((c: any) => (c.mode || 'DEMO') === 'REAL'));
-    setBots(prev => (prev || []).filter((b: any) => (b.mode || 'DEMO') === 'REAL'));
+    setActivePositions(prev => (prev || []).filter((p: any) => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setClosedPositions(prev => (prev || []).filter((c: any) => (c.mode || (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setBots(prev => (prev || []).filter((b: any) => (b.mode || (b.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
     setBotLogs([]);
     // Note: botLearnings ARE INTENTIONALLY PRESERVED for Real mode usage!
   };

@@ -86,7 +86,9 @@ export default function PositionDetailsModal({
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Marge Engagée</span>
-            <span className="text-sm font-bold text-white font-body">{position.amount.toFixed(2)} {isSol ? 'SOL' : '$'}</span>
+            <span className="text-sm font-bold text-white font-body">
+              {isSol ? position.amount.toFixed(4) : position.amount.toFixed(2)} {isSol ? 'SOL' : '$'}
+            </span>
             <span className="text-[9px] text-white/40 font-mono block mt-0.5">
               {isSol ? formatSolToUsdAndHtg(position.amount).combinedLabel : `≈ ${formatUsdToHtg(position.amount)}`}
             </span>

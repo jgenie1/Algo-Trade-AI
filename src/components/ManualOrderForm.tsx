@@ -47,7 +47,7 @@ export default function ManualOrderForm({
   selectedPair,
   setSelectedPair
 }: ManualOrderFormProps) {
-  const { tradingMode, balance, setBalance, setActivePositions, activePositions } = useAppState();
+  const { tradingMode, balance, setBalance, reserveVault, setActivePositions, activePositions } = useAppState();
 
   // Local Form States
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
@@ -144,19 +144,15 @@ export default function ManualOrderForm({
       return;
     }
 
-    if (!livePrices[selectedPair]) {
-      alert("Le prix en direct n'est pas encore disponible. Veuillez patienter.");
-      return;
-    }
-
     if (orderAmount <= 0) {
       alert("Le montant doit être supérieur à 0.");
       return;
     }
 
     const marginRequired = orderAmount;
-    if (marginRequired > balance) {
-      alert(`Solde insuffisant. Marge requise: ${marginRequired} $, Solde disponible: ${balance.toFixed(2)} $`);
+    const allocatableBalance = Math.max(0, balance - (reserveVault || 0));
+    if (marginRequired > allocatableBalance) {
+      alert(`Capital allocable insuffisant (hors Coffre-Fort 10%). Marge requise: $${marginRequired}, Capital allocable: $${allocatableBalance.toFixed(2)}. Coffre-Fort protégé: $${(Number(reserveVault) || 0).toFixed(2)}`);
       return;
     }
 

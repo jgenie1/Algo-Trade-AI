@@ -77,10 +77,13 @@ export default function TransactionHistoryTable({
                 )}
               </TableCell>
               <TableCell className="py-3 font-semibold text-white text-xs border-none">
-                <div>{tx.type === 'DEPOSIT' ? '+' : '-'} {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {tx.currency}</div>
+                <div>{tx.type === 'DEPOSIT' ? '+' : '-'} {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                 <span className="text-[9px] text-white/40 font-mono block font-normal">
                   {tx.currency === 'SOL' ? formatSolToUsdAndHtg(tx.amount).combinedLabel : `≈ ${formatUsdToHtg(tx.amount)}`}
                 </span>
+              </TableCell>
+              <TableCell className="py-3 font-mono font-bold text-white/80 text-xs border-none uppercase">
+                {tx.currency || (tradingMode === 'REAL' ? 'SOL' : 'USD')}
               </TableCell>
               <TableCell className="py-3 text-white/40 text-xs border-none">
                 {new Date(tx.timestamp).toLocaleString('fr-FR', {

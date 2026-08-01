@@ -36,7 +36,15 @@ const TVWidget = dynamic(
 );
 
 import { currencyPairs as allCurrencyPairs, timeframes as allTimeframes } from '@/hooks/useTradingSimulation';
-const currencyPairs = allCurrencyPairs.filter(c => c.value !== 'ALL');
+
+const defaultCurrencyPairs = allCurrencyPairs.filter((c: any) => c.value !== 'ALL');
+const solanaRealPairs = [
+  { value: 'SOL', label: 'SOL/USD (Solana Native)', ticker: 'SOL-USD' },
+  { value: 'SOL:$WIF', label: '$WIF (dogwifhat Solana)', ticker: 'WIF-USD' },
+  { value: 'SOL:$BONK', label: '$BONK (Bonk Solana)', ticker: 'BONK-USD' },
+  { value: 'SOL:$TRUMP', label: '$TRUMP (Official Trump)', ticker: 'TRUMP-USD' },
+  { value: 'SOL:RAYDIUM', label: 'RAY/SOL (Raydium Migration)', ticker: 'RAY-USD' }
+];
 const timeframes = allTimeframes;
 
 interface PastTrade {
@@ -51,6 +59,7 @@ interface PastTrade {
 
 export default function ForexAnalysisPage() {
     const { tradingMode, balance, closedPositions, bots } = useAppState();
+    const currencyPairs = tradingMode === 'REAL' ? solanaRealPairs : defaultCurrencyPairs;
     const [pair, setPair] = useState(currencyPairs[0].value);
     const [timeframe, setTimeframe] = useState(timeframes[2].value);
     const [selectedIndicators, setSelectedIndicators] = useState<string[]>(["RSI", "SMA", "Volume Profile (POC)"]);

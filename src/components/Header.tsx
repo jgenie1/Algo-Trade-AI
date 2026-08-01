@@ -105,18 +105,20 @@ export default function Header() {
   // Real Web3 Browser Wallet Providers Connection Handlers
   const connectPhantomSolana = async () => {
     try {
-      const solanaObj = (window as any)?.solana || (window as any)?.solflare;
+      const win = window as any;
+      const solanaObj = win.solana || win.solflare || win.backpack || win.okxwallet?.solana;
       if (solanaObj) {
         const resp = await solanaObj.connect();
         const pubKey = resp?.publicKey ? resp.publicKey.toString() : solanaObj.publicKey?.toString();
         if (pubKey) {
-          const w = { name: "Phantom Solana", address: pubKey, chain: "Solana" as const };
+          const providerName = solanaObj.isPhantom ? "Phantom Solana" : solanaObj.isSolflare ? "Solflare Solana" : solanaObj.isBackpack ? "Backpack Solana" : "Solana Web3 Wallet";
+          const w = { name: providerName, address: pubKey, chain: "Solana" as const };
           localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
           setConnectedWallet(w);
           return;
         }
       }
-      alert("Extension Phantom ou Solflare introuvable dans votre navigateur.\n\nVeuillez installer l'extension Phantom (https://phantom.app/) pour vous connecter en réel.");
+      alert("Extension Solana (Phantom, Solflare ou Backpack) introuvable dans votre navigateur.\n\nVeuillez débloquer votre extension ou installer Phantom (https://phantom.app/).");
     } catch (err: any) {
       alert("Erreur de connexion Solana : " + (err.message || err));
     }
@@ -124,18 +126,20 @@ export default function Header() {
 
   const connectMetaMaskEVM = async () => {
     try {
-      const ethereumObj = (window as any)?.ethereum;
+      const win = window as any;
+      const ethereumObj = win.ethereum || win.coinbaseWalletExtension;
       if (ethereumObj) {
         const accounts = await ethereumObj.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
           const addr = accounts[0];
-          const w = { name: "MetaMask / Trust Wallet", address: addr, chain: "BSC" as const };
+          const providerName = ethereumObj.isMetaMask ? "MetaMask EVM" : ethereumObj.isTrust ? "Trust Wallet EVM" : ethereumObj.isCoinbaseWallet ? "Coinbase Wallet" : "Portefeuille EVM";
+          const w = { name: providerName, address: addr, chain: "BSC" as const };
           localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
           setConnectedWallet(w);
           return;
         }
       }
-      alert("Extension MetaMask / Trust Wallet introuvable dans votre navigateur.\n\nVeuillez installer l'extension MetaMask (https://metamask.io/) pour vous connecter en réel.");
+      alert("Extension MetaMask, Trust Wallet ou Coinbase introuvable dans votre navigateur.\n\nVeuillez installer MetaMask (https://metamask.io/) pour vous connecter.");
     } catch (err: any) {
       alert("Erreur de connexion EVM : " + (err.message || err));
     }
@@ -143,15 +147,16 @@ export default function Header() {
 
   const connectWalletConnect = async () => {
     try {
-      if ((window as any)?.ethereum) {
-        await connectMetaMaskEVM();
-      } else if ((window as any)?.solana) {
+      const win = window as any;
+      if (win.solana || win.solflare) {
         await connectPhantomSolana();
+      } else if (win.ethereum) {
+        await connectMetaMaskEVM();
       } else {
-        alert("WalletConnect Universal : Aucun portefeuille de navigateur (Phantom ou MetaMask) n'a été détecté.\n\nVeuillez débloquer votre extension de portefeuille pour établir le lien direct.");
+        alert("WalletConnect Universal : Veuillez ouvrir l'application web depuis le navigateur intégré de Phantom ou MetaMask sur mobile.");
       }
     } catch (err: any) {
-      alert("Erreur WalletConnect : " + (err.message || err));
+      alert("Erreur de connexion Universal : " + (err.message || err));
     }
   };
 
