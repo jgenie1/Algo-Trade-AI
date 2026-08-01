@@ -68,6 +68,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const docRef = doc(db, 'erp', DEFAULT_USER);
 
+
+
     const sanitizePositions = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
       const seenKeys = new Set<string>();
@@ -160,6 +162,16 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (logs) { try { setBotLogs(JSON.parse(logs)); } catch(e) {} }
     };
 
+    // Safety timeout: if Firebase never responds (network block on server), fall back to localStorage after 3s
+    const safetyTimer = setTimeout(() => {
+      if (!isInitialized.current) {
+        console.warn("Firebase Timeout: no response after 3s, switching to localStorage fallback");
+        loadFromLocalStorage();
+        isInitialized.current = true;
+        setIsLoading(false);
+      }
+    }, 3000);
+
     const unsubscribe = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as Partial<AppState>;
@@ -244,7 +256,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   const botsRef = useRef(bots);
