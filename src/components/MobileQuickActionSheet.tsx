@@ -17,7 +17,8 @@ import {
   AlertOctagon, 
   RefreshCw,
   TrendingUp,
-  Bot
+  Bot,
+  Trophy
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAppState } from '@/context/AppContext';
@@ -83,30 +84,58 @@ export default function MobileQuickActionSheet() {
 
           <div className="grid grid-cols-2 gap-3 py-2 font-body">
             <Link
+              href="/strategies/leaderboard"
+              onClick={() => setIsOpen(false)}
+              className="p-3.5 bg-[#c2ff0c]/10 hover:bg-[#c2ff0c]/20 border border-[#c2ff0c]/30 rounded-2xl flex flex-col items-start gap-1.5"
+            >
+              <div className="p-2 bg-[#c2ff0c]/20 text-[#c2ff0c] rounded-xl">
+                <Trophy className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-bold text-[#c2ff0c] font-headline block truncate">Classement & Copy</span>
+                <span className="text-[10px] text-white/50 block truncate">Top Traders & Bots</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/strategies"
+              onClick={() => setIsOpen(false)}
+              className="p-3.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-2xl flex flex-col items-start gap-1.5"
+            >
+              <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-bold text-purple-300 font-headline block truncate">Marketplace IA</span>
+                <span className="text-[10px] text-white/50 block truncate">Catalogue Bots</span>
+              </div>
+            </Link>
+
+            <Link
               href="/deposit"
               onClick={() => setIsOpen(false)}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-2"
+              className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-1.5"
             >
               <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
                 <ArrowDownLeft className="h-5 w-5" />
               </div>
-              <div>
-                <span className="text-xs font-bold text-white font-headline block">Dépôt / Créditer</span>
-                <span className="text-[10px] text-white/40 block">Recharger le solde</span>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-bold text-white font-headline block truncate">Dépôt / Créditer</span>
+                <span className="text-[10px] text-white/40 block truncate">Recharger le solde</span>
               </div>
             </Link>
 
             <Link
               href="/withdraw"
               onClick={() => setIsOpen(false)}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-2"
+              className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-1.5"
             >
               <div className="p-2 bg-purple-500/20 text-purple-400 rounded-xl">
                 <ArrowUpRight className="h-5 w-5" />
               </div>
-              <div>
-                <span className="text-xs font-bold text-white font-headline block">Retrait de Fonds</span>
-                <span className="text-[10px] text-white/40 block">Retirer sur portefeuille</span>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-bold text-white font-headline block truncate">Retrait de Fonds</span>
+                <span className="text-[10px] text-white/40 block truncate">Portefeuille crypto</span>
               </div>
             </Link>
 
@@ -115,27 +144,27 @@ export default function MobileQuickActionSheet() {
                 setIsOpen(false);
                 setIsSwapOpen(true);
               }}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-2 text-left"
+              className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-1.5 text-left w-full"
             >
               <div className="p-2 bg-sky-500/20 text-sky-400 rounded-xl">
                 <RefreshCw className="h-5 w-5" />
               </div>
-              <div>
-                <span className="text-xs font-bold text-white font-headline block">DEX Swap Express</span>
-                <span className="text-[10px] text-white/40 block">Jupiter / Uniswap</span>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-bold text-white font-headline block truncate">DEX Swap Express</span>
+                <span className="text-[10px] text-white/40 block truncate">Jupiter / Raydium</span>
               </div>
             </button>
 
             <button
               onClick={handleUnlockVaultFast}
-              className="p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-2 text-left"
+              className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-1.5 text-left w-full"
             >
-              <div className="p-2 bg-[#c2ff0c]/20 text-[#c2ff0c] rounded-xl">
+              <div className="p-2 bg-amber-500/20 text-amber-300 rounded-xl">
                 <Lock className="h-5 w-5" />
               </div>
-              <div>
-                <span className="text-xs font-bold text-[#c2ff0c] font-headline block">Vider Coffre-Fort</span>
-                <span className="text-[10px] text-white/40 block">Transférer vers Solde</span>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-bold text-amber-300 font-headline block truncate">Coffre-Fort</span>
+                <span className="text-[10px] text-white/40 block truncate">Vider vers Solde</span>
               </div>
             </button>
           </div>

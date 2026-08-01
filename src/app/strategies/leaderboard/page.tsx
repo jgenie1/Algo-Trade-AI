@@ -460,21 +460,21 @@ export default function LeaderboardPage() {
               )}
             >
               {/* Podium Badge */}
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">
+              <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-4">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="text-2xl shrink-0">
                     {isGold ? "🥇" : isSilver ? "🥈" : "🥉"}
                   </span>
-                  <div>
-                    <h3 className="text-base font-extrabold font-headline text-white group-hover:text-[#c2ff0c] transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-extrabold font-headline text-white group-hover:text-[#c2ff0c] transition-colors truncate">
                       {entry.name}
                     </h3>
-                    <span className="text-[10px] text-white/40 font-mono">Par {entry.creator}</span>
+                    <span className="text-[10px] text-white/40 font-mono block truncate">Par {entry.creator}</span>
                   </div>
                 </div>
 
                 <span className={cn(
-                  "text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase font-headline border",
+                  "text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase font-headline border shrink-0",
                   entry.riskLevel === 'FAIBLE' ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20" :
                   entry.riskLevel === 'MODÉRÉ' ? "bg-amber-500/10 text-amber-300 border-amber-500/20" :
                   "bg-rose-500/10 text-rose-300 border-rose-500/20"
@@ -576,8 +576,8 @@ export default function LeaderboardPage() {
           <span className="text-[10px] text-white/40 font-body">Mise à jour automatique des métriques</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="overflow-x-auto -mx-1 sm:mx-0 px-1 sm:px-0">
+          <table className="w-full text-left text-xs border-collapse min-w-[640px]">
             <thead>
               <tr className="border-b border-white/5 text-white/40 font-headline uppercase">
                 <th className="py-3 w-12 text-center">Rang</th>
@@ -602,18 +602,18 @@ export default function LeaderboardPage() {
                     <td className="py-4 text-center font-bold font-headline">
                       {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : `#${entry.rank}`}
                     </td>
-                    <td className="py-4 font-bold text-white">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-[#c2ff0c] animate-pulse" />
-                        <div>
-                          <div className="font-extrabold font-headline">{entry.name}</div>
-                          <div className="text-[10px] text-white/40 font-normal">Par {entry.creator}</div>
+                    <td className="py-4 font-bold text-white max-w-[160px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="h-2 w-2 rounded-full bg-[#c2ff0c] animate-pulse shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-extrabold font-headline truncate">{entry.name}</div>
+                          <div className="text-[10px] text-white/40 font-normal truncate">Par {entry.creator}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="py-4">
-                      <div className="text-white/80 font-medium">{entry.strategy}</div>
-                      <div className="text-[10px] text-purple-300 font-mono">{entry.defaultPair} • {entry.aiModel}</div>
+                    <td className="py-4 max-w-[180px]">
+                      <div className="text-white/80 font-medium truncate">{entry.strategy}</div>
+                      <div className="text-[10px] text-purple-300 font-mono truncate">{entry.defaultPair} • {entry.aiModel}</div>
                     </td>
                     <td className="py-4 text-right font-extrabold text-[#c2ff0c] text-sm">{entry.pnl}</td>
                     <td className="py-4 text-center font-bold text-emerald-400">{entry.winRate}</td>
