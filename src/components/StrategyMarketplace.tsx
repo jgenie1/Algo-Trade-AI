@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +109,7 @@ export const COMMUNITY_STRATEGIES: StrategyItem[] = [
 ];
 
 export default function StrategyMarketplace() {
-  const { bots, setBots, balance, reserveVault } = useAppState();
+  const { bots, setBots, balance, reserveVault, tradingMode, setTradingMode } = useAppState();
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -123,8 +124,8 @@ export default function StrategyMarketplace() {
   });
 
   const handleCopyStrategy = (strat: StrategyItem) => {
-    const requiredCapital = 500;
-    if (allocatableBalance < requiredCapital) {
+    const requiredCapital = tradingMode === 'REAL' ? 0.1 : 500;
+    if (tradingMode === 'DEMO' && allocatableBalance < requiredCapital) {
       alert(`Capital allocable insuffisant pour démarrer la stratégie ($${allocatableBalance.toFixed(2)} disponibles). Requis: $${requiredCapital}. Le Coffre-Fort de Réserve 10% ($${(Number(reserveVault) || 0).toFixed(2)}) est intouchable.`);
       return;
     }
@@ -137,11 +138,11 @@ export default function StrategyMarketplace() {
       status: 'RUNNING',
       pnl: 0,
       pnlPercent: 0,
-      capital: 500,
+      capital: requiredCapital,
       tradesCount: 0,
       winRate: strat.winRate,
       aiModel: strat.aiEngine,
-      mode: 'DEMO',
+      mode: tradingMode,
       stopLossPct: 3.0,
       takeProfitPct: 8.0,
       trailingStopPct: 2.0
@@ -155,7 +156,7 @@ export default function StrategyMarketplace() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6 text-white font-body">
       {/* Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-900/40 via-indigo-900/20 to-black border border-white/10 p-6 md:p-8">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-900/40 via-indigo-900/20 to-black border border-white/10 p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="relative z-10 space-y-3 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#c2ff0c]/15 text-[#c2ff0c] border border-[#c2ff0c]/30 text-xs font-bold font-headline uppercase">
             <Flame className="h-3.5 w-3.5" />
@@ -168,6 +169,14 @@ export default function StrategyMarketplace() {
             Explorez des modèles de trading optimisés par IA, testés on-chain avec métriques de performance et taux de réussite en temps réel.
           </p>
         </div>
+
+        <Link
+          href="/strategies/leaderboard"
+          className="px-5 py-3 bg-[#c2ff0c] text-black font-extrabold font-headline rounded-2xl text-xs uppercase hover:bg-[#c2ff0c]/90 hover:shadow-[0_0_20px_rgba(194,255,12,0.3)] transition-all flex items-center gap-2 shrink-0 border-none"
+        >
+          Voir Le Classement Leaders
+          <ArrowUpRight className="h-4 w-4" />
+        </Link>
       </div>
 
       {/* Controls */}

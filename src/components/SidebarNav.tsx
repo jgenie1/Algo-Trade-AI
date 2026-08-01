@@ -34,8 +34,9 @@ export default function SidebarNav() {
   ];
 
   const tradingBotsItems = [
+    { href: '/strategies', label: 'Marketplace Stratégies', icon: Bot },
+    { href: '/strategies/leaderboard', label: 'Classement & Copy-Trading', icon: Trophy },
     { href: '/strategies/performance', label: 'Performance', icon: TrendingUp },
-    { href: '/strategies/leaderboard', label: 'Leaderboard', icon: Trophy },
   ];
 
   const renderItem = (item: any) => {
