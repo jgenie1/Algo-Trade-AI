@@ -86,8 +86,8 @@ export default function SidebarNav() {
     }
 
     return (
-      <SidebarMenuItem key={item.label}>
-        <Link href={item.href} className="w-full">
+      <SidebarMenuItem key={item.label} className="list-none">
+        <Link href={item.href} className="w-full no-underline text-inherit block">
           {content}
         </Link>
       </SidebarMenuItem>
@@ -101,7 +101,7 @@ export default function SidebarNav() {
           <span className="text-[11px] font-bold text-white/30 uppercase tracking-widest px-3 mb-2 block group-data-[collapsible=icon]:hidden">
             Général
           </span>
-          <SidebarMenu>
+          <SidebarMenu className="list-none p-0 m-0 space-y-1">
             {mainNavItems.map(renderItem)}
           </SidebarMenu>
         </div>
@@ -110,7 +110,7 @@ export default function SidebarNav() {
           <span className="text-[11px] font-bold text-white/30 uppercase tracking-widest px-3 mb-2 block group-data-[collapsible=icon]:hidden">
             Trading Bots
           </span>
-          <SidebarMenu>
+          <SidebarMenu className="list-none p-0 m-0 space-y-1">
             {tradingBotsItems.map(renderItem)}
           </SidebarMenu>
         </div>
