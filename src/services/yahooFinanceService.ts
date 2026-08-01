@@ -52,9 +52,14 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
   if (binanceSymbol) {
     try {
       const interval = binanceIntervalMap[timeframe] || '15m';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
       const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=30`, {
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (res.ok) {
         const rawKlines = await res.json();
@@ -79,7 +84,15 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
 
   // --- SOURCE 2 : EXCHANGERATE API (FOREX ET MÉTAUX EN DIRECT) ---
   try {
-    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { cache: 'no-store' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { 
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       const data = await res.json();
       const rates = data.rates || {};
@@ -126,7 +139,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
       return candles;
     }
   } catch (e) {
-    console.error(`[ExchangeRate API Error] Impossible de récupérer les taux réels:`, e);
+    console.warn(`[ExchangeRate API Error] Fallback vers bougies synthétiques:`, e);
   }
 
   return generateRealisticCandles(pairName);

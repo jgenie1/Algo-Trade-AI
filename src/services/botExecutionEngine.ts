@@ -207,7 +207,20 @@ export function processBotIteration(
     onUpdateReserveVaultSol(prev => parseFloat((prev + totalProfitSkimmedSol).toFixed(4)));
   }
 
-  onUpdatePositions(currentPositions);
+  const hasPositionChanged = newlyClosedPositions.length > 0 ||
+    currentPositions.length !== activePositions.length ||
+    currentPositions.some((pos, i) => {
+      const orig = activePositions[i];
+      if (!orig) return true;
+      return pos.currentPrice !== orig.currentPrice ||
+             pos.pnl !== orig.pnl ||
+             pos.pnlPercent !== orig.pnlPercent ||
+             pos.highestPnlPct !== orig.highestPnlPct;
+    });
+
+  if (hasPositionChanged) {
+    onUpdatePositions(currentPositions);
+  }
 
   if (newlyClosedPositions.length > 0 && onUpdateClosedPositions) {
     onUpdateClosedPositions(prev => [...newlyClosedPositions, ...(prev || [])]);

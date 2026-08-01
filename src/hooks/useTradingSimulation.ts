@@ -237,43 +237,47 @@ export function useTradingSimulation() {
         ...bots.filter(b => b.status === 'RUNNING').map(b => b.pair)
       ]));
 
-      for (const pairVal of uniquePairs) {
-        if (pairVal === 'ALL' || pairVal === 'SOLANA' || pairVal === 'SOL:MEME') continue;
-        if (pairVal.startsWith('SOL:')) {
-          const parts = pairVal.split(':');
-          if (parts.length >= 2) {
-            const mint = parts[1];
+      const validPairs = uniquePairs.filter(p => p && p !== 'ALL' && p !== 'SOLANA' && p !== 'SOL:MEME');
+      const newPrices: { [key: string]: number } = {};
+      const newDirections: { [key: string]: 'up' | 'down' | 'flat' } = {};
+
+      await Promise.allSettled(
+        validPairs.map(async (pairVal) => {
+          if (pairVal.startsWith('SOL:')) {
+            const parts = pairVal.split(':');
+            if (parts.length >= 2) {
+              const mint = parts[1];
+              try {
+                const coin = await fetchPumpCoin(mint);
+                if (coin && coin.virtual_token_reserves > 0) {
+                  const lastClose = coin.virtual_sol_reserves / coin.virtual_token_reserves;
+                  newPrices[pairVal] = lastClose;
+                  const oldPrice = livePrices[pairVal];
+                  if (oldPrice) {
+                    newDirections[pairVal] = lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat';
+                  }
+                }
+              } catch (e) {}
+            }
+          } else {
             try {
-              const coin = await fetchPumpCoin(mint);
-              if (coin) {
-                const lastClose = coin.virtual_sol_reserves / coin.virtual_token_reserves;
+              const candles = await fetchLiveMarketData(pairVal, '15');
+              if (candles.length > 0) {
+                const lastClose = candles[candles.length - 1].close;
+                newPrices[pairVal] = lastClose;
                 const oldPrice = livePrices[pairVal];
                 if (oldPrice) {
-                  setPriceDirections(dir => ({
-                    ...dir,
-                    [pairVal]: lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat'
-                  }));
+                  newDirections[pairVal] = lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat';
                 }
-                setLivePrices(prev => ({ ...prev, [pairVal]: lastClose }));
               }
             } catch (e) {}
           }
-        } else {
-          try {
-            const candles = await fetchLiveMarketData(pairVal, '15');
-            if (candles.length > 0) {
-              const lastClose = candles[candles.length - 1].close;
-              const oldPrice = livePrices[pairVal];
-              if (oldPrice) {
-                setPriceDirections(dir => ({
-                  ...dir,
-                  [pairVal]: lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat'
-                }));
-              }
-              setLivePrices(prev => ({ ...prev, [pairVal]: lastClose }));
-            }
-          } catch (e) {}
-        }
+        })
+      );
+
+      if (Object.keys(newPrices).length > 0) {
+        setLivePrices(prev => ({ ...prev, ...newPrices }));
+        setPriceDirections(prev => ({ ...prev, ...newDirections }));
       }
       setIsLoadingPrice(false);
     };

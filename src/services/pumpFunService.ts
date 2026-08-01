@@ -139,10 +139,16 @@ function getMockCoins(): PumpCoin[] {
 export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
   try {
     const url = `${PUMPFUN_API_URL}/coins?offset=0&limit=12&sort=created_timestamp&order=DESC`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
     const res = await fetch(url, {
       headers: getHeaders(),
-      next: { revalidate: 0 } // Fresh real-time data
+      next: { revalidate: 0 },
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
+
     if (!res.ok) {
       throw new Error(`Pump.fun HTTP error: ${res.status}`);
     }
@@ -152,7 +158,6 @@ export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
     }
     return getMockCoins();
   } catch (error) {
-    console.error("Error fetching latest pump.fun coins, using fallback:", error);
     return getMockCoins();
   }
 }
@@ -164,17 +169,22 @@ export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
   }
   try {
     const url = `${PUMPFUN_API_URL}/coins/${mint}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
     const res = await fetch(url, {
       headers: getHeaders(),
-      next: { revalidate: 0 }
+      next: { revalidate: 0 },
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
+
     if (!res.ok) {
       throw new Error(`Pump.fun HTTP error for coin ${mint}: ${res.status}`);
     }
     const data = await res.json();
     return data && data.mint ? data : null;
   } catch (error) {
-    console.error(`Error fetching pump.fun coin ${mint}, trying fallback:`, error);
     const coins = getMockCoins();
     return coins.find(c => c.mint === mint) || null;
   }
@@ -324,14 +334,22 @@ export async function getMultipleSolanaBalances(pubKeys: string[]): Promise<{ su
     const connection = new Connection(rpcUrl, 'confirmed');
 
     const balances: Record<string, number> = {};
-    for (const key of pubKeys) {
-      try {
+    const results = await Promise.allSettled(
+      pubKeys.map(async (key) => {
         const balance = await connection.getBalance(new PublicKey(key));
-        balances[key] = balance / 1e9;
-      } catch (e) {
+        return { key, balance: balance / 1e9 };
+      })
+    );
+
+    results.forEach((res, i) => {
+      const key = pubKeys[i];
+      if (res.status === 'fulfilled') {
+        balances[key] = res.value.balance;
+      } else {
         balances[key] = 0;
       }
-    }
+    });
+
     return { success: true, balances };
   } catch (err: any) {
     console.error("Error getting multiple balances:", err);

@@ -247,19 +247,29 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     return () => unsubscribe();
   }, []);
 
+  const botsRef = useRef(bots);
+  const activePositionsRef = useRef(activePositions);
+  const balanceRef = useRef(balance);
+
+  useEffect(() => {
+    botsRef.current = bots;
+    activePositionsRef.current = activePositions;
+    balanceRef.current = balance;
+  });
+
   // 2b. Boucle d'exécution continue des bots actifs & alertes automatiques Telegram/Discord
   useEffect(() => {
-    if (!isInitialized.current || bots.length === 0) return;
+    if (!isInitialized.current) return;
 
-    const hasRunningBot = bots.some(b => b.status === 'RUNNING');
+    const hasRunningBot = bots.some(b => b && b.status === 'RUNNING');
     if (!hasRunningBot) return;
 
     const interval = setInterval(() => {
       import('@/services/botExecutionEngine').then(({ processBotIteration }) => {
         processBotIteration(
-          bots, 
-          activePositions, 
-          balance,
+          botsRef.current, 
+          activePositionsRef.current, 
+          balanceRef.current,
           null,
           setBots, 
           setActivePositions, 
@@ -271,7 +281,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [bots, activePositions, balance]);
+  }, [bots.some(b => b && b.status === 'RUNNING')]);
 
   // 3. Save to Firestore whenever states change
   useEffect(() => {
