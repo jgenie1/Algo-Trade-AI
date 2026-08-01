@@ -166,7 +166,7 @@ export default function ProfilePage() {
                   </span>
                 </div>
                 <div className="text-[10px] text-emerald-400 font-mono">
-                  {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
+                  {formatSolToUsdAndHtg(solanaBalance || 0).combinedLabel}
                 </div>
               </div>
             ) : (

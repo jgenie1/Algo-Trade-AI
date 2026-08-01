@@ -85,7 +85,8 @@ export default function WithdrawPage() {
       ? Math.max(0, (solanaBalance || 0) - SOLANA_NETWORK_FEE - PRIORITY_FEE_ESTIMATE)
       : balance;
     if (maxAvailable <= 0) { setWithdrawAmount('0'); return; }
-    setWithdrawAmount((maxAvailable * (pct / 100)).toFixed(2));
+    const decimals = tradingMode === 'REAL' ? 4 : 2;
+    setWithdrawAmount((maxAvailable * (pct / 100)).toFixed(decimals));
   };
 
   const handleWithdraw = async (e: React.FormEvent) => {
