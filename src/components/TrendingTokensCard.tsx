@@ -95,7 +95,7 @@ export default function TrendingTokensCard() {
             <span>Marché Crypto</span>
           </CardTitle>
           <CardDescription className="font-body text-white/50 text-xs">
-            Prix PancakeSwap & flux simulés
+            Flux de prix Binance & DEX en direct (24h)
           </CardDescription>
         </div>
         <button 
