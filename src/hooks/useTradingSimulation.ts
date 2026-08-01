@@ -238,7 +238,7 @@ export function useTradingSimulation() {
       ]));
 
       for (const pairVal of uniquePairs) {
-        if (pairVal === 'ALL' || pairVal === 'SOLANA') continue;
+        if (pairVal === 'ALL' || pairVal === 'SOLANA' || pairVal === 'SOL:MEME') continue;
         if (pairVal.startsWith('SOL:')) {
           const parts = pairVal.split(':');
           if (parts.length >= 2) {

@@ -128,7 +128,7 @@ export default function TradingBotsManager({
       pair: botStrategy === 'AI Autopilot (Machine à Cash)' 
         ? 'ALL' 
         : botStrategy === 'Pump.fun Sniper Bot'
-          ? 'SOLANA'
+          ? 'SOL:MEME'
           : botPair,
       strategy: botStrategy,
       timeframe: botStrategy === 'Pump.fun Sniper Bot' ? '0' : botTimeframe,
