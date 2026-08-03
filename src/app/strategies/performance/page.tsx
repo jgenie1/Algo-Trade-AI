@@ -14,14 +14,6 @@ export default function PerformancePage() {
     setIsMounted(true);
   }, []);
 
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <RefreshCw className="h-8 w-8 animate-spin text-[#c2ff0c]" />
-      </div>
-    );
-  }
-
   const getBotStats = (strategyName: string, pumpMode?: string) => {
     const matchingBots = bots.filter(b => {
       if (b.strategy !== strategyName) return false;

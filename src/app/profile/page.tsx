@@ -63,14 +63,6 @@ export default function ProfilePage() {
     setTimeout(() => setIsSaved(false), 2500);
   };
 
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-      </div>
-    );
-  }
-
   // Performance calculations
   const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
   const totalTrades = filteredClosed.length;

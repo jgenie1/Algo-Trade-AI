@@ -55,20 +55,46 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
   // 1. Firebase Anonymous Authentication
   useEffect(() => {
-    signInAnonymously(auth)
-      .then(() => {
-        console.log("Firebase Auth: Connected anonymously");
-      })
-      .catch((error) => {
-        console.warn("Firebase Auth: Anonymous login not allowed/configured. Continuing in local-only mode.", error);
-      });
+    try {
+      signInAnonymously(auth)
+        .then(() => {
+          console.log("Firebase Auth: Connected anonymously");
+        })
+        .catch((error) => {
+          console.warn("Firebase Auth: Anonymous login not allowed/configured. Continuing in local-only mode.", error);
+        });
+    } catch (e) {
+      console.warn("Firebase Auth init error:", e);
+    }
   }, []);
 
   // 2. Real-time Subscription to Firebase Firestore (primary source of truth)
   useEffect(() => {
-    const docRef = doc(db, 'erp', DEFAULT_USER);
+    let unsubscribe: () => void = () => {};
 
+    const loadFromLocalStorage = () => {
+      const mode = localStorage.getItem('trade_mode') as 'DEMO' | 'REAL';
+      const bal = localStorage.getItem('trade_balance');
+      const vault = localStorage.getItem('trade_reserve_vault');
+      const vaultSol = localStorage.getItem('trade_reserve_vault_sol');
+      const pos = localStorage.getItem('trade_positions');
+      const closed = localStorage.getItem('trade_closed');
+      const runningBots = localStorage.getItem('trade_bots');
+      const txs = localStorage.getItem('trade_transactions');
+      const learnings = localStorage.getItem('trade_learnings');
+      const logs = localStorage.getItem('trade_logs');
 
+      if (mode === 'REAL' || mode === 'DEMO') setTradingMode(mode);
+      if (bal) setBalance(parseFloat(bal));
+      if (vault) setReserveVault(parseFloat(vault));
+      if (vaultSol) setReserveVaultSol(parseFloat(vaultSol));
+      if (pos) { try { setActivePositions(sanitizePositions(JSON.parse(pos))); } catch(e) {} }
+      if (closed) { try { setClosedPositions(sanitizeClosed(JSON.parse(closed))); } catch(e) {} }
+      if (runningBots) { try { setBots(sanitizeBots(JSON.parse(runningBots))); } catch(e) {} }
+      if (txs) { try { setTransactions(JSON.parse(txs)); } catch(e) {} }
+      if (learnings) { try { setBotLearnings(JSON.parse(learnings)); } catch(e) {} }
+      if (logs) { try { setBotLogs(JSON.parse(logs)); } catch(e) {} }
+    };
 
     const sanitizePositions = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
@@ -79,7 +105,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         if (!p || p.pair === 'ALL' || p.pair === 'SOLANA') continue;
         const cleanPair = !p.pair ? 'FX:EURUSD' : p.pair;
         const key = `${p.botId || 'manual'}_${cleanPair}`;
-        if (seenKeys.has(key)) continue; // Skip duplicate active position for same bot & pair!
+        if (seenKeys.has(key)) continue;
         seenKeys.add(key);
 
         const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
@@ -105,7 +131,6 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (!Array.isArray(arr)) return [];
       return arr.map((b: any) => {
         const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000;
-        // Fix any corrupt/inflated capital numbers
         const cleanCap = (rawCap > 100000 || rawCap <= 0) ? 1000 : parseFloat(rawCap.toFixed(2));
         const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
         const cleanProfit = parseFloat(rawProfit.toFixed(2));
@@ -138,30 +163,6 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         });
     };
 
-    const loadFromLocalStorage = () => {
-      const mode = localStorage.getItem('trade_mode') as 'DEMO' | 'REAL';
-      const bal = localStorage.getItem('trade_balance');
-      const vault = localStorage.getItem('trade_reserve_vault');
-      const vaultSol = localStorage.getItem('trade_reserve_vault_sol');
-      const pos = localStorage.getItem('trade_positions');
-      const closed = localStorage.getItem('trade_closed');
-      const runningBots = localStorage.getItem('trade_bots');
-      const txs = localStorage.getItem('trade_transactions');
-      const learnings = localStorage.getItem('trade_learnings');
-      const logs = localStorage.getItem('trade_logs');
-
-      if (mode === 'REAL' || mode === 'DEMO') setTradingMode(mode);
-      if (bal) setBalance(parseFloat(bal));
-      if (vault) setReserveVault(parseFloat(vault));
-      if (vaultSol) setReserveVaultSol(parseFloat(vaultSol));
-      if (pos) { try { setActivePositions(sanitizePositions(JSON.parse(pos))); } catch(e) {} }
-      if (closed) { try { setClosedPositions(sanitizeClosed(JSON.parse(closed))); } catch(e) {} }
-      if (runningBots) { try { setBots(sanitizeBots(JSON.parse(runningBots))); } catch(e) {} }
-      if (txs) { try { setTransactions(JSON.parse(txs)); } catch(e) {} }
-      if (learnings) { try { setBotLearnings(JSON.parse(learnings)); } catch(e) {} }
-      if (logs) { try { setBotLogs(JSON.parse(logs)); } catch(e) {} }
-    };
-
     // Safety timeout: if Firebase never responds (network block on server), fall back to localStorage after 3s
     const safetyTimer = setTimeout(() => {
       if (!isInitialized.current) {
@@ -172,93 +173,109 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       }
     }, 3000);
 
-    const unsubscribe = onSnapshot(docRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data() as Partial<AppState>;
-        
-        // Prevent feedback loop if incoming data is identical
-        const incomingHash = JSON.stringify(data);
-        if (incomingHash === lastStateHashRef.current) {
+    try {
+      const docRef = doc(db, 'erp', DEFAULT_USER);
+
+      unsubscribe = onSnapshot(
+        docRef,
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data() as Partial<AppState>;
+            
+            const incomingHash = JSON.stringify(data);
+            if (incomingHash === lastStateHashRef.current) {
+              isInitialized.current = true;
+              setIsLoading(false);
+              return;
+            }
+
+            isIncomingSync.current = true;
+            lastStateHashRef.current = incomingHash;
+            
+            if (data.tradeMode !== undefined) {
+              setTradingMode(data.tradeMode);
+              localStorage.setItem('trade_mode', data.tradeMode);
+            }
+            if (data.balance !== undefined) {
+              const val = typeof data.balance === 'number' && !isNaN(data.balance) ? data.balance : (parseFloat(String(data.balance)) || 0);
+              setBalance(val);
+              localStorage.setItem('trade_balance', val.toString());
+            }
+            if (data.reserveVault !== undefined) {
+              const val = typeof data.reserveVault === 'number' && !isNaN(data.reserveVault) ? data.reserveVault : (parseFloat(String(data.reserveVault)) || 0);
+              setReserveVault(val);
+              localStorage.setItem('trade_reserve_vault', val.toString());
+            }
+            if (data.reserveVaultSol !== undefined) {
+              const val = typeof data.reserveVaultSol === 'number' && !isNaN(data.reserveVaultSol) ? data.reserveVaultSol : (parseFloat(String(data.reserveVaultSol)) || 0);
+              setReserveVaultSol(val);
+              localStorage.setItem('trade_reserve_vault_sol', val.toString());
+            }
+            if (data.positions !== undefined) {
+              const sanitized = sanitizePositions(data.positions);
+              setActivePositions(sanitized);
+              localStorage.setItem('trade_positions', JSON.stringify(sanitized));
+            }
+            if (data.closedPositions !== undefined) {
+              const sanitized = sanitizeClosed(data.closedPositions);
+              setClosedPositions(sanitized);
+              localStorage.setItem('trade_closed', JSON.stringify(sanitized));
+            }
+            if (data.bots !== undefined) {
+              const sanitized = sanitizeBots(data.bots);
+              setBots(sanitized);
+              localStorage.setItem('trade_bots', JSON.stringify(sanitized));
+            }
+            if (data.transactions !== undefined) {
+              setTransactions(data.transactions);
+              localStorage.setItem('trade_transactions', JSON.stringify(data.transactions));
+            }
+            if (data.botLearnings !== undefined) {
+              setBotLearnings(data.botLearnings);
+              localStorage.setItem('trade_learnings', JSON.stringify(data.botLearnings));
+            }
+            if (data.botLogs !== undefined) {
+              setBotLogs(data.botLogs);
+              localStorage.setItem('trade_logs', JSON.stringify(data.botLogs));
+            }
+            if (data.cexKeys !== undefined) {
+              localStorage.setItem('algo_trade_cex_keys', JSON.stringify(data.cexKeys));
+            }
+            if (data.notificationSettings !== undefined) {
+              localStorage.setItem('algo_trade_notification_settings', JSON.stringify(data.notificationSettings));
+            }
+            
+            setTimeout(() => {
+              isIncomingSync.current = false;
+            }, 200);
+          } else {
+            loadFromLocalStorage();
+          }
+
           isInitialized.current = true;
           setIsLoading(false);
-          return;
+        },
+        (error) => {
+          console.warn("Firestore snapshot error (using localStorage fallback):", error);
+          if (!isInitialized.current) {
+            loadFromLocalStorage();
+            isInitialized.current = true;
+            setIsLoading(false);
+          }
         }
-
-        isIncomingSync.current = true;
-        lastStateHashRef.current = incomingHash;
-        
-        if (data.tradeMode !== undefined) {
-          setTradingMode(data.tradeMode);
-          localStorage.setItem('trade_mode', data.tradeMode);
-        }
-        if (data.balance !== undefined) {
-          const val = typeof data.balance === 'number' && !isNaN(data.balance) ? data.balance : (parseFloat(String(data.balance)) || 0);
-          setBalance(val);
-          localStorage.setItem('trade_balance', val.toString());
-        }
-        if (data.reserveVault !== undefined) {
-          const val = typeof data.reserveVault === 'number' && !isNaN(data.reserveVault) ? data.reserveVault : (parseFloat(String(data.reserveVault)) || 0);
-          setReserveVault(val);
-          localStorage.setItem('trade_reserve_vault', val.toString());
-        }
-        if (data.reserveVaultSol !== undefined) {
-          const val = typeof data.reserveVaultSol === 'number' && !isNaN(data.reserveVaultSol) ? data.reserveVaultSol : (parseFloat(String(data.reserveVaultSol)) || 0);
-          setReserveVaultSol(val);
-          localStorage.setItem('trade_reserve_vault_sol', val.toString());
-        }
-        if (data.positions !== undefined) {
-          const sanitized = sanitizePositions(data.positions);
-          setActivePositions(sanitized);
-          localStorage.setItem('trade_positions', JSON.stringify(sanitized));
-        }
-        if (data.closedPositions !== undefined) {
-          const sanitized = sanitizeClosed(data.closedPositions);
-          setClosedPositions(sanitized);
-          localStorage.setItem('trade_closed', JSON.stringify(sanitized));
-        }
-        if (data.bots !== undefined) {
-          const sanitized = sanitizeBots(data.bots);
-          setBots(sanitized);
-          localStorage.setItem('trade_bots', JSON.stringify(sanitized));
-        }
-        if (data.transactions !== undefined) {
-          setTransactions(data.transactions);
-          localStorage.setItem('trade_transactions', JSON.stringify(data.transactions));
-        }
-        if (data.botLearnings !== undefined) {
-          setBotLearnings(data.botLearnings);
-          localStorage.setItem('trade_learnings', JSON.stringify(data.botLearnings));
-        }
-        if (data.botLogs !== undefined) {
-          setBotLogs(data.botLogs);
-          localStorage.setItem('trade_logs', JSON.stringify(data.botLogs));
-        }
-        if (data.cexKeys !== undefined) {
-          localStorage.setItem('algo_trade_cex_keys', JSON.stringify(data.cexKeys));
-        }
-        if (data.notificationSettings !== undefined) {
-          localStorage.setItem('algo_trade_notification_settings', JSON.stringify(data.notificationSettings));
-        }
-        
-        setTimeout(() => {
-          isIncomingSync.current = false;
-        }, 200);
-      } else {
+      );
+    } catch (e) {
+      console.warn("Firestore listener init error:", e);
+      if (!isInitialized.current) {
         loadFromLocalStorage();
+        isInitialized.current = true;
+        setIsLoading(false);
       }
-
-      isInitialized.current = true;
-      setIsLoading(false);
-    }, (error) => {
-      console.warn("Firebase ERP Sync: switched to offline LocalStorage mode", error);
-      loadFromLocalStorage();
-      isInitialized.current = true;
-      setIsLoading(false);
-    });
+    }
 
     return () => {
       clearTimeout(safetyTimer);
-      unsubscribe();
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, Bot } from 'lucide-react';
 import { useTradingSimulation } from '@/hooks/useTradingSimulation';
 import { useAppState } from '@/context/AppContext';
@@ -15,6 +15,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 export default function TradingTerminalPage() {
   const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'wallets'>('manual');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const {
     isMounted,
@@ -62,7 +67,7 @@ export default function TradingTerminalPage() {
     }
   };
 
-  if (!isMounted) {
+  if (!isMounted && !isClient) {
     return (
       <div className="flex items-center justify-center min-h-[70vh] w-full">
         <div className="flex flex-col items-center gap-4 p-8 bg-[#140f1d] border border-white/10 rounded-3xl shadow-2xl">

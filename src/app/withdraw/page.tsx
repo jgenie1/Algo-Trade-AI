@@ -128,14 +128,6 @@ export default function WithdrawPage() {
     }
   };
 
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <RefreshCw className="h-8 w-8 animate-spin text-[#c2ff0c]" />
-      </div>
-    );
-  }
-
   const currentTxs = (transactions || []).filter(tx =>
     tradingMode === 'REAL' ? tx.currency === 'SOL' : tx.currency === 'USD'
   );

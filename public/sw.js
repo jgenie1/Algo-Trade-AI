@@ -1,6 +1,6 @@
 // Service Worker PWA pour Algo-Trade-AI
-const CACHE_NAME = 'algotrade-pwa-v1';
-const DYNAMIC_CACHE = 'algotrade-dynamic-v1';
+const CACHE_NAME = 'algotrade-pwa-v2';
+const DYNAMIC_CACHE = 'algotrade-dynamic-v2';
 
 const STATIC_ASSETS = [
   '/',

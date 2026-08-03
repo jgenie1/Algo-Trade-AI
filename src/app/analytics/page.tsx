@@ -35,14 +35,6 @@ function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", classNa
 export default function AnalyticsPage() {
   const { tradingMode, setTradingMode, activePositions, closedPositions, bots, transactions } = useAppState();
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => { setIsMounted(true); }, []);
-
-  if (!isMounted) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-    </div>
-  );
-
   const isReal = tradingMode === "REAL";
   const filteredActive = activePositions.filter(p => (p.mode || (p.pair?.startsWith("SOL:") ? "REAL" : "DEMO")) === tradingMode);
   const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith("SOL:") ? "REAL" : "DEMO")) === tradingMode);

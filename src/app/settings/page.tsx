@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import CEXKeyManager from '@/components/CEXKeyManager';
 import SettingsNotificationsCard from '@/components/SettingsNotificationsCard';
-import { getNotificationSettings, saveNotificationSettings, NotificationSettings, dispatchAlert } from '@/services/notificationService';
+import { getNotificationSettings, saveNotificationSettings, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, dispatchAlert } from '@/services/notificationService';
 
 export default function SettingsPage() {
   const { setBalance } = useAppState();
@@ -23,13 +23,14 @@ export default function SettingsPage() {
   const [usdHtgRate, setUsdHtgRate] = useState<number>(132);
   const [isSyncingRate, setIsSyncingRate] = useState<boolean>(false);
 
-  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getNotificationSettings());
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
   const [isTestingNotif, setIsTestingNotif] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
 
   useEffect(() => {
     setIsMounted(true);
     setUsdHtgRate(getUsdHtgRate());
+    setNotifSettings(getNotificationSettings());
     if (typeof window !== 'undefined') {
       const storedRpc = localStorage.getItem('settings_rpc_url');
       const storedSlippage = localStorage.getItem('settings_slippage');
@@ -75,14 +76,6 @@ export default function SettingsPage() {
       setBalance(10000);
     }
   };
-
-  if (!isMounted) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <RefreshCw className="h-8 w-8 animate-spin text-[#c2ff0c]" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>

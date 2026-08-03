@@ -173,6 +173,9 @@ export function useTradingSimulation() {
           });
           localStorage.setItem('trade_sub_wallets', JSON.stringify(defaultSubs));
           setSubWallets(defaultSubs);
+        }).catch(err => {
+          console.warn("Could not load @solana/web3.js sub-wallets:", err);
+          setSubWallets([]);
         });
       }
     }

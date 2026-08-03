@@ -386,8 +386,11 @@ const TradingViewWidget: React.FC<TradingViewWidgetProps> = ({
       }
   }, [symbol, interval]);
 
+  const rawId = React.useId();
+  const widgetId = `tradingview_${rawId.replace(/:/g, '')}`;
+
   return (
-    <div id={`tradingview_${Math.random().toString(36).substring(2, 9)}`} className="h-full w-full" ref={containerRef}></div>
+    <div id={widgetId} className="h-full w-full" ref={containerRef}></div>
   );
 };
 
