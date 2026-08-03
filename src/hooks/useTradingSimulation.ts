@@ -1137,8 +1137,11 @@ export function useTradingSimulation() {
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
-    const profit = pctDiff * amt * lev * (isLong ? 1 : -1);
+    const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
+    // Clamp profit: max loss is -amt (100% of capital), max gain is amt * lev * 5
+    const maxGain = amt * lev * 5;
+    const maxLoss = -amt;
+    const profit = Math.max(maxLoss, Math.min(maxGain, rawProfit));
 
     const posMode = p.mode || 'DEMO';
     if (posMode === 'DEMO') {

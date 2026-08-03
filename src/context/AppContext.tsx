@@ -133,7 +133,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000;
         const cleanCap = (rawCap > 100000 || rawCap <= 0) ? 1000 : parseFloat(rawCap.toFixed(2));
         const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
-        const cleanProfit = parseFloat(rawProfit.toFixed(2));
+        // Cap bot netProfit between -capital and capital * 10 to eliminate corrupted astronomical values
+        const boundedProfit = Math.max(-cleanCap, Math.min(cleanCap * 10, rawProfit));
+        const cleanProfit = parseFloat(boundedProfit.toFixed(2));
 
         return {
           ...b,
@@ -153,7 +155,15 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           const rawVal = typeof c.profit === 'number' && !isNaN(c.profit) 
             ? c.profit 
             : (typeof c.pnl === 'number' && !isNaN(c.pnl) ? c.pnl : 0);
-          const cleanVal = parseFloat(rawVal.toFixed(2));
+          const amt = typeof c.amount === 'number' && !isNaN(c.amount) && c.amount > 0 ? c.amount : 1000;
+          const lev = typeof c.leverage === 'number' && !isNaN(c.leverage) ? c.leverage : 1;
+          
+          // Cap position profit between -amount and amount * leverage * 5
+          const maxGain = amt * lev * 5;
+          const maxLoss = -amt;
+          const boundedVal = Math.max(maxLoss, Math.min(maxGain, rawVal));
+          const cleanVal = parseFloat(boundedVal.toFixed(2));
+
           return {
             ...c,
             profit: cleanVal,

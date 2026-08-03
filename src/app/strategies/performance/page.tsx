@@ -31,7 +31,11 @@ export default function PerformancePage() {
       return false;
     });
 
-    const totalProfit = matchingTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
+    const totalProfit = matchingTrades.reduce((sum, t) => {
+      const p = typeof t.profit === 'number' && !isNaN(t.profit) ? t.profit : 0;
+      if (Math.abs(p) > 100000) return sum;
+      return sum + p;
+    }, 0);
     const totalTrades = matchingTrades.length;
     const winningTrades = matchingTrades.filter(t => (t.profit || 0) >= 0).length;
     const winRate = totalTrades > 0 ? `${Math.round((winningTrades / totalTrades) * 100)}%` : "0%";
