@@ -127,26 +127,30 @@ export default function Header() {
         return;
       }
 
-      // onlyIfTrusted: false force le popup d'approbation Phantom même si déjà visité
-      let resp: any;
-      try {
-        resp = await solanaObj.connect({ onlyIfTrusted: false });
-      } catch (connectErr: any) {
-        const code = connectErr?.code ?? connectErr?.error?.code;
-        const msg = (connectErr?.message ?? '').toLowerCase();
-        if (code === 4001 || msg.includes('user rejected') || msg.includes('cancelled') || msg.includes('denied')) {
-          // User closed or rejected the popup — not an error, just ignore
-          return;
-        }
-        throw connectErr;
-      }
-
-      // Extract public key
+      // Step 1: if already connected, read publicKey directly (no popup needed)
+      // Step 2: otherwise call connect() with NO options — { onlyIfTrusted } is deprecated and causes errors
       let pubKey: string | undefined;
-      if (resp?.publicKey) {
-        pubKey = typeof resp.publicKey.toString === 'function' ? resp.publicKey.toString() : String(resp.publicKey);
-      } else if (solanaObj.publicKey) {
-        pubKey = typeof solanaObj.publicKey.toString === 'function' ? solanaObj.publicKey.toString() : String(solanaObj.publicKey);
+
+      if (solanaObj.isConnected && solanaObj.publicKey) {
+        // Already authorized — just read the key
+        pubKey = solanaObj.publicKey.toString();
+      } else {
+        let resp: any;
+        try {
+          resp = await solanaObj.connect();
+        } catch (connectErr: any) {
+          const code = connectErr?.code ?? connectErr?.error?.code;
+          const msg = (connectErr?.message ?? '').toLowerCase();
+          if (code === 4001 || msg.includes('user rejected') || msg.includes('cancelled') || msg.includes('denied')) {
+            return; // User closed/rejected popup — silent ignore
+          }
+          throw connectErr;
+        }
+        if (resp?.publicKey) {
+          pubKey = resp.publicKey.toString();
+        } else if (solanaObj.publicKey) {
+          pubKey = solanaObj.publicKey.toString();
+        }
       }
 
       if (!pubKey) {
