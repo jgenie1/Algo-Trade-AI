@@ -54,10 +54,9 @@ export default function PortfolioStatsHeader({
     (b) => (b.mode || 'DEMO') === 'REAL' && b.status === 'RUNNING'
   );
 
-  const realBotsCapitalAndPnL = realBots.reduce((sum, b) => {
-    const cap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0;
+  const realBotsPnL = realBots.reduce((sum, b) => {
     const pnl = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
-    return sum + cap + pnl;
+    return sum + pnl;
   }, 0);
 
   const realUnrealizedPnL = realPositions.reduce((sum, p) => {
@@ -72,7 +71,7 @@ export default function PortfolioStatsHeader({
   const realBalance = isEvmWallet ? evmBalance : solanaBalance;
   const realCurrency = isEvmWallet ? evmCurrencyLabel : 'SOL';
   const realVaultVal = isEvmWallet ? 0 : (Number(reserveVaultSol) || 0);
-  const realEquity = (realBalance || 0) + realVaultVal + realAllocatedSol + realUnrealizedPnL + realBotsCapitalAndPnL;
+  const realEquity = (realBalance || 0) + realVaultVal + realAllocatedSol + realUnrealizedPnL + realBotsPnL;
 
   const realBalanceDisplay = realBalance !== null
     ? `${realBalance.toFixed(4)} ${realCurrency}`

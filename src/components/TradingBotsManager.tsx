@@ -446,7 +446,7 @@ export default function TradingBotsManager({
                           )}
                         </div>
                         <div className="text-xs font-extrabold text-slate-200 font-mono mt-1">
-                          Capital: {(typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                          Capital: {((b.mode || tradingMode) === 'REAL' && (b.capital || 0) > 50 ? 0.5 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000)).toFixed(2)} {(b.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}
                         </div>
                       </div>
 
