@@ -187,6 +187,35 @@ export function useTradingSimulation() {
   useEffect(() => {
     if (!isMounted) return;
 
+    // Helper: fetch Solana balance for browser wallet address (Phantom/Solflare)
+    // Used when server-side SOLANA_PRIVATE_KEY is not configured
+    const fetchBrowserSolanaBalance = async (): Promise<boolean> => {
+      try {
+        const storedWallet = localStorage.getItem('connected_web3_wallet');
+        if (!storedWallet) return false;
+        const parsed = JSON.parse(storedWallet) as { address: string; chain: string; name: string };
+        if (parsed.chain !== 'Solana' || !parsed.address) return false;
+
+        // Fetch balance from Solana RPC using the browser wallet's public key
+        const { Connection, PublicKey } = await import('@solana/web3.js');
+        const rpcUrl = localStorage.getItem('settings_rpc_url')
+          || 'https://solana-mainnet.core.chainstack.com/39a622a578bd62b';
+        const connection = new Connection(rpcUrl, 'confirmed');
+        const pubKey = new PublicKey(parsed.address);
+        const lamports = await connection.getBalance(pubKey);
+        const sol = lamports / 1e9;
+
+        setSolanaBalance(sol);
+        setSolanaPubKey(parsed.address);
+        setIsSolanaWalletActive(true);
+        setWalletChain('Solana');
+        return true;
+      } catch (e) {
+        console.warn('[Wallet] Browser Solana balance fetch failed:', e);
+        return false;
+      }
+    };
+
     // Helper: fetch EVM (ETH/BNB) balance from MetaMask / Trust Wallet
     const fetchEvmBalance = async () => {
       try {
@@ -211,22 +240,25 @@ export function useTradingSimulation() {
       }
     };
 
-    const updateWalletAndStatus = () => {
-      // 1. Try Solana wallet first
-      getRealSolanaBalance().then(res => {
-        if (res && res.success && res.balance !== undefined && res.publicKey) {
-          setSolanaBalance(res.balance);
-          setSolanaPubKey(res.publicKey);
-          setIsSolanaWalletActive(true);
-          setWalletChain('Solana');
-        } else {
+    const updateWalletAndStatus = async () => {
+      // 1. Try server-side Solana keypair balance (requires SOLANA_PRIVATE_KEY env var)
+      const serverRes = await getRealSolanaBalance();
+      if (serverRes && serverRes.success && serverRes.balance !== undefined && serverRes.publicKey) {
+        setSolanaBalance(serverRes.balance);
+        setSolanaPubKey(serverRes.publicKey);
+        setIsSolanaWalletActive(true);
+        setWalletChain('Solana');
+      } else {
+        // 2. Fallback: read connected browser wallet from localStorage
+        const solanaOk = await fetchBrowserSolanaBalance();
+        if (!solanaOk) {
+          // 3. Last fallback: try EVM wallet (MetaMask / Trust Wallet)
           setIsSolanaWalletActive(false);
-          // 2. Fallback: try EVM wallet (MetaMask / Trust Wallet)
-          fetchEvmBalance();
+          await fetchEvmBalance();
         }
-      });
+      }
 
-      // 3. Solana network health check (for latency display)
+      // 4. Solana network health check (for latency display)
       checkSolanaNetworkHealth().then(res => {
         if (res && res.success && res.latency !== undefined && res.blockHeight !== undefined) {
           setRpcLatency(res.latency);
@@ -237,7 +269,7 @@ export function useTradingSimulation() {
         }
       });
 
-      // 4. Sub-wallet balances (Solana)
+      // 5. Sub-wallet balances (Solana)
       const storedSubs = localStorage.getItem('trade_sub_wallets');
       if (storedSubs) {
         try {
@@ -261,6 +293,7 @@ export function useTradingSimulation() {
     const interval = setInterval(updateWalletAndStatus, 15000);
     return () => clearInterval(interval);
   }, [isMounted]);
+
 
   // Fetch prices loop
   useEffect(() => {
