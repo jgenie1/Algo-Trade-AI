@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowDownLeft, Copy, Check, Lock, Wallet, RefreshCw, AlertCircle, Edit2, ExternalLink } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
-import { getRealSolanaBalance } from '@/services/pumpFunService';
+import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,10 +31,22 @@ export default function DepositPage() {
 
   useEffect(() => { setIsMounted(true); }, []);
 
+  const refreshLiveBalance = () => {
+    if (tradingMode === 'REAL') {
+      fetchLiveWalletBalance().then(res => {
+        if (res && res.success) {
+          if (res.solanaBalance !== null) setSolanaBalance(res.solanaBalance);
+          if (res.solanaPubKey && !solanaPubKey) setSolanaPubKey(res.solanaPubKey);
+          if (res.walletChain) setWalletChain(res.walletChain);
+        }
+      });
+    }
+  };
+
   useEffect(() => {
     if (!isMounted) return;
 
-    // 1. Load connected Web3 wallet from localStorage (set by Header.tsx when user connects)
+    // 1. Load connected Web3 wallet from localStorage
     const stored = localStorage.getItem('connected_web3_wallet');
     if (stored) {
       try {
@@ -48,28 +60,18 @@ export default function DepositPage() {
       } catch (e) {}
     }
 
-    // 2. Load manually set SOL deposit address (if user entered one before)
+    // 2. Load manually set SOL deposit address
     const manualAddr = localStorage.getItem(MANUAL_SOL_KEY);
     if (manualAddr) {
       setManualAddress(manualAddr);
-      // Use manual address as SOL deposit address if no Phantom connected
       const storedWallet = localStorage.getItem('connected_web3_wallet');
       if (!storedWallet || JSON.parse(storedWallet || '{}').chain !== 'Solana') {
         setSolanaPubKey(manualAddr);
       }
     }
 
-    // 3. Try to get balance from server-side keypair (may fail if env not set)
-    if (tradingMode === 'REAL') {
-      getRealSolanaBalance().then(res => {
-        if (res && res.success && res.balance !== undefined) {
-          setSolanaBalance(res.balance);
-          if (res.publicKey && !solanaPubKey) {
-            setSolanaPubKey(res.publicKey);
-          }
-        }
-      });
-    }
+    // 3. Get live balance from connected wallet or keypair
+    refreshLiveBalance();
   }, [tradingMode, isMounted]);
 
   const handleCopyAddress = () => {
@@ -223,13 +225,7 @@ export default function DepositPage() {
             )}
           </div>
           <Button
-            onClick={() => {
-              if (tradingMode === 'REAL') {
-                getRealSolanaBalance().then(res => {
-                  if (res && res.success && res.balance !== undefined) setSolanaBalance(res.balance);
-                });
-              }
-            }}
+            onClick={refreshLiveBalance}
             size="sm"
             className="h-8 bg-white/10 hover:bg-white/15 text-white border border-white/15 text-xs font-bold font-headline rounded-xl self-start mt-2 flex items-center gap-1.5 cursor-pointer"
           >

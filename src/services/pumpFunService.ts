@@ -356,6 +356,102 @@ export async function getRealSolanaBalance(): Promise<{ success: boolean; balanc
   }
 }
 
+export async function fetchLiveWalletBalance(): Promise<{
+  success: boolean;
+  solanaBalance: number | null;
+  solanaPubKey: string;
+  evmBalance: number | null;
+  walletChain: string;
+}> {
+  let solanaBalance: number | null = null;
+  let solanaPubKey = '';
+  let evmBalance: number | null = null;
+  let walletChain = '';
+
+  try {
+    const realRes = await getRealSolanaBalance();
+    if (realRes.success && realRes.balance !== undefined && realRes.publicKey) {
+      return {
+        success: true,
+        solanaBalance: realRes.balance,
+        solanaPubKey: realRes.publicKey,
+        evmBalance: null,
+        walletChain: 'Solana'
+      };
+    }
+
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('connected_web3_wallet');
+      let targetAddr = '';
+      let targetChain = '';
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          targetAddr = parsed.address || '';
+          targetChain = parsed.chain || '';
+        } catch (e) {}
+      }
+
+      const winSolana = (window as any).solana || (window as any).phantom?.solana;
+      if (!targetAddr && winSolana && winSolana.publicKey) {
+        targetAddr = winSolana.publicKey.toBase58();
+        targetChain = 'Solana';
+      }
+
+      if (targetAddr && (targetChain === 'Solana' || !targetChain)) {
+        solanaPubKey = targetAddr;
+        walletChain = 'Solana';
+        const { Connection, PublicKey } = await import('@solana/web3.js');
+        const pubKey = new PublicKey(targetAddr);
+        const customRpc = localStorage.getItem('settings_rpc_url');
+        const rpcEndpoints = [
+          customRpc,
+          'https://api.mainnet-beta.solana.com',
+          'https://solana-rpc.publicnode.com',
+          'https://rpc.ankr.com/solana'
+        ].filter(Boolean) as string[];
+
+        for (const rpcUrl of rpcEndpoints) {
+          try {
+            const connection = new Connection(rpcUrl, 'confirmed');
+            const lamports = await connection.getBalance(pubKey);
+            solanaBalance = lamports / 1e9;
+            break;
+          } catch (rpcErr) {}
+        }
+      } else if (targetAddr && (targetChain === 'BSC' || targetChain === 'Ethereum')) {
+        walletChain = targetChain;
+        const win = window as any;
+        const provider = win.ethereum || win.coinbaseWalletExtension;
+        if (provider) {
+          const balHex: string = await provider.request({
+            method: 'eth_getBalance',
+            params: [targetAddr, 'latest']
+          });
+          const balWei = parseInt(balHex, 16);
+          evmBalance = balWei / 1e18;
+        }
+      }
+    }
+
+    return {
+      success: solanaBalance !== null || evmBalance !== null,
+      solanaBalance,
+      solanaPubKey,
+      evmBalance,
+      walletChain
+    };
+  } catch (e) {
+    return {
+      success: false,
+      solanaBalance: null,
+      solanaPubKey: '',
+      evmBalance: null,
+      walletChain: ''
+    };
+  }
+}
+
 export async function checkSolanaNetworkHealth(): Promise<{ success: boolean; latency?: number; blockHeight?: number; error?: string }> {
   try {
     const { Connection } = await import('@solana/web3.js');

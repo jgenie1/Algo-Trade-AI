@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
-import { getRealSolanaBalance, withdrawSolana } from '@/services/pumpFunService';
+import { getRealSolanaBalance, withdrawSolana, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,6 +26,17 @@ export default function WithdrawPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [connectedWeb3Wallet, setConnectedWeb3Wallet] = useState<{ name: string; address: string; chain: string } | null>(null);
 
+  const refreshLiveBalance = () => {
+    if (tradingMode === 'REAL') {
+      fetchLiveWalletBalance().then(res => {
+        if (res && res.success) {
+          if (res.solanaBalance !== null) setSolanaBalance(res.solanaBalance);
+          if (res.solanaPubKey && !solanaPubKey) setSolanaPubKey(res.solanaPubKey);
+        }
+      });
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('connected_web3_wallet');
@@ -38,12 +49,7 @@ export default function WithdrawPage() {
 
   useEffect(() => {
     if (!isMounted || tradingMode !== 'REAL') return;
-    getRealSolanaBalance().then(res => {
-      if (res && res.success && res.balance !== undefined && res.publicKey) {
-        setSolanaBalance(res.balance);
-        setSolanaPubKey(res.publicKey);
-      }
-    });
+    refreshLiveBalance();
   }, [tradingMode, isMounted]);
 
   const handleFillConnectedWeb3Address = async () => {

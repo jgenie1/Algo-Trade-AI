@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Building2, FileSpreadsheet, BarChart3, ShieldAlert, Cpu } from 'lucide-react';
-import { cn, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatUsdToHtg, SOL_USD_RATE } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import { getRealSolanaBalance } from '@/services/pumpFunService';
+import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -20,41 +20,75 @@ const ORGANIZATIONS = [
 ] as const;
 
 export default function SaaSERPPage() {
-  const { tradingMode, balance, activePositions, closedPositions, bots, transactions } = useAppState();
+  const { tradingMode, balance, reserveVault, reserveVaultSol, activePositions, closedPositions, bots, transactions } = useAppState();
   const [selectedOrg, setSelectedOrg] = useState<string>('alpha');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'ledger' | 'risk' | 'license'>('overview');
 
   useEffect(() => {
-    getRealSolanaBalance().then(res => {
-      if (res && res.success && res.balance !== undefined) {
-        setSolanaBalance(res.balance);
+    fetchLiveWalletBalance().then(res => {
+      if (res && res.success && res.solanaBalance !== null) {
+        setSolanaBalance(res.solanaBalance);
       }
     });
   }, []);
 
-  const solPriceUsd = 145.0;
-  const solValueUsd = (solanaBalance || 0) * solPriceUsd;
-  const totalAvailableCashUsd = tradingMode === 'REAL' ? solValueUsd : balance;
+  const solPriceUsd = SOL_USD_RATE || 145.0;
 
-  const botAllocatedCapitalUsd = (bots || [])
-    .filter(b => (b.mode || 'DEMO') === tradingMode)
-    .reduce((sum, b) => {
-      const cap = (tradingMode === 'REAL' && (b.capital || 0) > 50) ? 0.5 : (b.capital || 0);
-      return sum + (tradingMode === 'REAL' ? cap * solPriceUsd : cap);
-    }, 0);
+  // Mode filtering
+  const modePositions = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode);
+  const modeBots = (bots || []).filter(b => (b.mode || 'DEMO') === tradingMode);
+  const modeClosed = (closedPositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
 
-  const openPositionsValueUsd = (activePositions || [])
-    .filter(p => (p.mode || 'DEMO') === tradingMode)
-    .reduce((sum, p) => {
-      return sum + (tradingMode === 'REAL' ? (p.amount || 0) * solPriceUsd : (p.amount || 0));
-    }, 0);
+  // Manual open positions margin & PnL
+  let openPositionsPnLUsd = 0;
+  let openPositionsMarginUsd = 0;
+  modePositions.forEach(p => {
+    const entry = typeof p.entryPrice === 'number' && p.entryPrice > 0 ? p.entryPrice : 145.50;
+    const current = entry;
+    const priceDiff = current - entry;
+    const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+    const lev = p.leverage || 1;
+    const amt = p.amount || 0;
+    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+    const profit = pctDiff * amt * lev * (isLong ? 1 : -1);
 
-  const totalAumUsd = totalAvailableCashUsd + botAllocatedCapitalUsd + openPositionsValueUsd;
+    const amtUsd = tradingMode === 'REAL' ? amt * solPriceUsd : amt;
+    const profitUsd = tradingMode === 'REAL' ? profit * solPriceUsd : profit;
+
+    openPositionsMarginUsd += amtUsd;
+    openPositionsPnLUsd += profitUsd;
+  });
+
+  // Bots capital & running PnL
+  let botAllocatedCapitalUsd = 0;
+  let botRunningPnLUsd = 0;
+  modeBots.forEach(b => {
+    const cap = (tradingMode === 'REAL' && (b.capital || 0) > 50) ? 0.5 : (b.capital || 0);
+    const pnl = typeof b.pnl === 'number' ? b.pnl : (typeof b.netProfit === 'number' ? b.netProfit : 0);
+
+    const capUsd = tradingMode === 'REAL' ? cap * solPriceUsd : cap;
+    const pnlUsd = tradingMode === 'REAL' ? pnl * solPriceUsd : pnl;
+
+    if (tradingMode === 'DEMO') {
+      botAllocatedCapitalUsd += capUsd;
+    }
+    if (b.status === 'RUNNING') {
+      botRunningPnLUsd += pnlUsd;
+    }
+  });
+
+  // Available Cash (Trésorerie liquide + Coffre-Fort)
+  const freeCashUsd = tradingMode === 'REAL' ? (solanaBalance || 0) * solPriceUsd : balance;
+  const vaultUsd = tradingMode === 'REAL' ? (Number(reserveVaultSol) || 0) * solPriceUsd : (Number(reserveVault) || 0);
+  const totalAvailableCashUsd = freeCashUsd + vaultUsd;
+
+  // Total AUM (100% Identique à l'Equity du Tableau de Bord!)
+  const totalAumUsd = freeCashUsd + vaultUsd + botAllocatedCapitalUsd + openPositionsMarginUsd + openPositionsPnLUsd + botRunningPnLUsd;
   const convertedAum = formatUsdToHtg(totalAumUsd);
 
-  const filteredClosed = (closedPositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
-  const totalClosedProfit = filteredClosed.reduce((sum, p) => sum + (p.profit || 0), 0);
+  // Profit net clôturé
+  const totalClosedProfit = modeClosed.reduce((sum, p) => sum + (p.profit || 0), 0);
   const formattedClosedProfitUsd = tradingMode === 'REAL' ? totalClosedProfit * solPriceUsd : totalClosedProfit;
 
   const handleExportLedgerCSV = () => {
