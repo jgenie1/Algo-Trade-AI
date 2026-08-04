@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ArrowDownLeft, Copy, Check, Lock, Wallet, RefreshCw } from 'lucide-react';
+import { ArrowDownLeft, Copy, Check, Lock, Wallet, RefreshCw, AlertCircle, Edit2, ExternalLink } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
@@ -11,34 +11,81 @@ import { Card, CardContent } from '@/components/ui/card';
 import TransactionHistoryTable from '@/components/TransactionHistoryTable';
 import DepositGuidesCard from '@/components/DepositGuidesCard';
 
+const SOL_EXPLORER = 'https://solscan.io/account/';
+const MANUAL_SOL_KEY = 'manual_solana_deposit_address';
+
 export default function DepositPage() {
   const { tradingMode, setTradingMode, balance, setBalance, reserveVault, setReserveVault, reserveVaultSol, setReserveVaultSol, transactions, setTransactions } = useAppState();
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
+  const [evmAddress, setEvmAddress] = useState<string>('');
+  const [walletChain, setWalletChain] = useState<string>('');
   const [isCopied, setIsCopied] = useState(false);
   const [depositAmount, setDepositAmount] = useState<string>('1000');
   const [vaultUnlockAmount, setVaultUnlockAmount] = useState<string>('');
   const [isUnlockingVault, setIsUnlockingVault] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [manualAddress, setManualAddress] = useState<string>('');
 
   useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
-    if (!isMounted || tradingMode !== 'REAL') return;
-    getRealSolanaBalance().then(res => {
-      if (res && res.success && res.balance !== undefined && res.publicKey) {
-        setSolanaBalance(res.balance);
-        setSolanaPubKey(res.publicKey);
+    if (!isMounted) return;
+
+    // 1. Load connected Web3 wallet from localStorage (set by Header.tsx when user connects)
+    const stored = localStorage.getItem('connected_web3_wallet');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as { address: string; chain: string; name: string };
+        setWalletChain(parsed.chain);
+        if (parsed.chain === 'Solana') {
+          setSolanaPubKey(parsed.address);
+        } else {
+          setEvmAddress(parsed.address);
+        }
+      } catch (e) {}
+    }
+
+    // 2. Load manually set SOL deposit address (if user entered one before)
+    const manualAddr = localStorage.getItem(MANUAL_SOL_KEY);
+    if (manualAddr) {
+      setManualAddress(manualAddr);
+      // Use manual address as SOL deposit address if no Phantom connected
+      const storedWallet = localStorage.getItem('connected_web3_wallet');
+      if (!storedWallet || JSON.parse(storedWallet || '{}').chain !== 'Solana') {
+        setSolanaPubKey(manualAddr);
       }
-    });
+    }
+
+    // 3. Try to get balance from server-side keypair (may fail if env not set)
+    if (tradingMode === 'REAL') {
+      getRealSolanaBalance().then(res => {
+        if (res && res.success && res.balance !== undefined) {
+          setSolanaBalance(res.balance);
+          if (res.publicKey && !solanaPubKey) {
+            setSolanaPubKey(res.publicKey);
+          }
+        }
+      });
+    }
   }, [tradingMode, isMounted]);
 
   const handleCopyAddress = () => {
-    if (!solanaPubKey) return;
-    navigator.clipboard.writeText(solanaPubKey);
+    const addr = solanaPubKey || manualAddress;
+    if (!addr) return;
+    navigator.clipboard.writeText(addr);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleSaveManualAddress = () => {
+    const trimmed = manualAddress.trim();
+    if (!trimmed) return;
+    localStorage.setItem(MANUAL_SOL_KEY, trimmed);
+    setSolanaPubKey(trimmed);
+    setIsEditingAddress(false);
   };
 
   const handleUnlockVault = (e: React.FormEvent) => {
@@ -93,6 +140,8 @@ export default function DepositPage() {
     tradingMode === 'REAL' ? tx.currency === 'SOL' : tx.currency === 'USD'
   );
 
+  const displayAddress = solanaPubKey || manualAddress;
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>
       {/* Header */}
@@ -130,14 +179,14 @@ export default function DepositPage() {
         <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl">
           <span className="text-[10px] uppercase font-bold text-[#c2ff0c] font-headline block">Solde Actuel Disponible</span>
           <div className="text-2xl font-extrabold text-white font-body">
-            {tradingMode === 'REAL' 
-              ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL` 
+            {tradingMode === 'REAL'
+              ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL`
               : `${(balance || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`
             }
           </div>
-          <span className="text-[11px] text-[#c2ff0c]/80 font-mono block font-semibold">
-            {tradingMode === 'REAL' 
-              ? formatSolToUsdAndHtg(solanaBalance).combinedLabel 
+          <span className="text-[11px] text-[#c2ff0c]/80 font-mono block font-semibold" suppressHydrationWarning>
+            {tradingMode === 'REAL'
+              ? formatSolToUsdAndHtg(solanaBalance).combinedLabel
               : `≈ ${formatUsdToHtg(balance)}`
             }
           </span>
@@ -147,14 +196,14 @@ export default function DepositPage() {
         <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl">
           <span className="text-[10px] uppercase font-bold text-purple-400 font-headline block">Coffre de Réserve (Vault)</span>
           <div className="text-2xl font-extrabold text-purple-300 font-body">
-            {tradingMode === 'REAL' 
-              ? `${(reserveVaultSol || 0).toFixed(4)} SOL` 
+            {tradingMode === 'REAL'
+              ? `${(reserveVaultSol || 0).toFixed(4)} SOL`
               : `${(reserveVault || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`
             }
           </div>
-          <span className="text-[11px] text-purple-200/80 font-mono block font-semibold">
-            {tradingMode === 'REAL' 
-              ? formatSolToUsdAndHtg(reserveVaultSol).combinedLabel 
+          <span className="text-[11px] text-purple-200/80 font-mono block font-semibold" suppressHydrationWarning>
+            {tradingMode === 'REAL'
+              ? formatSolToUsdAndHtg(reserveVaultSol).combinedLabel
               : `≈ ${formatUsdToHtg(reserveVault)}`
             }
           </span>
@@ -167,9 +216,11 @@ export default function DepositPage() {
             <div className="text-base font-extrabold text-white font-body mt-1">
               {tradingMode === 'REAL' ? 'Solana Mainnet (Web3)' : 'Portefeuille Démo (Simulé)'}
             </div>
-            <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">
-              ✓ Synchronisé avec l'application
-            </span>
+            {walletChain && (
+              <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">
+                ✓ {walletChain} connecté
+              </span>
+            )}
           </div>
           <Button
             onClick={() => {
@@ -204,21 +255,146 @@ export default function DepositPage() {
                 </Button>
               </form>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <h2 className="text-lg font-bold font-headline text-purple-300">Adresse de Dépôt SOL</h2>
-                <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between font-mono text-xs text-white">
-                  <span>{solanaPubKey || 'Chargement...'}</span>
-                  <Button onClick={handleCopyAddress} size="sm" className="bg-[#c2ff0c] text-black font-bold font-headline">
-                    {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
+
+                {/* Address display or edit */}
+                {isEditingAddress ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-white/50 font-body">
+                      Entrez votre adresse de portefeuille Solana (clé publique) pour recevoir des SOL :
+                    </p>
+                    <Input
+                      type="text"
+                      value={manualAddress}
+                      onChange={(e) => setManualAddress(e.target.value)}
+                      placeholder="Ex: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAs"
+                      className="h-11 bg-white/5 border-purple-500/40 text-white font-mono text-xs"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleSaveManualAddress}
+                        disabled={!manualAddress.trim()}
+                        className="flex-1 h-9 bg-purple-600 hover:bg-purple-700 text-white font-bold font-headline text-xs"
+                      >
+                        Enregistrer l'adresse
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="h-9 px-4 text-white/50 hover:text-white text-xs"
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                ) : displayAddress ? (
+                  <div className="space-y-3">
+                    {/* Address box */}
+                    <div className="p-3 bg-white/5 border border-purple-500/30 rounded-xl flex items-center justify-between gap-3">
+                      <span className="font-mono text-xs text-white break-all leading-relaxed">{displayAddress}</span>
+                      <Button
+                        onClick={handleCopyAddress}
+                        size="sm"
+                        className="shrink-0 bg-[#c2ff0c] text-black font-bold font-headline h-9 px-3"
+                      >
+                        {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+
+                    {/* Actions row */}
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setManualAddress(displayAddress);
+                          setIsEditingAddress(true);
+                        }}
+                        className="h-8 text-xs text-white/40 hover:text-white flex items-center gap-1.5 px-2"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Changer l'adresse
+                      </Button>
+                      <a
+                        href={`${SOL_EXPLORER}${displayAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-8 text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1.5 px-2 transition-colors"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Voir sur Solscan
+                      </a>
+                    </div>
+
+                    {/* Wallet source badge */}
+                    {walletChain === 'Solana' ? (
+                      <div className="flex items-center gap-2 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                        <span className="text-xs text-emerald-300 font-body">
+                          Adresse détectée depuis votre wallet Phantom connecté
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                        <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        <span className="text-xs text-amber-300 font-body">
+                          Adresse saisie manuellement — assurez-vous qu'elle est correcte avant d'envoyer
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Minimum notice */}
+                    <div className="p-3 bg-white/3 border border-white/5 rounded-lg">
+                      <p className="text-[11px] text-white/40 font-body leading-relaxed">
+                        ⚠️ <strong className="text-white/60">Important :</strong> Envoyez uniquement des <strong className="text-purple-300">SOL</strong> sur le réseau <strong className="text-purple-300">Solana</strong> à cette adresse. 
+                        Tout autre token ou réseau entraînera une perte définitive des fonds.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  // No address found at all
+                  <div className="space-y-4">
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-amber-300 font-headline">Aucun wallet Solana détecté</p>
+                        <p className="text-xs text-white/50 font-body leading-relaxed">
+                          Connectez votre wallet <strong className="text-white/70">Phantom</strong> via le bouton "Connecter Wallet" en haut de page, 
+                          ou saisissez manuellement votre adresse de réception SOL.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-white/60 font-headline uppercase tracking-wide block">
+                        Entrer une adresse SOL manuellement
+                      </label>
+                      <Input
+                        type="text"
+                        value={manualAddress}
+                        onChange={(e) => setManualAddress(e.target.value)}
+                        placeholder="Ex: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAs"
+                        className="h-11 bg-white/5 border-white/15 text-white font-mono text-xs"
+                      />
+                      <Button
+                        onClick={handleSaveManualAddress}
+                        disabled={!manualAddress.trim()}
+                        className="w-full h-10 bg-purple-600 hover:bg-purple-700 text-white font-bold font-headline"
+                      >
+                        <Wallet className="h-4 w-4 mr-2" />
+                        Définir comme adresse de dépôt
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
 
         <div className="md:col-span-5 space-y-4">
-          <DepositGuidesCard solanaPubKey={solanaPubKey} />
+          <DepositGuidesCard solanaPubKey={displayAddress || solanaPubKey} />
         </div>
       </div>
 
