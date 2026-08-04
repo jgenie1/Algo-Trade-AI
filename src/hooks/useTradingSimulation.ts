@@ -1296,7 +1296,7 @@ export function useTradingSimulation() {
         const mintAddress = parts[1];
         const botConfig = botsRef.current.find(b => b.id === p.botId);
         const priority = botConfig?.priorityFee || 0.005;
-        const targetPool = (p.bondingCurveProgress && p.bondingCurveProgress >= 99) ? 'raydium' : 'pump';
+        const targetPool = 'auto'; // let PumpPortal auto-route to pump/pump-amm/raydium
         
         addBotLog(p.botId, p.botId, `Vente réelle SOL pour $${parts[2]}...`, 'info');
 

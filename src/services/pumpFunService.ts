@@ -202,10 +202,19 @@ export async function executeRealPumpTrade(params: {
   slippage: number;
   priorityFee: number;
   customPrivateKey?: string; // Optional private key (base64) for sub-wallets
-  pool?: 'pump' | 'raydium'; // Swap pool routing
+  pool?: 'pump' | 'pump-amm' | 'raydium' | 'raydium-cpmm' | 'launchlab' | 'bonk' | 'auto'; // Swap pool routing
 }): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
-    const { action, mint, amount, denominatedInSol, slippage, priorityFee, customPrivateKey, pool = 'pump' } = params;
+    const { action, mint, amount, denominatedInSol, slippage, priorityFee, customPrivateKey, pool = 'auto' } = params;
+
+    // Validate mint address (Solana base58 public key: 32–44 chars)
+    const mintTrimmed = (mint || '').trim();
+    if (!mintTrimmed || mintTrimmed.length < 32 || mintTrimmed.length > 44 || /[^1-9A-HJ-NP-Za-km-z]/.test(mintTrimmed)) {
+      throw new Error(`Adresse de contrat (mint) invalide : "${mintTrimmed}". Vérifiez le CA du jeton Pump.fun.`);
+    }
+
+    // Normalize amount: always send as string to avoid JSON type issues
+    const amountStr = typeof amount === 'string' ? amount : String(amount);
 
     const solanaPrivateKey = customPrivateKey || process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
 
@@ -245,8 +254,8 @@ export async function executeRealPumpTrade(params: {
         body: JSON.stringify({
           publicKey: publicKeyStr,
           action,
-          mint,
-          amount,
+          mint: mintTrimmed,
+          amount: amountStr,
           denominatedInSol: denominatedInSol ? "true" : "false",
           slippage,
           priorityFee,
@@ -256,7 +265,8 @@ export async function executeRealPumpTrade(params: {
 
       if (response.status !== 200) {
         const errorText = await response.text();
-        throw new Error(`Erreur API Trade : ${errorText}`);
+        console.error(`[PumpPortal API Error] Status ${response.status} | Mint: ${mintTrimmed} | Pool: ${pool} | Action: ${action} | Amount: ${amountStr} | Body: ${errorText}`);
+        throw new Error(`Erreur API Trade (${response.status}) : ${errorText || 'Bad Request - vérifiez le mint/pool'}`);
       }
 
       const transactionData = await response.arrayBuffer();
@@ -285,8 +295,8 @@ export async function executeRealPumpTrade(params: {
         body: JSON.stringify({
           publicKey: publicKeyStr,
           action,
-          mint,
-          amount,
+          mint: mintTrimmed,
+          amount: amountStr,
           denominatedInSol: denominatedInSol ? "true" : "false",
           slippage,
           priorityFee,
@@ -296,7 +306,8 @@ export async function executeRealPumpTrade(params: {
 
       if (response.status !== 200) {
         const errorText = await response.text();
-        throw new Error(`Erreur API Trade : ${errorText}`);
+        console.error(`[PumpPortal API Error] Status ${response.status} | Mint: ${mintTrimmed} | Pool: ${pool} | Action: ${action} | Amount: ${amountStr} | Body: ${errorText}`);
+        throw new Error(`Erreur API Trade (${response.status}) : ${errorText || 'Bad Request - vérifiez le mint/pool'}`);
       }
 
       const transactionData = await response.arrayBuffer();
