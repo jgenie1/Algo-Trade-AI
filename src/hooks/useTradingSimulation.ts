@@ -324,7 +324,61 @@ export function useTradingSimulation() {
   }, [isMounted]);
 
 
-  // Fetch prices loop
+  // 1. High-frequency 800ms live price ticker for active positions and selected pair
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const tickFastPrices = () => {
+      setLivePrices(prevPrices => {
+        const updated = { ...prevPrices };
+        const updatedDirs: { [key: string]: 'up' | 'down' | 'flat' } = {};
+        let changed = false;
+
+        const activePairs = Array.from(new Set([
+          selectedPair,
+          ...activePositions.map(p => p.pair),
+          ...bots.filter(b => b.status === 'RUNNING').map(b => b.pair)
+        ])).filter(p => p && p !== 'ALL' && p !== 'SOLANA' && p !== 'SOL:MEME');
+
+        // Make sure newly opened positions have a seed price immediately so PnL ticks right away
+        activePositions.forEach(p => {
+          if (!updated[p.pair] && p.entryPrice > 0) {
+            updated[p.pair] = p.entryPrice;
+            changed = true;
+          }
+        });
+
+        activePairs.forEach(pair => {
+          const current = updated[pair];
+          if (!current || current <= 0) return;
+
+          const isPump = pair.startsWith('SOL:');
+          // Higher volatility for Pump.fun meme coins (+-0.35%), realistic micro-volatility for Forex/Crypto (+-0.08%)
+          const maxVolatilityPct = isPump ? 0.0035 : 0.0008;
+          // Random walk micro-tick (-0.49 to +0.51 for organic drift)
+          const changeFactor = (Math.random() - 0.49) * maxVolatilityPct * 2;
+          const nextPrice = Math.max(0.00000001, current * (1 + changeFactor));
+
+          if (nextPrice !== current) {
+            updated[pair] = nextPrice;
+            updatedDirs[pair] = nextPrice > current ? 'up' : 'down';
+            changed = true;
+          }
+        });
+
+        if (changed) {
+          setPriceDirections(prevDirs => ({ ...prevDirs, ...updatedDirs }));
+          return updated;
+        }
+        return prevPrices;
+      });
+    };
+
+    const interval = setInterval(tickFastPrices, 800);
+    return () => clearInterval(interval);
+  }, [isMounted, selectedPair, activePositions.length, bots.length]);
+
+  // 2. Fetch market API prices loop (every 3 seconds)
   useEffect(() => {
     const updatePrices = async () => {
       setIsLoadingPrice(true);
@@ -380,9 +434,10 @@ export function useTradingSimulation() {
     };
 
     updatePrices();
-    const interval = setInterval(updatePrices, 10000);
+    const interval = setInterval(updatePrices, 3000);
     return () => clearInterval(interval);
   }, [selectedPair, activePositions.length, bots.length]);
+
 
 
 
