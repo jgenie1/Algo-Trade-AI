@@ -168,17 +168,38 @@ export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
  * Throws an error if the API is unreachable or returns bad data.
  */
 export async function fetchRealPumpCoins(): Promise<PumpCoin[]> {
-  // Try multiple sort orders to maximize chances of finding a tradeable coin
+  // 1. Primary: Call internal server-side proxy route (/api/pump-coins) to bypass browser CORS & Cloudflare
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const proxyRes = await fetch('/api/pump-coins', {
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (proxyRes.ok) {
+      const result = await proxyRes.json();
+      if (result && result.success && Array.isArray(result.coins) && result.coins.length > 0) {
+        return result.coins;
+      }
+    }
+  } catch (e) {
+    console.warn('[Pump.fun API Proxy] Server proxy fetch failed, trying direct fallback endpoints...', e);
+  }
+
+  // 2. Secondary fallback: Try direct frontend API endpoints
   const endpoints = [
     `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=created_timestamp&order=DESC`,
     `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=last_reply&order=DESC`,
-    `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=reply_count&order=DESC`,
+    `https://frontend-api-v2.pump.fun/coins?offset=0&limit=20&sort=created_timestamp&order=DESC`,
   ];
 
   for (const url of endpoints) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       const res = await fetch(url, {
         headers: getHeaders(),
@@ -206,6 +227,7 @@ export async function fetchRealPumpCoins(): Promise<PumpCoin[]> {
 
   throw new Error('API Pump.fun inaccessible. Vérifiez votre connexion Internet ou réessayez dans quelques secondes.');
 }
+
 
 
 export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
