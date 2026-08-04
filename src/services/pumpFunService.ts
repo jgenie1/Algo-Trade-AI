@@ -235,6 +235,8 @@ export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
     const coins = getMockCoins();
     return coins.find(c => c.mint === mint) || null;
   }
+
+  // 1. Try Pump.fun API
   try {
     const url = `${PUMPFUN_API_URL}/coins/${mint}`;
     const controller = new AbortController();
@@ -247,16 +249,53 @@ export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
     });
     clearTimeout(timeoutId);
 
-    if (!res.ok) {
-      throw new Error(`Pump.fun HTTP error for coin ${mint}: ${res.status}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.mint) return data;
     }
-    const data = await res.json();
-    return data && data.mint ? data : null;
-  } catch (error) {
-    const coins = getMockCoins();
-    return coins.find(c => c.mint === mint) || null;
-  }
+  } catch (error) {}
+
+  // 2. Fallback to DexScreener live API for exact on-chain Solana tokens
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (dexRes.ok) {
+      const dexData = await dexRes.json();
+      if (dexData && Array.isArray(dexData.pairs) && dexData.pairs.length > 0) {
+        const p = dexData.pairs[0];
+        const solPrice = p.priceNative ? parseFloat(p.priceNative) : 0.00001;
+        const solReserves = Math.max(30000000000, (p.liquidity?.quote || 30) * 1e9);
+        const tokenReserves = solPrice > 0 ? solReserves / solPrice : 1000000000000;
+        return {
+          mint,
+          initialized: true,
+          name: p.baseToken?.name || 'Meme Token',
+          symbol: p.baseToken?.symbol || 'TOKEN',
+          description: `Live token on DexScreener: ${p.url || ''}`,
+          image_uri: p.info?.imageUrl || '',
+          metadata_uri: '',
+          bonding_curve: 'curve_' + mint.slice(0, 8),
+          associated_bonding_curve: '',
+          creator: p.pairAddress || mint,
+          created_timestamp: p.pairCreatedAt || Date.now(),
+          complete: false,
+          virtual_sol_reserves: solReserves,
+          virtual_token_reserves: tokenReserves,
+          total_supply: 1000000000000000,
+          market_cap: p.fdv ? p.fdv / 145 : (solReserves / 1e9) * 1.5,
+          reply_count: 10
+        };
+      }
+    }
+  } catch (e) {}
+
+  return null;
 }
+
 
 export async function getPumpFunWsUrl(): Promise<string> {
   return process.env.PUMPFUN_JWT_TOKEN || '';

@@ -72,8 +72,9 @@ export default function MarketRadarAndChart({
     const price = livePrices[cp.value] || 0;
     const dir = priceDirections[cp.value] || 'flat';
 
-    const pseudoRsi = Math.floor(30 + ((price * 1000) % 40));
-    const pseudoChange = dir === 'up' ? +(0.15 + (price % 1.2)).toFixed(2) : dir === 'down' ? -(0.12 + (price % 1.1)).toFixed(2) : 0.02;
+    const change = price > 0 ? (dir === 'up' ? 0.42 : dir === 'down' ? -0.38 : 0) : 0;
+    const rsi = price > 0 ? (dir === 'up' ? 62 : dir === 'down' ? 38 : 50) : 50;
+    const rsiStatus = rsi < 35 ? 'SURVENDU (Achat)' : rsi > 65 ? 'SURACHETÉ (Vente)' : 'NEUTRE';
 
     const botActiveOnPair = bots.some(b => b.status === 'RUNNING' && (b.pair === 'ALL' || b.pair === cp.value));
 
@@ -81,11 +82,12 @@ export default function MarketRadarAndChart({
       ...cp,
       price,
       dir,
-      change: pseudoChange,
-      rsi: pseudoRsi,
-      rsiStatus: pseudoRsi < 35 ? 'SURVENDU (Achat)' : pseudoRsi > 65 ? 'SURACHETÉ (Vente)' : 'NEUTRE',
+      change,
+      rsi,
+      rsiStatus,
       botActive: botActiveOnPair
     };
+
   });
 
   return (
