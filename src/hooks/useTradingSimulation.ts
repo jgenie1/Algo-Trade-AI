@@ -308,6 +308,7 @@ export function useTradingSimulation() {
     };
 
     updateWalletAndStatus();
+    refreshWalletRef.current = updateWalletAndStatus;
     if (typeof window !== 'undefined') {
       window.addEventListener('web3_wallet_updated', updateWalletAndStatus);
       window.addEventListener('storage', updateWalletAndStatus);
@@ -442,6 +443,7 @@ export function useTradingSimulation() {
   const solanaBalanceRef = useRef(solanaBalance);
 
   const closePositionByIdRef = useRef<(posId: string, exitPrice: number, reason: string) => void>(() => {});
+  const refreshWalletRef = useRef<() => void>(() => {});
   const addBotLogRef = useRef<(botId: string, botName: string, message: string, type: 'info' | 'trade' | 'error') => void>(() => {});
 
   useEffect(() => {
@@ -1309,16 +1311,18 @@ export function useTradingSimulation() {
       return [closed, ...closedPrev];
     });
     
-    if (p.botId) {
-      const isRealPosition = posMode === 'REAL' && !!p.txHash;
-      if (isRealPosition && p.pair.startsWith('SOL:')) {
-        const parts = p.pair.split(':');
-        const mintAddress = parts[1];
-        const botConfig = botsRef.current.find(b => b.id === p.botId);
+    const isRealSolanaPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && p.pair.startsWith('SOL:');
+    if (isRealSolanaPos) {
+      const parts = p.pair.split(':');
+      const mintAddress = parts[1];
+      if (mintAddress && !mintAddress.startsWith('ukhh')) {
+        const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
         const priority = botConfig?.priorityFee || 0.005;
         const targetPool = 'auto'; // let PumpPortal auto-route to pump/pump-amm/raydium
+        const sourceLabel = p.botId || 'manual';
+        const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
         
-        addBotLog(p.botId, p.botId, `Vente réelle SOL pour $${parts[2]}...`, 'info');
+        addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Envoi de la transaction de vente sur Solana pour $${parts[2] || 'TOKEN'}...`, 'info');
 
         executeRealPumpTrade({
           action: 'sell',
@@ -1330,18 +1334,24 @@ export function useTradingSimulation() {
           pool: targetPool
         }).then((res) => {
           if (res && res.success && res.txHash) {
-            addBotLog(p.botId!, p.botId!, `[VENTE RÉELLE RÉUSSIE] Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
+            addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE RÉUSSIE] Hash: ${res.txHash.slice(0, 16)}... Tokens vendus contre SOL sur la blockchain !`, 'trade');
             setClosedPositions(closedPrev => 
               closedPrev.map(item => item.id === p.id ? { ...item, sellTxHash: res.txHash } : item)
             );
+            // Refresh wallet balance from Solana RPC so updated SOL appears on screen
+            setTimeout(() => {
+              if (refreshWalletRef.current) refreshWalletRef.current();
+            }, 2500);
           } else {
-            addBotLog(p.botId!, p.botId!, `[ÉCHEC VENTE RÉELLE] Échec: ${res.error || 'Erreur réseau.'}`, 'error');
+            addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE RÉELLE] Échec: ${res.error || 'Erreur réseau.'}`, 'error');
           }
         });
       }
+    }
 
-      const sourceLabel = p.botId ? p.botId : 'Ordre Manuel';
-      addBotLog(sourceLabel, sourceLabel, `Position fermée à ${exitPrice.toFixed(5)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} $`, 'trade');
+    const sourceLabel = p.botId ? p.botId : 'manual';
+    const logBotName = p.botId ? p.botId : 'Ordre Manuel';
+    addBotLog(sourceLabel, logBotName, `Position fermée à ${exitPrice.toFixed(5)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'}`, 'trade');
       
       if (profit < 0) {
         let learningEffect = '';
