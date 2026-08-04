@@ -6,6 +6,7 @@ import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService
 import { calculateIndicators } from '@/services/technicalAnalysisService';
 import { 
   fetchLatestPumpCoins, 
+  fetchRealPumpCoins,
   fetchPumpCoin, 
   getPumpFunWsUrl, 
   executeRealPumpTrade, 
@@ -614,7 +615,16 @@ export function useTradingSimulation() {
             let latestCoins = [...liveWsCoinsRef.current];
             let usingWs = true;
 
-            if (latestCoins.length === 0) {
+            // Real mode: always use live API coins only (never mock mints)
+            if (tradingModeRef.current === 'REAL') {
+              try {
+                latestCoins = await fetchRealPumpCoins();
+                usingWs = false;
+              } catch (apiErr: any) {
+                addBotLogRef.current(bot.id, "Pump.fun Sniper", `[API RÉELLE INDISPONIBLE] ${apiErr.message || 'Impossible de récupérer les coins Pump.fun en direct.'}`, 'error');
+                continue;
+              }
+            } else if (latestCoins.length === 0) {
               latestCoins = await fetchLatestPumpCoins();
               usingWs = false;
             }

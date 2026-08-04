@@ -156,11 +156,57 @@ export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
     if (Array.isArray(data) && data.length > 0) {
       return data;
     }
-    return getMockCoins();
+    return getMockCoins(); // fallback: demo-only mock coins
   } catch (error) {
-    return getMockCoins();
+    return getMockCoins(); // fallback: demo-only mock coins
   }
 }
+
+/**
+ * Fetch REAL on-chain Pump.fun coins from the live API.
+ * NEVER falls back to mock coins — for Real Mode trading only.
+ * Throws an error if the API is unreachable or returns bad data.
+ */
+export async function fetchRealPumpCoins(): Promise<PumpCoin[]> {
+  // Try multiple sort orders to maximize chances of finding a tradeable coin
+  const endpoints = [
+    `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=created_timestamp&order=DESC`,
+    `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=last_reply&order=DESC`,
+    `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=reply_count&order=DESC`,
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(url, {
+        headers: getHeaders(),
+        next: { revalidate: 0 },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) continue;
+
+      // Filter: only real on-chain mints (base58, 32-44 chars, no mock prefix)
+      const realCoins = data.filter((c: PumpCoin) => {
+        const m = (c.mint || '').trim();
+        return m.length >= 32 && m.length <= 44 && !/^mnt_/.test(m) && !/[^1-9A-HJ-NP-Za-km-z]/.test(m);
+      });
+
+      if (realCoins.length > 0) return realCoins;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error('API Pump.fun inaccessible. Vérifiez votre connexion Internet ou réessayez dans quelques secondes.');
+}
+
 
 export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
   if (mint.startsWith('mnt_')) {

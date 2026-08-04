@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import { executeRealPumpTrade, fetchLatestPumpCoins } from '@/services/pumpFunService';
+import { executeRealPumpTrade, fetchLatestPumpCoins, fetchRealPumpCoins } from '@/services/pumpFunService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,19 +56,24 @@ export default function ManualOrderForm({
   const [stopLoss, setStopLoss] = useState<string>('');
   const [takeProfit, setTakeProfit] = useState<string>('');
   const [trendingCoins, setTrendingCoins] = useState<any[]>([]);
+  const [trendingCoinsError, setTrendingCoinsError] = useState<string>('');
 
   const isSubmittingOrderRef = useRef(false);
 
-  // Fetch live trending coins from Pump.fun
+  // Fetch live trending coins from Pump.fun (real mints only in REAL mode)
   React.useEffect(() => {
     if (tradingMode !== 'REAL') return;
     const loadCoins = async () => {
       try {
-        const coins = await fetchLatestPumpCoins();
+        setTrendingCoinsError('');
+        const coins = await fetchRealPumpCoins();
         if (coins && coins.length > 0) {
-          setTrendingCoins(coins.slice(0, 10));
+          setTrendingCoins(coins.slice(0, 15));
         }
-      } catch (e) {}
+      } catch (e: any) {
+        setTrendingCoinsError(e.message || 'API Pump.fun inaccessible.');
+        setTrendingCoins([]);
+      }
     };
     loadCoins();
     const interval = setInterval(loadCoins, 10000);
@@ -365,24 +370,23 @@ export default function ManualOrderForm({
                     <SelectValue placeholder="Sélectionner un jeton en temps réel..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#14101a] border-white/10 text-white max-h-64">
-                    {trendingCoins.length > 0 ? (
+                    {trendingCoinsError ? (
+                      <div className="px-3 py-4 text-center">
+                        <p className="text-xs text-rose-400 font-bold">⚠️ API Pump.fun indisponible</p>
+                        <p className="text-[10px] text-white/40 mt-1">{trendingCoinsError}</p>
+                        <p className="text-[10px] text-white/40 mt-1">Saisissez le Mint Address manuellement ci-dessous.</p>
+                      </div>
+                    ) : trendingCoins.length > 0 ? (
                       trendingCoins.map(coin => (
                         <SelectItem key={coin.mint} value={`SOL:${coin.mint}:${coin.symbol}`} className="focus:bg-white/10 focus:text-white cursor-pointer text-xs">
                           ${coin.symbol} — {coin.name} ({Math.max(0, Math.min(100, (((coin.virtual_sol_reserves / 1e9) - 30) / 55) * 100)).toFixed(0)}% Curve)
                         </SelectItem>
                       ))
                     ) : (
-                      <>
-                        <SelectItem value="SOL:ukhh11111111111111111111111111111111111:WIFUN" className="focus:bg-white/10 focus:text-white cursor-pointer text-xs">
-                          $WIFUN — WifOnSol
-                        </SelectItem>
-                        <SelectItem value="SOL:ukhh22222222222222222222222222222222222:PEPEFUN" className="focus:bg-white/10 focus:text-white cursor-pointer text-xs">
-                          $PEPEFUN — PepeOnSol
-                        </SelectItem>
-                        <SelectItem value="SOL:ukhh33333333333333333333333333333333333:BONKFUN" className="focus:bg-white/10 focus:text-white cursor-pointer text-xs">
-                          $BONKFUN — BonkOnSol
-                        </SelectItem>
-                      </>
+                      <div className="px-3 py-4 text-center">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-purple-400 mx-auto mb-2" />
+                        <p className="text-[10px] text-white/40">Chargement des jetons Pump.fun en live...</p>
+                      </div>
                     )}
                     <SelectItem value="SOL:custom_mint:Token" className="focus:bg-white/10 focus:text-white cursor-pointer text-xs font-bold text-[#c2ff0c]">
                       ➕ Saisir un autre Mint Address (CA)...
