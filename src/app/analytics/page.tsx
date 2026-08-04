@@ -84,8 +84,9 @@ export default function AnalyticsPage() {
     .sort((a, b) => b.value - a.value).slice(0, 5);
   if (!distribution.length) distribution.push({ name: "Aucun actif", value: 100 });
 
-  const runningBots = bots.filter(b => b.status === "RUNNING").length;
-  const totalBotProfit = bots.reduce((s, b) => s + (b.netProfit || 0), 0);
+  const filteredBots = (bots || []).filter(b => (b.mode || 'DEMO') === tradingMode);
+  const runningBots = filteredBots.filter(b => b.status === "RUNNING").length;
+  const totalBotProfit = filteredBots.reduce((s, b) => s + (b.netProfit || b.pnl || 0), 0);
 
   const W = 600, H = 180, P = 20, cW = W - P * 2, cH = H - P * 2;
   const minV = Math.min(...pnlData), maxV = Math.max(...pnlData), vR = maxV - minV || 1;
@@ -122,7 +123,7 @@ export default function AnalyticsPage() {
   const kpi2 = [
     { label: "Bots Actifs", icon: <Activity className="h-4 w-4 text-cyan-400" />,
       val: <span className="text-2xl font-extrabold text-cyan-400 font-body">{runningBots}</span>,
-      sub: `${bots.length} bot(s) au total` },
+      sub: `${filteredBots.length} bot(s) en mode ${tradingMode}` },
     { label: "Sharpe Ratio", icon: <Target className="h-4 w-4 text-amber-400" />,
       val: <AnimatedNumber value={isNaN(sharpe) ? 0 : sharpe} decimals={2} className="text-2xl font-extrabold text-amber-400 font-body" />,
       sub: "Rendement ajusté au risque" },
