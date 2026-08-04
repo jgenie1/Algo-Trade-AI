@@ -106,21 +106,75 @@ export default function Header() {
   const connectPhantomSolana = async () => {
     try {
       const win = window as any;
-      const solanaObj = win.solana || win.solflare || win.backpack || win.okxwallet?.solana;
-      if (solanaObj) {
-        const resp = await solanaObj.connect();
-        const pubKey = resp?.publicKey ? resp.publicKey.toString() : solanaObj.publicKey?.toString();
-        if (pubKey) {
-          const providerName = solanaObj.isPhantom ? "Phantom Solana" : solanaObj.isSolflare ? "Solflare Solana" : solanaObj.isBackpack ? "Backpack Solana" : "Solana Web3 Wallet";
-          const w = { name: providerName, address: pubKey, chain: "Solana" as const };
-          localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
-          setConnectedWallet(w);
+
+      // Priority: window.phantom.solana first (Phantom's safe namespace).
+      // window.solana can be overridden by MetaMask Snaps — always check window.phantom?.solana first.
+      const solanaObj =
+        win.phantom?.solana ??         // Phantom's own namespace (most reliable)
+        win.solflare ??                 // Solflare
+        win.backpack ??                 // Backpack
+        win.okxwallet?.solana ??        // OKX Wallet
+        (win.solana?.isPhantom ? win.solana : null) ?? // window.solana only if it's really Phantom
+        win.solana;                     // last resort
+
+      if (!solanaObj) {
+        alert(
+          "Extension Solana introuvable dans votre navigateur.\n\n" +
+          "• Installez Phantom : https://phantom.app/\n" +
+          "• Si installé, vérifiez que l'extension est activée\n" +
+          "• Rafraîchissez la page après activation (F5)"
+        );
+        return;
+      }
+
+      // onlyIfTrusted: false force le popup d'approbation Phantom même si déjà visité
+      let resp: any;
+      try {
+        resp = await solanaObj.connect({ onlyIfTrusted: false });
+      } catch (connectErr: any) {
+        const code = connectErr?.code ?? connectErr?.error?.code;
+        const msg = (connectErr?.message ?? '').toLowerCase();
+        if (code === 4001 || msg.includes('user rejected') || msg.includes('cancelled') || msg.includes('denied')) {
+          // User closed or rejected the popup — not an error, just ignore
           return;
         }
+        throw connectErr;
       }
-      alert("Extension Solana (Phantom, Solflare ou Backpack) introuvable dans votre navigateur.\n\nVeuillez débloquer votre extension ou installer Phantom (https://phantom.app/).");
+
+      // Extract public key
+      let pubKey: string | undefined;
+      if (resp?.publicKey) {
+        pubKey = typeof resp.publicKey.toString === 'function' ? resp.publicKey.toString() : String(resp.publicKey);
+      } else if (solanaObj.publicKey) {
+        pubKey = typeof solanaObj.publicKey.toString === 'function' ? solanaObj.publicKey.toString() : String(solanaObj.publicKey);
+      }
+
+      if (!pubKey) {
+        alert("Connexion réussie mais clé publique introuvable. Vérifiez que votre compte Phantom est actif puis réessayez.");
+        return;
+      }
+
+      const providerName = solanaObj.isPhantom
+        ? "Phantom Solana"
+        : solanaObj.isSolflare
+        ? "Solflare Solana"
+        : solanaObj.isBackpack
+        ? "Backpack Solana"
+        : "Solana Web3 Wallet";
+
+      const w = { name: providerName, address: pubKey, chain: "Solana" as const };
+      localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+      setConnectedWallet(w);
+
     } catch (err: any) {
-      alert("Erreur de connexion Solana : " + (err.message || err));
+      console.error('[Wallet] Phantom connection error:', err);
+      alert(
+        "Erreur de connexion Phantom : " + (err?.message ?? "Erreur inconnue") + "\n\n" +
+        "Conseils :\n" +
+        "• Assurez-vous que Phantom est déverrouillé\n" +
+        "• Si MetaMask est installé, désactivez-le temporairement\n" +
+        "• Rafraîchissez la page (F5) et réessayez"
+      );
     }
   };
 
