@@ -27,9 +27,11 @@ import { formatUsdToHtg } from '@/lib/utils';
 interface DEXSwapModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialFromToken?: SwapToken;
+  initialToToken?: SwapToken;
 }
 
-export default function DEXSwapModal({ isOpen, onClose }: DEXSwapModalProps) {
+export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initialToToken }: DEXSwapModalProps) {
   const { balance, setBalance, tradingMode } = useAppState();
   
   const [activeChain, setActiveChain] = useState<'SOL' | 'EVM'>('SOL');
@@ -38,8 +40,8 @@ export default function DEXSwapModal({ isOpen, onClose }: DEXSwapModalProps) {
     activeChain === 'SOL' ? t.chain === 'SOL' : t.chain !== 'SOL'
   );
 
-  const [fromToken, setFromToken] = useState<SwapToken>(availableTokens[0] || POPULAR_TOKENS[0]);
-  const [toToken, setToToken] = useState<SwapToken>(availableTokens[1] || POPULAR_TOKENS[1]);
+  const [fromToken, setFromToken] = useState<SwapToken>(initialFromToken || availableTokens[0] || POPULAR_TOKENS[0]);
+  const [toToken, setToToken] = useState<SwapToken>(initialToToken || availableTokens[1] || POPULAR_TOKENS[1]);
   const [amount, setAmount] = useState<string>('1.0');
   const [slippage, setSlippage] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -57,8 +59,23 @@ export default function DEXSwapModal({ isOpen, onClose }: DEXSwapModalProps) {
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
   const [swapResult, setSwapResult] = useState<{ txHash: string; message: string } | null>(null);
 
+  // Synchroniser les tokens d'entrée si fournis lors de l'ouverture
+  useEffect(() => {
+    if (isOpen) {
+      if (initialFromToken) {
+        setFromToken(initialFromToken);
+        if (initialFromToken.chain !== 'SOL') setActiveChain('EVM');
+        else setActiveChain('SOL');
+      }
+      if (initialToToken) {
+        setToToken(initialToToken);
+      }
+    }
+  }, [isOpen, initialFromToken, initialToToken]);
+
   // Mettre à jour les tokens par défaut au changement de réseau
   useEffect(() => {
+    if (initialFromToken && initialFromToken.chain === (activeChain === 'SOL' ? 'SOL' : 'ETH')) return;
     const filtered = POPULAR_TOKENS.filter(t => 
       activeChain === 'SOL' ? t.chain === 'SOL' : t.chain !== 'SOL'
     );

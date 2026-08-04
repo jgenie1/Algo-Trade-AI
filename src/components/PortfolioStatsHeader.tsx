@@ -18,7 +18,7 @@ interface PortfolioStatsHeaderProps {
   walletChain: 'Solana' | 'BSC' | 'Ethereum' | null;
   rpcLatency: number | null;
   handleResetDemo: () => void;
-  onSelectTab: (tab: 'manual') => void;
+  onSelectTab: (tab: 'manual' | 'bots' | 'tokens' | 'wallets') => void;
 }
 
 export default function PortfolioStatsHeader({

@@ -1,21 +1,35 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Zap, Bot } from 'lucide-react';
+import { Zap, Bot, Coins } from 'lucide-react';
 import { useTradingSimulation } from '@/hooks/useTradingSimulation';
 import { useAppState } from '@/context/AppContext';
 import ActivePositionsTable from '@/components/ActivePositionsTable';
 import ManualOrderForm from '@/components/ManualOrderForm';
 import TradingBotsManager from '@/components/TradingBotsManager';
 import MultiWalletsManager from '@/components/MultiWalletsManager';
+import WalletTokenPortfolio from '@/components/WalletTokenPortfolio';
+import DEXSwapModal from '@/components/DEXSwapModal';
 import PositionDetailsModal from '@/components/PositionDetailsModal';
 import MarketRadarAndChart from '@/components/MarketRadarAndChart';
 import PortfolioStatsHeader from '@/components/PortfolioStatsHeader';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import type { SwapToken } from '@/services/dexSwapService';
 
 export default function TradingTerminalPage() {
-  const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'wallets'>('manual');
+  const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'tokens' | 'wallets'>('manual');
   const [isClient, setIsClient] = useState(false);
+
+  // Swap modal state
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [swapFromToken, setSwapFromToken] = useState<SwapToken | undefined>(undefined);
+  const [swapToToken, setSwapToToken] = useState<SwapToken | undefined>(undefined);
+
+  const handleOpenSwap = (from?: SwapToken, to?: SwapToken) => {
+    setSwapFromToken(from);
+    setSwapToToken(to);
+    setIsSwapModalOpen(true);
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -96,7 +110,7 @@ export default function TradingTerminalPage() {
             Terminal de Trading Algorithmique
           </h1>
           <p className="text-sm sm:text-base text-slate-300 font-medium mt-1 font-body">
-            Gérez vos ordres manuellement ou lancez vos robots de trading en démo ou en réel.
+            Gérez vos ordres manuellement, lancez vos robots ou convertissez vos tokens en USD en bloc.
           </p>
         </div>
       </div>
@@ -141,6 +155,14 @@ export default function TradingTerminalPage() {
           >
             <Bot className="inline-block h-4 w-4 mr-1.5 text-[#c2ff0c]" />
             Bots Automatiques & Intelligence
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="tokens"
+            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
+          >
+            <Coins className="inline-block h-4 w-4 text-purple-400" />
+            Mes Tokens & Vente en Bloc
           </TabsTrigger>
 
           {tradingMode === 'REAL' && (
@@ -205,7 +227,18 @@ export default function TradingTerminalPage() {
           />
         </TabsContent>
 
-        {/* Tab 3: Solana Multi-Wallets */}
+        {/* Tab 3: Wallet Tokens & Bulk Sell */}
+        <TabsContent value="tokens" className="m-0 focus-visible:outline-none">
+          <WalletTokenPortfolio
+            solanaPubKey={solanaPubKey}
+            solanaBalance={solanaBalance}
+            evmBalance={evmBalance}
+            walletChain={walletChain}
+            onOpenSwap={handleOpenSwap}
+          />
+        </TabsContent>
+
+        {/* Tab 4: Solana Multi-Wallets */}
         {tradingMode === 'REAL' && (
           <TabsContent value="wallets" className="m-0 focus-visible:outline-none">
             <MultiWalletsManager
@@ -231,6 +264,15 @@ export default function TradingTerminalPage() {
           handleClosePosition={handleClosePosition}
         />
       )}
+
+      {/* DEX Swap Modal */}
+      <DEXSwapModal
+        isOpen={isSwapModalOpen}
+        onClose={() => setIsSwapModalOpen(false)}
+        initialFromToken={swapFromToken}
+        initialToToken={swapToToken}
+      />
     </div>
   );
 }
+
