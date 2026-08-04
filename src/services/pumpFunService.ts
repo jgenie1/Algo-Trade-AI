@@ -567,38 +567,87 @@ export async function disperseSolToSubWallets(params: {
   amountPerWallet: number;
 }): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
-    const { Keypair, SystemProgram, Transaction, Connection, PublicKey } = await import('@solana/web3.js');
+    const { Keypair, SystemProgram, Transaction, Connection, PublicKey, VersionedTransaction } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
 
-    const mainKey = process.env.SOLANA_PRIVATE_KEY;
-    if (!mainKey) {
-      throw new Error("SOLANA_PRIVATE_KEY n'est pas configuré dans le fichier .env.");
-    }
+    // Resolve private key: .env → localStorage → error
+    const rawKey = process.env.SOLANA_PRIVATE_KEY ||
+      (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
 
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
+      process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
     const connection = new Connection(rpcUrl, 'confirmed');
-    const mainSigner = Keypair.fromSecretKey(bs58.decode(mainKey));
 
     const transaction = new Transaction();
     for (const pubKeyStr of params.subWalletPubKeys) {
       transaction.add(
         SystemProgram.transfer({
-          fromPubkey: mainSigner.publicKey,
+          fromPubkey: new PublicKey('11111111111111111111111111111111'), // placeholder, replaced after signer resolved
           toPubkey: new PublicKey(pubKeyStr),
           lamports: Math.round(params.amountPerWallet * 1e9),
         })
       );
     }
 
-    const signature = await connection.sendTransaction(transaction, [mainSigner], {
-      skipPreflight: true,
-      preflightCommitment: 'confirmed'
-    });
+    if (rawKey) {
+      let mainSigner: any;
+      try {
+        const trimmed = rawKey.trim();
+        let keyBytes: Uint8Array;
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          keyBytes = new Uint8Array(JSON.parse(trimmed));
+        } else {
+          keyBytes = bs58.decode(trimmed);
+        }
+        mainSigner = Keypair.fromSecretKey(keyBytes);
+      } catch {
+        throw new Error("Format de la clé privée invalide (BS58 ou Array JSON requis). Vérifiez vos Paramètres.");
+      }
 
-    return {
-      success: true,
-      txHash: signature
-    };
+      const txFromMain = new Transaction();
+      for (const pubKeyStr of params.subWalletPubKeys) {
+        txFromMain.add(
+          SystemProgram.transfer({
+            fromPubkey: mainSigner.publicKey,
+            toPubkey: new PublicKey(pubKeyStr),
+            lamports: Math.round(params.amountPerWallet * 1e9),
+          })
+        );
+      }
+
+      const signature = await connection.sendTransaction(txFromMain, [mainSigner], {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+      return { success: true, txHash: signature };
+    }
+
+    // Browser wallet fallback (Phantom / Solflare)
+    const winSolana = typeof window !== 'undefined'
+      ? ((window as any).solana || (window as any).phantom?.solana)
+      : null;
+    if (winSolana && winSolana.publicKey) {
+      const txFromWallet = new Transaction();
+      for (const pubKeyStr of params.subWalletPubKeys) {
+        txFromWallet.add(
+          SystemProgram.transfer({
+            fromPubkey: winSolana.publicKey,
+            toPubkey: new PublicKey(pubKeyStr),
+            lamports: Math.round(params.amountPerWallet * 1e9),
+          })
+        );
+      }
+      txFromWallet.feePayer = winSolana.publicKey;
+      txFromWallet.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      const signedTx = await winSolana.signTransaction(txFromWallet);
+      const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+      return { success: true, txHash: signature };
+    }
+
+    throw new Error("Clé privée Solana manquante. Saisissez-la dans Paramètres → Clé Privée Solana, ou connectez votre wallet Phantom/Solflare.");
   } catch (err: any) {
     console.error("Error dispersing SOL:", err);
     return {
@@ -616,32 +665,66 @@ export async function withdrawSolana(params: {
     const { Keypair, SystemProgram, Transaction, Connection, PublicKey } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
 
-    const mainKey = process.env.SOLANA_PRIVATE_KEY;
-    if (!mainKey) {
-      throw new Error("SOLANA_PRIVATE_KEY n'est pas configuré dans le fichier .env.");
+    // Resolve private key: .env → localStorage → browser wallet
+    const rawKey = process.env.SOLANA_PRIVATE_KEY ||
+      (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
+
+    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
+      process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    const connection = new Connection(rpcUrl, 'confirmed');
+
+    if (rawKey) {
+      let mainSigner: any;
+      try {
+        const trimmed = rawKey.trim();
+        let keyBytes: Uint8Array;
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          keyBytes = new Uint8Array(JSON.parse(trimmed));
+        } else {
+          keyBytes = bs58.decode(trimmed);
+        }
+        mainSigner = Keypair.fromSecretKey(keyBytes);
+      } catch {
+        throw new Error("Format de la clé privée invalide (BS58 ou Array JSON requis). Vérifiez vos Paramètres.");
+      }
+
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: mainSigner.publicKey,
+          toPubkey: new PublicKey(params.recipient),
+          lamports: Math.round(params.amount * 1e9),
+        })
+      );
+      const signature = await connection.sendTransaction(transaction, [mainSigner], {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+      return { success: true, txHash: signature };
     }
 
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-    const connection = new Connection(rpcUrl, 'confirmed');
-    const mainSigner = Keypair.fromSecretKey(bs58.decode(mainKey));
+    // Browser wallet fallback
+    const winSolana = typeof window !== 'undefined'
+      ? ((window as any).solana || (window as any).phantom?.solana)
+      : null;
+    if (winSolana && winSolana.publicKey) {
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: winSolana.publicKey,
+          toPubkey: new PublicKey(params.recipient),
+          lamports: Math.round(params.amount * 1e9),
+        })
+      );
+      transaction.feePayer = winSolana.publicKey;
+      transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      const signedTx = await winSolana.signTransaction(transaction);
+      const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+      return { success: true, txHash: signature };
+    }
 
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: mainSigner.publicKey,
-        toPubkey: new PublicKey(params.recipient),
-        lamports: Math.round(params.amount * 1e9),
-      })
-    );
-
-    const signature = await connection.sendTransaction(transaction, [mainSigner], {
-      skipPreflight: true,
-      preflightCommitment: 'confirmed'
-    });
-
-    return {
-      success: true,
-      txHash: signature
-    };
+    throw new Error("Clé privée Solana manquante. Saisissez-la dans Paramètres → Clé Privée Solana, ou connectez votre wallet Phantom/Solflare.");
   } catch (err: any) {
     console.error("Error withdrawing SOL:", err);
     return {
