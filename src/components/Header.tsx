@@ -84,6 +84,25 @@ export default function Header() {
   const [priorityFee, setPriorityFee] = useState('0.005');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
+  const [customPubKeyInput, setCustomPubKeyInput] = useState('');
+
+  const handleConnectCustomPubKey = () => {
+    const trimmed = customPubKeyInput.trim();
+    if (!trimmed || trimmed.length < 32 || trimmed.length > 44 || /[^1-9A-HJ-NP-Za-km-z]/.test(trimmed)) {
+      alert("Adresse publique Solana invalide (format Base58, 32 à 44 caractères requis).");
+      return;
+    }
+
+    const w = {
+      name: "Portefeuille Solana (Adresse Publique)",
+      address: trimmed,
+      chain: "Solana" as const
+    };
+    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+    setConnectedWallet(w);
+    setCustomPubKeyInput('');
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -491,8 +510,38 @@ export default function Header() {
                     Scanner
                   </span>
                 </button>
+
+
+                <div className="pt-3 border-t border-white/10 space-y-2">
+                  <label className="text-[11px] font-bold text-emerald-400 font-headline flex items-center gap-1.5">
+                    <span>🔑</span> Ou Coller une Adresse Publique Solana :
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Ex: 7xKX... (Adresse Solana Base58)"
+                      value={customPubKeyInput}
+                      onChange={(e) => setCustomPubKeyInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleConnectCustomPubKey();
+                      }}
+                      className="flex-1 h-10 px-3 bg-white/5 border border-white/10 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-[#c2ff0c]"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleConnectCustomPubKey}
+                      className="h-10 px-3.5 bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black font-headline text-xs font-extrabold rounded-xl shrink-0"
+                    >
+                      Connecter
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-white/40 font-body">
+                    Connecte n'importe quel portefeuille Solana en lecture pour suivre le solde SOL en temps réel.
+                  </p>
+                </div>
               </div>
             )}
+
           </DialogContent>
         </Dialog>
 

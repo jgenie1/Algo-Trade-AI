@@ -18,6 +18,7 @@ export default function SettingsPage() {
 
   const [rpcUrl, setRpcUrl] = useState<string>('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');
   const [solanaPrivateKey, setSolanaPrivateKey] = useState<string>('');
+  const [solanaPubKeyInput, setSolanaPubKeyInput] = useState<string>('');
   const [showPrivateKey, setShowPrivateKey] = useState<boolean>(false);
   const [slippage, setSlippage] = useState<string>('15');
   const [priorityFee, setPriorityFee] = useState<string>('0.005');
@@ -40,13 +41,37 @@ export default function SettingsPage() {
       const storedSlippage = localStorage.getItem('settings_slippage');
       const storedFee = localStorage.getItem('settings_priority_fee');
       const storedModel = localStorage.getItem('settings_ai_model');
+      const storedWallet = localStorage.getItem('connected_web3_wallet');
       if (storedRpc) setRpcUrl(storedRpc);
       if (storedKey) setSolanaPrivateKey(storedKey);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
       if (storedModel) setAiModel(storedModel);
+      if (storedWallet) {
+        try {
+          const parsed = JSON.parse(storedWallet);
+          if (parsed.address) setSolanaPubKeyInput(parsed.address);
+        } catch (e) {}
+      }
     }
   }, []);
+
+  const handleSavePubKeyOnly = () => {
+    const trimmed = solanaPubKeyInput.trim();
+    if (!trimmed || trimmed.length < 32 || trimmed.length > 44 || /[^1-9A-HJ-NP-Za-km-z]/.test(trimmed)) {
+      alert("Adresse publique Solana invalide (format Base58, 32 à 44 caractères requis).");
+      return;
+    }
+    const w = {
+      name: "Portefeuille Solana (Adresse Publique)",
+      address: trimmed,
+      chain: "Solana" as const
+    };
+    localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
+    alert(`✅ Adresse Publique enregistrée pour le suivi de solde : ${trimmed}`);
+  };
+
 
   const handleSyncLiveRate = async () => {
     setIsSyncingRate(true);
@@ -162,8 +187,33 @@ export default function SettingsPage() {
                 ✨ Générer Portefeuille Bot Dédié (1-Click)
               </button>
             </div>
+
+            {/* Public Key pasting for tracking balance */}
+            <div className="pt-4 border-t border-white/5 space-y-2">
+              <label className="text-xs font-bold text-white/60 font-headline">Adresse Publique Solana (Suivi du Solde & Lecture Seule)</label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Ex: 7xKX... (Collez votre adresse publique Solana Base58)"
+                  value={solanaPubKeyInput}
+                  onChange={(e) => setSolanaPubKeyInput(e.target.value)}
+                  className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c] flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={handleSavePubKeyOnly}
+                  className="h-11 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-headline text-xs font-bold rounded-xl shrink-0"
+                >
+                  Enregistrer Adresse Publique
+                </Button>
+              </div>
+              <p className="text-[10px] text-white/40 font-body">
+                💡 Collez votre adresse publique Solana ici pour suivre votre solde SOL réel sur le tableau de bord sans révéler de clé privée.
+              </p>
+            </div>
           </div>
         </Card>
+
 
 
         <SettingsNotificationsCard
