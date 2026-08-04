@@ -324,61 +324,82 @@ export function useTradingSimulation() {
   }, [isMounted]);
 
 
-  // 1. High-frequency 800ms live price ticker for active positions and selected pair
+  // 1. Live Production Binance WebSocket Ticker for Crypto (100% Real Market Data Feed, Zero Simulation)
   useEffect(() => {
     if (!isMounted) return;
 
-    const tickFastPrices = () => {
-      setLivePrices(prevPrices => {
-        const updated = { ...prevPrices };
-        const updatedDirs: { [key: string]: 'up' | 'down' | 'flat' } = {};
-        let changed = false;
+    let bws: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout;
 
-        const activePairs = Array.from(new Set([
-          selectedPair,
-          ...activePositions.map(p => p.pair),
-          ...bots.filter(b => b.status === 'RUNNING').map(b => b.pair)
-        ])).filter(p => p && p !== 'ALL' && p !== 'SOLANA' && p !== 'SOL:MEME');
+    const connectBinanceWs = () => {
+      try {
+        const streams = [
+          'btcusdt@miniTicker',
+          'ethusdt@miniTicker',
+          'solusdt@miniTicker',
+          'bnbusdt@miniTicker',
+          'xrpusdt@miniTicker',
+          'adausdt@miniTicker',
+          'dogeusdt@miniTicker',
+          'linkusdt@miniTicker',
+          'avaxusdt@miniTicker'
+        ].join('/');
 
-        // Make sure newly opened positions have a seed price immediately so PnL ticks right away
-        activePositions.forEach(p => {
-          if (!updated[p.pair] && p.entryPrice > 0) {
-            updated[p.pair] = p.entryPrice;
-            changed = true;
-          }
-        });
+        bws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
 
-        activePairs.forEach(pair => {
-          const current = updated[pair];
-          if (!current || current <= 0) return;
+        bws.onmessage = (event) => {
+          try {
+            const raw = JSON.parse(event.data);
+            if (raw && raw.s && raw.c) {
+              const pairSymbol = raw.s.toLowerCase();
+              const BINANCE_MAP: Record<string, string> = {
+                'btcusdt': 'BTC',
+                'ethusdt': 'ETH',
+                'solusdt': 'SOL',
+                'bnbusdt': 'BNB',
+                'xrpusdt': 'XRP',
+                'adausdt': 'ADA',
+                'dogeusdt': 'DOGE',
+                'linkusdt': 'LINK',
+                'avaxusdt': 'AVAX',
+              };
 
-          const isPump = pair.startsWith('SOL:');
-          // Higher volatility for Pump.fun meme coins (+-0.35%), realistic micro-volatility for Forex/Crypto (+-0.08%)
-          const maxVolatilityPct = isPump ? 0.0035 : 0.0008;
-          // Random walk micro-tick (-0.49 to +0.51 for organic drift)
-          const changeFactor = (Math.random() - 0.49) * maxVolatilityPct * 2;
-          const nextPrice = Math.max(0.00000001, current * (1 + changeFactor));
+              const pairKey = BINANCE_MAP[pairSymbol];
+              if (pairKey) {
+                const livePrice = parseFloat(raw.c);
+                if (!isNaN(livePrice) && livePrice > 0) {
+                  setLivePrices(prev => {
+                    const oldPrice = prev[pairKey];
+                    if (oldPrice === livePrice) return prev;
+                    if (oldPrice) {
+                      setPriceDirections(dirs => ({
+                        ...dirs,
+                        [pairKey]: livePrice > oldPrice ? 'up' : livePrice < oldPrice ? 'down' : 'flat'
+                      }));
+                    }
+                    return { ...prev, [pairKey]: livePrice };
+                  });
+                }
+              }
+            }
+          } catch (e) {}
+        };
 
-          if (nextPrice !== current) {
-            updated[pair] = nextPrice;
-            updatedDirs[pair] = nextPrice > current ? 'up' : 'down';
-            changed = true;
-          }
-        });
-
-        if (changed) {
-          setPriceDirections(prevDirs => ({ ...prevDirs, ...updatedDirs }));
-          return updated;
-        }
-        return prevPrices;
-      });
+        bws.onerror = () => {};
+        bws.onclose = () => {
+          reconnectTimer = setTimeout(connectBinanceWs, 3000);
+        };
+      } catch (e) {}
     };
 
-    const interval = setInterval(tickFastPrices, 800);
-    return () => clearInterval(interval);
-  }, [isMounted, selectedPair, activePositions.length, bots.length]);
+    connectBinanceWs();
+    return () => {
+      if (bws) bws.close();
+      clearTimeout(reconnectTimer);
+    };
+  }, [isMounted]);
 
-  // 2. Fetch market API prices loop (every 3 seconds)
+  // 2. Real-Time Market API & On-Chain Solana Pump.fun Data Loop (every 2 seconds)
   useEffect(() => {
     const updatePrices = async () => {
       setIsLoadingPrice(true);
@@ -399,6 +420,25 @@ export function useTradingSimulation() {
             if (parts.length >= 2) {
               const mint = parts[1];
               try {
+                // Try DexScreener real-time API first for exact live price
+                const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { cache: 'no-store' });
+                if (dexRes.ok) {
+                  const dexData = await dexRes.json();
+                  if (dexData && Array.isArray(dexData.pairs) && dexData.pairs.length > 0) {
+                    const bestPair = dexData.pairs[0];
+                    const dexPriceSol = parseFloat(bestPair.priceNative);
+                    if (!isNaN(dexPriceSol) && dexPriceSol > 0) {
+                      newPrices[pairVal] = dexPriceSol;
+                      const oldPrice = livePrices[pairVal];
+                      if (oldPrice) {
+                        newDirections[pairVal] = dexPriceSol > oldPrice ? 'up' : dexPriceSol < oldPrice ? 'down' : 'flat';
+                      }
+                      return;
+                    }
+                  }
+                }
+
+                // Fallback to Pump.fun live bonding curve reserves
                 const coin = await fetchPumpCoin(mint);
                 if (coin && coin.virtual_token_reserves > 0) {
                   const lastClose = coin.virtual_sol_reserves / coin.virtual_token_reserves;
@@ -410,7 +450,7 @@ export function useTradingSimulation() {
                 }
               } catch (e) {}
             }
-          } else {
+          } else if (!['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'LINK', 'AVAX'].includes(pairVal)) {
             try {
               const candles = await fetchLiveMarketData(pairVal, '15');
               if (candles.length > 0) {
@@ -434,9 +474,10 @@ export function useTradingSimulation() {
     };
 
     updatePrices();
-    const interval = setInterval(updatePrices, 3000);
+    const interval = setInterval(updatePrices, 2000);
     return () => clearInterval(interval);
   }, [selectedPair, activePositions.length, bots.length]);
+
 
 
 
