@@ -113,10 +113,11 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
   };
 
   const getTokenUsdPrice = (token: SwapToken): number => {
-    if (token.symbol === 'SOL') return 145.0;
+    if (token.symbol === 'USDC' || token.symbol === 'USDT') return 1.0;
+    if (token.symbol === 'SOL') return 145.5;
     if (token.symbol === 'ETH') return 3250.0;
     if (token.symbol === 'BNB') return 580.0;
-    return 1.0; // USDC, USDT, etc.
+    return 1.0;
   };
 
   const handleExecuteSwap = async () => {
@@ -132,11 +133,20 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     if (res.success) {
       setSwapResult({ txHash: res.txHash, message: res.message });
 
-      // Mettre à jour le solde fictif si en mode Démo
+      // Mettre à jour le solde virtuel en mode Démo
       if (tradingMode === 'DEMO') {
-        const fromValueUsd = numAmount * getTokenUsdPrice(fromToken);
         const outQty = parseFloat(quote.outAmount) || 0;
-        const toValueUsd = outQty * getTokenUsdPrice(toToken);
+        
+        let fromValueUsd = numAmount * getTokenUsdPrice(fromToken);
+        let toValueUsd = outQty * getTokenUsdPrice(toToken);
+
+        if (toToken.symbol === 'USDC' || toToken.symbol === 'USDT') {
+          toValueUsd = outQty;
+        }
+        if (fromToken.symbol === 'USDC' || fromToken.symbol === 'USDT') {
+          fromValueUsd = numAmount;
+        }
+
         const netDiffUsd = toValueUsd - fromValueUsd;
         setBalance(prev => Math.max(0, prev + netDiffUsd));
       }

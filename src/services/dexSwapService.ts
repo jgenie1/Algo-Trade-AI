@@ -114,6 +114,8 @@ export interface WalletToken {
   isStablecoin?: boolean;
 }
 
+import { getWorkingConnection } from '@/services/pumpFunService';
+
 /**
  * Récupère les vrais tokens détenus sur le portefeuille (Solana SPL via RPC / EVM / Positions actives sans mock data)
  */
@@ -122,7 +124,8 @@ export async function fetchWalletTokenBalances(
   chain: 'Solana' | 'BSC' | 'Ethereum' | null,
   nativeBalance: number | null,
   activePositions: any[] = [],
-  tradingMode: 'DEMO' | 'REAL' = 'DEMO'
+  tradingMode: 'DEMO' | 'REAL' = 'DEMO',
+  demoUsdBalance: number = 0
 ): Promise<WalletToken[]> {
   const tokens: WalletToken[] = [];
   const activeChain = chain === 'BSC' ? 'BSC' : chain === 'Ethereum' ? 'ETH' : 'SOL';
@@ -154,11 +157,30 @@ export async function fetchWalletTokenBalances(
     });
   }
 
-  // 2. Interrogation réelle des SPL tokens Solana via RPC (si adresse wallet présente)
+  // 2. Solde USDC Démo si en mode DEMO et disponible
+  if (tradingMode === 'DEMO' && demoUsdBalance > 0) {
+    tokens.push({
+      symbol: activeChain === 'SOL' ? 'USDC' : 'USDT',
+      name: activeChain === 'SOL' ? 'USD Coin (Solde Démo)' : 'Tether USD (Solde Démo)',
+      address: activeChain === 'SOL' ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' : '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      decimals: 6,
+      chain: activeChain,
+      balance: demoUsdBalance,
+      priceUsd: 1.0,
+      valueUsd: demoUsdBalance,
+      logoURI: activeChain === 'SOL'
+        ? 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png'
+        : 'https://assets.coingecko.com/coins/images/325/small/Tether.png',
+      isNative: false,
+      isStablecoin: true
+    });
+  }
+
+  // 3. Interrogation réelle des SPL tokens Solana via RPC robuste (si adresse wallet présente)
   if (activeChain === 'SOL' && walletAddress) {
     try {
-      const { Connection, PublicKey } = await import('@solana/web3.js');
-      const connection = new Connection('https://solana-rpc.publicnode.com', 'confirmed');
+      const { PublicKey } = await import('@solana/web3.js');
+      const connection = await getWorkingConnection();
       const ownerPublicKey = new PublicKey(walletAddress);
       const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 
@@ -215,7 +237,7 @@ export async function fetchWalletTokenBalances(
     }
   }
 
-  // 3. Intégrer les positions actives de l'utilisateur
+  // 4. Intégrer les positions actives réelles de l'utilisateur
   activePositions.forEach((pos) => {
     const pairSymbol = pos.pair ? pos.pair.replace('SOL:', '').replace('FX:', '') : '';
     if (pairSymbol && !tokens.some(t => t.symbol === pairSymbol || t.address === pos.pair)) {

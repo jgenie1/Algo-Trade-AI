@@ -305,7 +305,7 @@ export async function getPumpFunWsUrl(): Promise<string> {
  * Returns a Solana Connection that successfully responds to getLatestBlockhash.
  * Tries the user's custom RPC first, then falls back through multiple public endpoints.
  */
-async function getWorkingConnection(): Promise<any> {
+export async function getWorkingConnection(): Promise<any> {
   const { Connection } = await import('@solana/web3.js');
 
   const customRpc = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || '';

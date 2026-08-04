@@ -57,11 +57,19 @@ export default function WalletTokenPortfolio({
   walletChain,
   onOpenSwap
 }: WalletTokenPortfolioProps) {
-  const { tradingMode, balance, setBalance, activePositions } = useAppState();
+  const { 
+    tradingMode, 
+    balance, 
+    setBalance, 
+    activePositions, 
+    setActivePositions, 
+    closedPositions, 
+    setClosedPositions 
+  } = useAppState();
 
   const [tokens, setTokens] = useState<WalletToken[]>([]);
   const [isLoadingTokens, setIsLoadingTokens] = useState<boolean>(true);
-  const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(new Set());
+  const [selectedAddresses, setSelectedAddresses] = useState<Set<string>>(new Set());
 
   // Vente en bloc state
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState<boolean>(false);
@@ -72,6 +80,8 @@ export default function WalletTokenPortfolio({
   const nativeBal = walletChain === 'BSC' || walletChain === 'Ethereum' ? evmBalance : solanaBalance;
   const activeChainLabel = walletChain || 'Solana';
 
+  const getTokenKey = (t: WalletToken) => t.address || t.symbol;
+
   const loadTokens = async () => {
     setIsLoadingTokens(true);
     const data = await fetchWalletTokenBalances(
@@ -79,49 +89,50 @@ export default function WalletTokenPortfolio({
       walletChain,
       nativeBal,
       activePositions,
-      tradingMode
+      tradingMode,
+      balance
     );
     setTokens(data);
     
     // Par défaut, sélectionner tous les tokens non-stablecoins pour la vente en bloc
     const initialSelected = new Set<string>();
-    data.filter(t => !t.isStablecoin && t.balance > 0).forEach(t => initialSelected.add(t.symbol));
-    setSelectedSymbols(initialSelected);
+    data.filter(t => !t.isStablecoin && t.balance > 0).forEach(t => initialSelected.add(getTokenKey(t)));
+    setSelectedAddresses(initialSelected);
 
     setIsLoadingTokens(false);
   };
 
   useEffect(() => {
     loadTokens();
-  }, [solanaPubKey, walletChain, nativeBal, activePositions.length, tradingMode]);
+  }, [solanaPubKey, walletChain, nativeBal, activePositions.length, tradingMode, balance]);
 
   // Tokens sélectionnés pouvant être vendus en bloc
-  const sellableTokens = tokens.filter(t => selectedSymbols.has(t.symbol) && !t.isStablecoin && t.balance > 0);
+  const sellableTokens = tokens.filter(t => selectedAddresses.has(getTokenKey(t)) && !t.isStablecoin && t.balance > 0);
   const totalSellableUsd = sellableTokens.reduce((sum, t) => sum + t.valueUsd, 0);
 
   const totalPortfolioUsd = tokens.reduce((sum, t) => sum + t.valueUsd, 0);
 
   const nonStableTokens = tokens.filter(t => !t.isStablecoin && t.balance > 0);
-  const isAllSelected = nonStableTokens.length > 0 && nonStableTokens.every(t => selectedSymbols.has(t.symbol));
+  const isAllSelected = nonStableTokens.length > 0 && nonStableTokens.every(t => selectedAddresses.has(getTokenKey(t)));
 
   const handleToggleSelectAll = () => {
     if (isAllSelected) {
-      setSelectedSymbols(new Set());
+      setSelectedAddresses(new Set());
     } else {
       const nextSet = new Set<string>();
-      nonStableTokens.forEach(t => nextSet.add(t.symbol));
-      setSelectedSymbols(nextSet);
+      nonStableTokens.forEach(t => nextSet.add(getTokenKey(t)));
+      setSelectedAddresses(nextSet);
     }
   };
 
-  const handleToggleTokenSelection = (symbol: string) => {
-    const nextSet = new Set(selectedSymbols);
-    if (nextSet.has(symbol)) {
-      nextSet.delete(symbol);
+  const handleToggleTokenSelection = (tokenKey: string) => {
+    const nextSet = new Set(selectedAddresses);
+    if (nextSet.has(tokenKey)) {
+      nextSet.delete(tokenKey);
     } else {
-      nextSet.add(symbol);
+      nextSet.add(tokenKey);
     }
-    setSelectedSymbols(nextSet);
+    setSelectedAddresses(nextSet);
   };
 
   const handleStartBulkSell = async () => {
@@ -147,6 +158,26 @@ export default function WalletTokenPortfolio({
         txCount: res.txCount,
         details: res.details
       });
+
+      // Si certains tokens vendus correspondaient à des positions ouvertes, les fermer proprement
+      const soldPosIds = new Set<string>();
+      sellableTokens.forEach(t => {
+        if (t.address && t.address.startsWith('pos_')) {
+          soldPosIds.add(t.address.replace('pos_', ''));
+        }
+      });
+
+      if (soldPosIds.size > 0) {
+        const remainingPos = activePositions.filter(p => !soldPosIds.has(p.id));
+        const closedPos = activePositions.filter(p => soldPosIds.has(p.id)).map(p => ({
+          ...p,
+          closedAt: Date.now(),
+          status: 'CLOSED',
+          profit: 0
+        }));
+        setActivePositions(remainingPos);
+        setClosedPositions([...closedPos, ...closedPositions]);
+      }
 
       if (tradingMode === 'DEMO') {
         setBalance(prev => prev + res.totalUsdReceived);
@@ -272,19 +303,21 @@ export default function WalletTokenPortfolio({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tokens.map((token) => (
-                    <TableRow key={token.symbol} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                      <TableCell className="py-3.5 pl-4 border-none w-10">
-                        {!token.isStablecoin ? (
-                          <Checkbox 
-                            checked={selectedSymbols.has(token.symbol)}
-                            onCheckedChange={() => handleToggleTokenSelection(token.symbol)}
-                            className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
-                          />
-                        ) : (
-                          <span className="text-white/20 text-xs text-center block">-</span>
-                        )}
-                      </TableCell>
+                  {tokens.map((token) => {
+                    const tokenKey = getTokenKey(token);
+                    return (
+                      <TableRow key={tokenKey} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                        <TableCell className="py-3.5 pl-4 border-none w-10">
+                          {!token.isStablecoin ? (
+                            <Checkbox 
+                              checked={selectedAddresses.has(tokenKey)}
+                              onCheckedChange={() => handleToggleTokenSelection(tokenKey)}
+                              className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
+                            />
+                          ) : (
+                            <span className="text-white/20 text-xs text-center block">-</span>
+                          )}
+                        </TableCell>
 
                       <TableCell className="py-3.5 border-none">
                         <div className="flex items-center gap-3">
@@ -360,7 +393,8 @@ export default function WalletTokenPortfolio({
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                })}
                 </TableBody>
               </Table>
             </div>
