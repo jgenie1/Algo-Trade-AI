@@ -198,10 +198,44 @@ export default function TradingBotsManager({
   }).length;
   const overallWinRate = filteredClosed.length > 0 ? (winningCount / filteredClosed.length) * 100 : 0;
 
+  const hasPrivateKey = typeof window !== 'undefined' && !!localStorage.getItem('settings_solana_private_key');
+
   return (
     <div className="space-y-6">
+      {tradingMode === 'REAL' && (
+        <div className={cn(
+          "p-3.5 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-body shadow-lg",
+          hasPrivateKey
+            ? "bg-emerald-950/30 border-emerald-500/40 text-emerald-300"
+            : "bg-amber-950/30 border-amber-500/40 text-amber-300"
+        )}>
+          <div className="flex items-center gap-2 font-semibold">
+            <span className="text-base">{hasPrivateKey ? '⚡' : '⚠️'}</span>
+            <div>
+              <span className="font-extrabold uppercase tracking-wide font-headline block">
+                {hasPrivateKey ? 'Exécution 100% Autonome Active' : 'Mode Validation Phantom Actif'}
+              </span>
+              <span className="text-[11px] text-white/70">
+                {hasPrivateKey
+                  ? 'Clé privée configurée : les robots exécutent les transactions Solana en arrière-plan sans aucune fenêtre de popup.'
+                  : 'Phantom demande une validation manuelle à chaque trade. Pour un trading 100% autonome sans popup, enregistrez votre Clé Privée Solana.'}
+              </span>
+            </div>
+          </div>
+          {!hasPrivateKey && (
+            <a
+              href="/settings"
+              className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 rounded-lg text-[11px] font-bold font-headline shrink-0 transition-all"
+            >
+              🔑 Configurer Clé Privée ↗
+            </a>
+          )}
+        </div>
+      )}
+
       {/* Bot Configuration Form */}
       <Card className="bg-[#150f21] border-white/15 rounded-2xl p-6 space-y-5 shadow-2xl">
+
         <CardHeader className="p-0">
           <div className="space-y-2">
             <label className="text-xs font-extrabold text-slate-200 uppercase tracking-wider font-headline">Sélectionner une Stratégie</label>

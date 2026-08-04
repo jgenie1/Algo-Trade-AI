@@ -136,11 +136,35 @@ export default function SettingsPage() {
               onChange={(e) => setSolanaPrivateKey(e.target.value)}
               className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
             />
-            <p className="text-[10px] text-white/50 leading-relaxed font-body">
-              🔒 <strong>Sécurité local first :</strong> Votre clé est stockée uniquement dans la mémoire locale de votre navigateur. Requis pour permettre aux robots d'exécuter des snipes Solana en arrière-plan sans confirmation manuelle. Si vide, l'application demandera une validation visuelle Phantom / Solflare.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5">
+              <p className="text-[10px] text-white/50 leading-relaxed font-body flex-1 min-w-[240px]">
+                🔒 <strong>Sécurité local-first :</strong> Votre clé est stockée uniquement dans la mémoire locale de votre navigateur. <strong>Requis pour permettre aux robots d'exécuter des snipes Solana en arrière-plan sans popup Phantom à chaque position.</strong>
+              </p>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const { Keypair } = await import('@solana/web3.js');
+                    const { default: bs58 } = await import('bs58');
+                    const kp = Keypair.generate();
+                    const secretBase58 = bs58.encode(kp.secretKey);
+                    const pubKey = kp.publicKey.toBase58();
+                    setSolanaPrivateKey(secretBase58);
+                    localStorage.setItem('settings_solana_private_key', secretBase58);
+                    alert(`✅ Nouveau portefeuille Bot Solana généré !\n\n📍 Adresse Publique : ${pubKey}\n\nEnvoyez vos SOL (ex: 0.1 SOL) à cette adresse pour alimenter vos robots sans validation Phantom.`);
+                  } catch (err: any) {
+                    alert("Erreur de génération : " + err.message);
+                  }
+                }}
+                className="px-3.5 py-2 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-bold font-headline flex items-center gap-1.5 transition-all"
+              >
+                ✨ Générer Portefeuille Bot Dédié (1-Click)
+              </button>
+            </div>
           </div>
         </Card>
+
 
         <SettingsNotificationsCard
           notifSettings={notifSettings}
