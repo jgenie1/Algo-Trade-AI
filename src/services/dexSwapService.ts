@@ -115,7 +115,7 @@ export interface WalletToken {
 }
 
 /**
- * Récupère tous les tokens détenus sur le portefeuille (Solana SPL / EVM / Positions démo)
+ * Récupère les vrais tokens détenus sur le portefeuille (Solana SPL via RPC / EVM / Positions actives sans mock data)
  */
 export async function fetchWalletTokenBalances(
   walletAddress: string | null,
@@ -137,7 +137,7 @@ export async function fetchWalletTokenBalances(
       ? 'https://assets.coingecko.com/coins/images/279/small/ethereum.png'
       : 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png';
 
-  const soldeNative = nativeBalance !== null && nativeBalance > 0 ? nativeBalance : (tradingMode === 'DEMO' ? 12.45 : 0);
+  const soldeNative = nativeBalance !== null && nativeBalance > 0 ? nativeBalance : 0;
   if (soldeNative > 0) {
     tokens.push({
       symbol: nativeSymbol,
@@ -154,76 +154,87 @@ export async function fetchWalletTokenBalances(
     });
   }
 
-  // 2. Stablecoin (USDC / USDT)
-  const usdSymbol = activeChain === 'SOL' ? 'USDC' : 'USDT';
-  const usdLogo = activeChain === 'SOL'
-    ? 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png'
-    : 'https://assets.coingecko.com/coins/images/325/small/Tether.png';
-  const usdBalance = tradingMode === 'DEMO' ? 1250.00 : 45.00;
+  // 2. Interrogation réelle des SPL tokens Solana via RPC (si adresse wallet présente)
+  if (activeChain === 'SOL' && walletAddress) {
+    try {
+      const { Connection, PublicKey } = await import('@solana/web3.js');
+      const connection = new Connection('https://solana-rpc.publicnode.com', 'confirmed');
+      const ownerPublicKey = new PublicKey(walletAddress);
+      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 
-  tokens.push({
-    symbol: usdSymbol,
-    name: activeChain === 'SOL' ? 'USD Coin' : 'Tether USD',
-    address: activeChain === 'SOL' ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' : '0xdac17f958d2ee523a2206206994597c13d831ec7',
-    decimals: 6,
-    chain: activeChain,
-    balance: usdBalance,
-    priceUsd: 1.0,
-    valueUsd: usdBalance,
-    logoURI: usdLogo,
-    isNative: false,
-    isStablecoin: true
-  });
+      const parsedTokenAccounts = await connection.getParsedTokenAccountsByOwner(
+        ownerPublicKey,
+        { programId: TOKEN_PROGRAM_ID }
+      );
 
-  // 3. Tokens additionnels d'exemple ou issus des positions actives
-  if (activeChain === 'SOL') {
-    // Bonk & WIF / Meme coins
-    tokens.push({
-      symbol: 'BONK',
-      name: 'Bonk Coin',
-      address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-      decimals: 5,
-      chain: 'SOL',
-      balance: 14500000,
-      priceUsd: 0.000021,
-      valueUsd: 14500000 * 0.000021,
-      logoURI: 'https://arweave.net/hQiW_HFv9jW3s6qNGKlPhZmyRFuMqqTwA7mCeM0x4Bw',
-      isNative: false,
-      isStablecoin: false
-    });
+      for (const item of parsedTokenAccounts.value) {
+        const info = item.account.data.parsed?.info;
+        if (!info || !info.tokenAmount) continue;
 
-    tokens.push({
-      symbol: 'WIF',
-      name: 'dogwifhat',
-      address: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-      decimals: 6,
-      chain: 'SOL',
-      balance: 125.50,
-      priceUsd: 1.70,
-      valueUsd: 125.50 * 1.70,
-      logoURI: 'https://bafkreiba2y6m5f543uicr5v2a7v7iys4c5tndzvxxtpge2s6qfl6z3u2eq.ipfs.nftstorage.link/',
-      isNative: false,
-      isStablecoin: false
-    });
+        const uiAmount = info.tokenAmount.uiAmount || 0;
+        if (uiAmount <= 0) continue;
+
+        const mint = info.mint;
+        const decimals = info.tokenAmount.decimals || 6;
+
+        const knownToken = POPULAR_TOKENS.find(t => t.address === mint);
+        const symbol = knownToken?.symbol || (mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' ? 'USDC' : `${mint.slice(0, 4)}...${mint.slice(-4)}`);
+        const name = knownToken?.name || (symbol === 'USDC' ? 'USD Coin' : `SPL Token ${mint.slice(0, 6)}`);
+        const isStable = symbol === 'USDC' || symbol === 'USDT';
+
+        let priceUsd = isStable ? 1.0 : (knownToken?.symbol === 'SOL' ? 145.5 : 0.50);
+        
+        try {
+          const resPx = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { cache: 'no-store' });
+          if (resPx.ok) {
+            const dataPx = await resPx.json();
+            if (dataPx.pairs && dataPx.pairs[0]?.priceUsd) {
+              priceUsd = parseFloat(dataPx.pairs[0].priceUsd);
+            }
+          }
+        } catch {}
+
+        if (!tokens.some(t => t.address === mint)) {
+          tokens.push({
+            symbol,
+            name,
+            address: mint,
+            decimals,
+            chain: 'SOL',
+            balance: uiAmount,
+            priceUsd,
+            valueUsd: uiAmount * priceUsd,
+            logoURI: knownToken?.logoURI,
+            isNative: false,
+            isStablecoin: isStable
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[RPC Solana] Erreur lors de la récupération des SPL Tokens réels:", err);
+    }
   }
 
-  // 4. Intégrer les tokens dérivés des positions ouvertes non-USD
+  // 3. Intégrer les positions actives de l'utilisateur
   activePositions.forEach((pos) => {
-    if (pos.pair && !pos.pair.includes('USD') && !tokens.some(t => t.symbol === pos.pair)) {
+    const pairSymbol = pos.pair ? pos.pair.replace('SOL:', '').replace('FX:', '') : '';
+    if (pairSymbol && !tokens.some(t => t.symbol === pairSymbol || t.address === pos.pair)) {
       const entryPx = pos.entryPrice || 10;
-      const amt = pos.amount || 100;
-      tokens.push({
-        symbol: pos.pair.replace('SOL:', '').replace('FX:', ''),
-        name: `Token ${pos.pair}`,
-        address: 'mint_' + pos.id,
-        decimals: 6,
-        chain: activeChain,
-        balance: amt,
-        priceUsd: entryPx,
-        valueUsd: amt * entryPx,
-        isNative: false,
-        isStablecoin: false
-      });
+      const amt = pos.amount || 0;
+      if (amt > 0) {
+        tokens.push({
+          symbol: pairSymbol,
+          name: `Position ${pos.pair}`,
+          address: 'pos_' + pos.id,
+          decimals: 6,
+          chain: activeChain,
+          balance: amt,
+          priceUsd: entryPx,
+          valueUsd: amt * entryPx,
+          isNative: false,
+          isStablecoin: false
+        });
+      }
     }
   });
 

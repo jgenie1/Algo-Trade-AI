@@ -32,6 +32,7 @@ import {
   DialogDescription, 
   DialogFooter 
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   fetchWalletTokenBalances, 
   executeBulkSellToUSD, 
@@ -60,6 +61,7 @@ export default function WalletTokenPortfolio({
 
   const [tokens, setTokens] = useState<WalletToken[]>([]);
   const [isLoadingTokens, setIsLoadingTokens] = useState<boolean>(true);
+  const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(new Set());
 
   // Vente en bloc state
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState<boolean>(false);
@@ -80,6 +82,12 @@ export default function WalletTokenPortfolio({
       tradingMode
     );
     setTokens(data);
+    
+    // Par défaut, sélectionner tous les tokens non-stablecoins pour la vente en bloc
+    const initialSelected = new Set<string>();
+    data.filter(t => !t.isStablecoin && t.balance > 0).forEach(t => initialSelected.add(t.symbol));
+    setSelectedSymbols(initialSelected);
+
     setIsLoadingTokens(false);
   };
 
@@ -87,11 +95,34 @@ export default function WalletTokenPortfolio({
     loadTokens();
   }, [solanaPubKey, walletChain, nativeBal, activePositions.length, tradingMode]);
 
-  // Tokens pouvant être vendus en bloc (exclut les stablecoins USDC/USDT)
-  const sellableTokens = tokens.filter(t => !t.isStablecoin && t.balance > 0);
+  // Tokens sélectionnés pouvant être vendus en bloc
+  const sellableTokens = tokens.filter(t => selectedSymbols.has(t.symbol) && !t.isStablecoin && t.balance > 0);
   const totalSellableUsd = sellableTokens.reduce((sum, t) => sum + t.valueUsd, 0);
 
   const totalPortfolioUsd = tokens.reduce((sum, t) => sum + t.valueUsd, 0);
+
+  const nonStableTokens = tokens.filter(t => !t.isStablecoin && t.balance > 0);
+  const isAllSelected = nonStableTokens.length > 0 && nonStableTokens.every(t => selectedSymbols.has(t.symbol));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedSymbols(new Set());
+    } else {
+      const nextSet = new Set<string>();
+      nonStableTokens.forEach(t => nextSet.add(t.symbol));
+      setSelectedSymbols(nextSet);
+    }
+  };
+
+  const handleToggleTokenSelection = (symbol: string) => {
+    const nextSet = new Set(selectedSymbols);
+    if (nextSet.has(symbol)) {
+      nextSet.delete(symbol);
+    } else {
+      nextSet.add(symbol);
+    }
+    setSelectedSymbols(nextSet);
+  };
 
   const handleStartBulkSell = async () => {
     if (sellableTokens.length === 0) return;
@@ -117,12 +148,10 @@ export default function WalletTokenPortfolio({
         details: res.details
       });
 
-      // Mettre à jour le solde virtuel en démo
       if (tradingMode === 'DEMO') {
         setBalance(prev => prev + res.totalUsdReceived);
       }
 
-      // Recharger la liste des tokens après vente
       loadTokens();
     }
   };
@@ -174,7 +203,7 @@ export default function WalletTokenPortfolio({
               className="h-14 px-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:from-white/10 disabled:to-white/10 disabled:text-white/30 text-white font-headline font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-purple-600/25 border border-purple-400/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               <Layers className="h-4 w-4 text-[#c2ff0c]" />
-              Vendre Tout en Bloc (USD)
+              Vendre Sélection ({sellableTokens.length}) en USD
             </Button>
           </div>
         </div>
@@ -186,19 +215,31 @@ export default function WalletTokenPortfolio({
           <div className="flex items-center gap-2">
             <Coins className="h-5 w-5 text-purple-400" />
             <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-headline">
-              Tokens Détenus ({tokens.length})
+              Tokens Détenus ({tokens.length}) — {sellableTokens.length} Sélectionné(s)
             </CardTitle>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={loadTokens}
-            disabled={isLoadingTokens}
-            className="h-8 px-3 text-xs bg-white/5 hover:bg-white/10 text-white/70 rounded-xl"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoadingTokens ? 'animate-spin' : ''}`} />
-            Actualiser
-          </Button>
+          <div className="flex items-center gap-2">
+            {nonStableTokens.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleSelectAll}
+                className="h-8 px-3 text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 border border-purple-500/30 rounded-xl font-headline"
+              >
+                {isAllSelected ? "Tout désélectionner" : "Tout sélectionner"}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadTokens}
+              disabled={isLoadingTokens}
+              className="h-8 px-3 text-xs bg-white/5 hover:bg-white/10 text-white/70 rounded-xl"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoadingTokens ? 'animate-spin' : ''}`} />
+              Actualiser
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="p-0">
@@ -216,7 +257,14 @@ export default function WalletTokenPortfolio({
               <Table>
                 <TableHeader className="bg-white/[0.03] border-b border-white/5">
                   <TableRow className="border-b border-white/5 hover:bg-transparent">
-                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline pl-4">Token</TableHead>
+                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline pl-4 w-10">
+                      <Checkbox 
+                        checked={isAllSelected}
+                        onCheckedChange={handleToggleSelectAll}
+                        className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
+                      />
+                    </TableHead>
+                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline">Token</TableHead>
                     <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Solde</TableHead>
                     <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Cours Unit (USD)</TableHead>
                     <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Valeur Totale (USD)</TableHead>
@@ -226,7 +274,19 @@ export default function WalletTokenPortfolio({
                 <TableBody>
                   {tokens.map((token) => (
                     <TableRow key={token.symbol} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                      <TableCell className="py-3.5 pl-4 border-none">
+                      <TableCell className="py-3.5 pl-4 border-none w-10">
+                        {!token.isStablecoin ? (
+                          <Checkbox 
+                            checked={selectedSymbols.has(token.symbol)}
+                            onCheckedChange={() => handleToggleTokenSelection(token.symbol)}
+                            className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
+                          />
+                        ) : (
+                          <span className="text-white/20 text-xs text-center block">-</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="py-3.5 border-none">
                         <div className="flex items-center gap-3">
                           {token.logoURI ? (
                             <img src={token.logoURI} alt={token.symbol} className="h-8 w-8 rounded-full bg-black/40 border border-white/10" />
