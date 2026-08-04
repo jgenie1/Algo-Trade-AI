@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { getRealSolanaBalance, withdrawSolana } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import TransactionHistoryTable from '@/components/TransactionHistoryTable';
 import WithdrawFormCard from '@/components/WithdrawFormCard';
 
@@ -163,10 +164,67 @@ export default function WithdrawPage() {
         </div>
       </div>
 
+      {/* Account Balance Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl">
+          <span className="text-[10px] uppercase font-bold text-rose-400 font-headline block">Solde Actuel Retirable</span>
+          <div className="text-2xl font-extrabold text-white font-body">
+            {tradingMode === 'REAL' 
+              ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL` 
+              : `${(balance || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`
+            }
+          </div>
+          <span className="text-[11px] text-rose-300/80 font-mono block font-semibold">
+            {tradingMode === 'REAL' 
+              ? formatSolToUsdAndHtg(solanaBalance).combinedLabel 
+              : `≈ ${formatUsdToHtg(balance)}`
+            }
+          </span>
+          <span className="text-[9px] text-white/30 font-body block mt-1">Disponible pour retrait immédiat ({tradingMode})</span>
+        </Card>
+
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl">
+          <span className="text-[10px] uppercase font-bold text-amber-400 font-headline block">Mode de Compte</span>
+          <div className="text-xl font-extrabold text-white font-body mt-1">
+            {tradingMode === 'REAL' ? 'Solana Mainnet (Web3)' : 'Portefeuille Démo (USD)'}
+          </div>
+          <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">
+            ✓ Prêt pour l'opération
+          </span>
+          <span className="text-[9px] text-white/30 font-body block mt-1">Sélecteur de mode disponible en haut</span>
+        </Card>
+
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl flex flex-col justify-between">
+          <div>
+            <span className="text-[10px] uppercase font-bold text-cyan-400 font-headline block flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" /> Synchronisation
+            </span>
+            <div className="text-sm font-extrabold text-slate-200 font-body mt-1">
+              {tradingMode === 'REAL' ? 'Blockchain Solana RPC' : 'Fonds virtuels simulés'}
+            </div>
+          </div>
+          <Button
+            onClick={() => {
+              if (tradingMode === 'REAL') {
+                getRealSolanaBalance().then(res => {
+                  if (res && res.success && res.balance !== undefined) setSolanaBalance(res.balance);
+                });
+              }
+            }}
+            size="sm"
+            className="h-8 bg-white/10 hover:bg-white/15 text-white border border-white/15 text-xs font-bold font-headline rounded-xl self-start mt-2 flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Actualiser Solde
+          </Button>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         <div className="md:col-span-8">
           <WithdrawFormCard
             tradingMode={tradingMode}
+            balance={balance}
+            solanaBalance={solanaBalance}
             withdrawAmount={withdrawAmount}
             setWithdrawAmount={setWithdrawAmount}
             recipientAddress={recipientAddress}

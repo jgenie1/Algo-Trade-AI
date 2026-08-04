@@ -4,10 +4,13 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Wallet } from 'lucide-react';
+import { Wallet, DollarSign, Coins } from 'lucide-react';
+import { formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 
 interface WithdrawFormCardProps {
   tradingMode: 'DEMO' | 'REAL';
+  balance: number;
+  solanaBalance: number | null;
   withdrawAmount: string;
   setWithdrawAmount: (val: string) => void;
   recipientAddress: string;
@@ -23,6 +26,8 @@ interface WithdrawFormCardProps {
 
 export default function WithdrawFormCard({
   tradingMode,
+  balance,
+  solanaBalance,
   withdrawAmount,
   setWithdrawAmount,
   recipientAddress,
@@ -35,11 +40,33 @@ export default function WithdrawFormCard({
   errorMsg,
   txHash
 }: WithdrawFormCardProps) {
+  const isReal = tradingMode === 'REAL';
+  const availableLabel = isReal 
+    ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL`
+    : `${(balance || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`;
+
+  const availableConverted = isReal
+    ? formatSolToUsdAndHtg(solanaBalance).combinedLabel
+    : `≈ ${formatUsdToHtg(balance)}`;
+
   return (
     <Card className="bg-[#14101a] border-white/10 rounded-2xl">
       <CardContent className="p-6 space-y-6">
         <form onSubmit={handleWithdraw} className="space-y-4">
-          <h2 className="text-lg font-bold font-headline text-rose-400">Formulaire de Retrait</h2>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/10 pb-4">
+            <h2 className="text-lg font-bold font-headline text-rose-400">Formulaire de Retrait</h2>
+            
+            <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2 font-mono text-xs">
+              <span className="text-[10px] text-slate-400 font-headline uppercase font-bold">Solde Disponible:</span>
+              <span className="font-bold text-white text-sm">{availableLabel}</span>
+            </div>
+          </div>
+
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl space-y-1">
+            <span className="text-[10px] uppercase font-bold text-rose-300 font-headline block">Capacité Maximale Retirable</span>
+            <div className="text-xl font-bold font-mono text-white">{availableLabel}</div>
+            <div className="text-xs text-rose-200/80 font-mono font-semibold">{availableConverted}</div>
+          </div>
 
           {tradingMode === 'REAL' && (
             <div className="space-y-2">

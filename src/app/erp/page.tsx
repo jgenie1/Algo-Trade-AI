@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import ERPOverviewTab from '@/components/ERPOverviewTab';
+import ERPLedgerTab from '@/components/ERPLedgerTab';
+import ERPRiskTab from '@/components/ERPRiskTab';
+import ERPLicenseTab from '@/components/ERPLicenseTab';
 
 const ORGANIZATIONS = [
   { id: 'alpha', name: 'Hedge Fund Desk Alpha', type: 'SOLANA MAINNET & HIGH-FREQ', balanceLimit: '500,000 $' },
@@ -151,7 +154,7 @@ export default function SaaSERPPage() {
         })}
       </div>
 
-      {/* Tab 1 Component */}
+      {/* Tab Components */}
       {activeTab === 'overview' && (
         <ERPOverviewTab
           totalAumUsd={totalAumUsd}
@@ -163,6 +166,30 @@ export default function SaaSERPPage() {
           formattedClosedProfitUsd={formattedClosedProfitUsd}
           bots={bots}
           totalAvailableCashUsd={totalAvailableCashUsd}
+        />
+      )}
+
+      {activeTab === 'ledger' && (
+        <ERPLedgerTab
+          transactions={transactions}
+          tradingMode={tradingMode}
+          handleExportLedgerCSV={handleExportLedgerCSV}
+        />
+      )}
+
+      {activeTab === 'risk' && (
+        <ERPRiskTab
+          totalAumUsd={totalAumUsd}
+          openPositions={activePositions}
+          bots={bots}
+          tradingMode={tradingMode}
+        />
+      )}
+
+      {activeTab === 'license' && (
+        <ERPLicenseTab
+          selectedOrgName={ORGANIZATIONS.find(o => o.id === selectedOrg)?.name}
+          tradingMode={tradingMode}
         />
       )}
     </div>

@@ -125,6 +125,68 @@ export default function DepositPage() {
         </div>
       </div>
 
+      {/* Account Balance Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl">
+          <span className="text-[10px] uppercase font-bold text-[#c2ff0c] font-headline block">Solde Actuel Disponible</span>
+          <div className="text-2xl font-extrabold text-white font-body">
+            {tradingMode === 'REAL' 
+              ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL` 
+              : `${(balance || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`
+            }
+          </div>
+          <span className="text-[11px] text-[#c2ff0c]/80 font-mono block font-semibold">
+            {tradingMode === 'REAL' 
+              ? formatSolToUsdAndHtg(solanaBalance).combinedLabel 
+              : `≈ ${formatUsdToHtg(balance)}`
+            }
+          </span>
+          <span className="text-[9px] text-white/30 font-body block mt-1">Solde prêt pour le trading en mode {tradingMode}</span>
+        </Card>
+
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl">
+          <span className="text-[10px] uppercase font-bold text-purple-400 font-headline block">Coffre de Réserve (Vault)</span>
+          <div className="text-2xl font-extrabold text-purple-300 font-body">
+            {tradingMode === 'REAL' 
+              ? `${(reserveVaultSol || 0).toFixed(4)} SOL` 
+              : `${(reserveVault || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`
+            }
+          </div>
+          <span className="text-[11px] text-purple-200/80 font-mono block font-semibold">
+            {tradingMode === 'REAL' 
+              ? formatSolToUsdAndHtg(reserveVaultSol).combinedLabel 
+              : `≈ ${formatUsdToHtg(reserveVault)}`
+            }
+          </span>
+          <span className="text-[9px] text-white/30 font-body block mt-1">Réserve de sécurité non engagée</span>
+        </Card>
+
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl flex flex-col justify-between">
+          <div>
+            <span className="text-[10px] uppercase font-bold text-cyan-400 font-headline block">Statut du Compte</span>
+            <div className="text-base font-extrabold text-white font-body mt-1">
+              {tradingMode === 'REAL' ? 'Solana Mainnet (Web3)' : 'Portefeuille Démo (Simulé)'}
+            </div>
+            <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">
+              ✓ Synchronisé avec l'application
+            </span>
+          </div>
+          <Button
+            onClick={() => {
+              if (tradingMode === 'REAL') {
+                getRealSolanaBalance().then(res => {
+                  if (res && res.success && res.balance !== undefined) setSolanaBalance(res.balance);
+                });
+              }
+            }}
+            size="sm"
+            className="h-8 bg-white/10 hover:bg-white/15 text-white border border-white/15 text-xs font-bold font-headline rounded-xl self-start mt-2 flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Actualiser Solde
+          </Button>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         <Card className="md:col-span-7 bg-[#14101a] border-white/10 rounded-2xl relative overflow-hidden">
           <CardContent className="p-6 space-y-6">
