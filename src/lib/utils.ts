@@ -6,7 +6,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const SOL_USD_RATE = 145.0;
+
+// IMPORTANT: This value must be STABLE between SSR and first client render.
+// It is only updated via setClientUsdHtgRate() after React hydration completes.
+// This prevents the "Hydration failed" error caused by localStorage reads during SSR.
 let cachedUsdHtgRate = 132.0;
+let _isClientRateLoaded = false;
 
 export function getRealMarketBasePrice(pair: string): number {
   if (!pair) return 145.50;
@@ -35,16 +40,33 @@ export function getRealMarketBasePrice(pair: string): number {
   return 145.50;
 }
 
-// Get active rate (cached, custom override from settings, or default)
+/**
+ * Returns the current USD→HTG rate.
+ * NEVER reads localStorage directly — prevents SSR/Client hydration mismatch.
+ * Use initClientUsdHtgRate() in a useEffect to load the persisted rate after hydration.
+ */
 export function getUsdHtgRate(): number {
-  if (typeof window !== 'undefined') {
+  return cachedUsdHtgRate;
+}
+
+/**
+ * Call this ONCE inside a useEffect (after hydration) to load the persisted rate from localStorage.
+ * This must NOT be called during SSR or initial render.
+ */
+export function initClientUsdHtgRate(): void {
+  if (_isClientRateLoaded) return;
+  _isClientRateLoaded = true;
+  try {
     const saved = localStorage.getItem('settings_usd_htg_rate');
     if (saved) {
       const parsed = parseFloat(saved);
-      if (!isNaN(parsed) && parsed > 0) return parsed;
+      if (!isNaN(parsed) && parsed > 0) {
+        cachedUsdHtgRate = parsed;
+      }
     }
+  } catch (e) {
+    // ignore
   }
-  return cachedUsdHtgRate;
 }
 
 // Fetch live daily USD -> HTG exchange rate from official open exchange rates API
@@ -67,11 +89,6 @@ export async function fetchLiveUsdHtgRate(): Promise<number> {
     console.warn("API Taux du Jour HTG indisponible, utilisation du taux en cache:", e);
   }
   return getUsdHtgRate();
-}
-
-// Auto-trigger initial fetch on load if in browser
-if (typeof window !== 'undefined') {
-  fetchLiveUsdHtgRate().catch(() => {});
 }
 
 export function formatSolToUsdAndHtg(solAmount: number | null | undefined, customSolPriceUsd?: number, customUsdHtgRate?: number) {

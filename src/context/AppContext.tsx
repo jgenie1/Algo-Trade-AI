@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { db, DEFAULT_USER, saveFullState, AppState, auth } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
-import { getRealMarketBasePrice } from '@/lib/utils';
+import { getRealMarketBasePrice, initClientUsdHtgRate, fetchLiveUsdHtgRate } from '@/lib/utils';
 
 interface AppContextType {
   tradingMode: 'DEMO' | 'REAL';
@@ -66,6 +66,14 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     } catch (e) {
       console.warn("Firebase Auth init error:", e);
     }
+  }, []);
+
+  // 1b. Load persisted USD/HTG rate from localStorage AFTER hydration (avoids SSR mismatch)
+  useEffect(() => {
+    // initClientUsdHtgRate reads localStorage — MUST be inside useEffect, never during render
+    initClientUsdHtgRate();
+    // Then fetch live rate in background
+    fetchLiveUsdHtgRate().catch(() => {});
   }, []);
 
   // 2. Real-time Subscription to Firebase Firestore (primary source of truth)
