@@ -13,6 +13,8 @@ interface PortfolioStatsHeaderProps {
   equity: number;
   activePositions: any[];
   solanaBalance: number | null;
+  evmBalance: number | null;
+  walletChain: 'Solana' | 'BSC' | 'Ethereum' | null;
   rpcLatency: number | null;
   handleResetDemo: () => void;
   onSelectTab: (tab: 'manual') => void;
@@ -26,6 +28,8 @@ export default function PortfolioStatsHeader({
   equity,
   activePositions,
   solanaBalance,
+  evmBalance,
+  walletChain,
   rpcLatency,
   handleResetDemo,
   onSelectTab
@@ -43,6 +47,33 @@ export default function PortfolioStatsHeader({
   const realAllocatedSol = realPositions.reduce(
     (sum, p) => sum + (p.amount || 0), 0
   );
+
+  // --- Determine which wallet/balance to show in REAL mode ---
+  const isEvmWallet = walletChain === 'BSC' || walletChain === 'Ethereum';
+  const evmCurrencyLabel = walletChain === 'BSC' ? 'BNB' : walletChain === 'Ethereum' ? 'ETH' : 'ETH';
+
+  const realBalance = isEvmWallet ? evmBalance : solanaBalance;
+  const realCurrency = isEvmWallet ? evmCurrencyLabel : 'SOL';
+
+  const realBalanceDisplay = realBalance !== null
+    ? `${realBalance.toFixed(4)} ${realCurrency}`
+    : `0.0000 ${isEvmWallet ? evmCurrencyLabel : 'SOL'}`;
+
+  // USD approximation (rough estimate — ETH ~$3000, BNB ~$300, SOL ~$200)
+  const getApproxUsd = () => {
+    if (realBalance === null) return null;
+    if (walletChain === 'Ethereum') return (realBalance * 3000).toFixed(2);
+    if (walletChain === 'BSC') return (realBalance * 300).toFixed(2);
+    // Solana: use existing helper
+    return null;
+  };
+  const approxUsd = getApproxUsd();
+
+  const modeLabel = walletChain === 'Ethereum'
+    ? 'Mode Réel (ETH)'
+    : walletChain === 'BSC'
+    ? 'Mode Réel (BSC)'
+    : 'Mode Réel (Solana)';
 
   return (
     <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#140f1d] border border-white/15 rounded-2xl p-5 w-full shadow-2xl">
@@ -79,7 +110,7 @@ export default function PortfolioStatsHeader({
           )}
         >
           <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
-          Mode Réel (Solana)
+          {modeLabel}
         </Button>
 
         {isDemo && (
@@ -137,20 +168,37 @@ export default function PortfolioStatsHeader({
           </>
         ) : (
           <>
+            {/* Real Wallet Balance */}
             <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
               <div className="text-[10px] uppercase font-extrabold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
                 <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse inline-block" />
                 Solde Réel
+                {walletChain && (
+                  <span className="ml-1 text-[9px] text-purple-400/70 font-mono font-bold bg-purple-400/10 px-1 rounded">
+                    {walletChain}
+                  </span>
+                )}
               </div>
               <div className="text-lg sm:text-xl font-extrabold text-purple-200 font-body flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span>
-                    {solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : '0.000 SOL'}
-                  </span>
+                  <span>{realBalanceDisplay}</span>
                 </div>
-                {solanaBalance !== null && (
+                {/* USD estimate for EVM wallets */}
+                {isEvmWallet && approxUsd && (
+                  <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                    ≈ ${Number(approxUsd).toLocaleString('fr-FR')} USD
+                  </span>
+                )}
+                {/* SOL USD+HTG conversion */}
+                {!isEvmWallet && solanaBalance !== null && (
                   <span className="text-[10px] text-emerald-400 font-mono font-bold">
                     {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
+                  </span>
+                )}
+                {/* No wallet connected yet */}
+                {realBalance === null && (
+                  <span className="text-[10px] text-amber-400 font-mono">
+                    Connectez un wallet ↗
                   </span>
                 )}
               </div>
@@ -161,11 +209,13 @@ export default function PortfolioStatsHeader({
                 Allocations Sniper
               </div>
               <div className="text-lg sm:text-xl font-extrabold text-violet-300 font-body">
-                {realAllocatedSol.toFixed(2)} SOL
+                {realAllocatedSol.toFixed(3)} {realCurrency}
               </div>
-              <span className="text-[10px] text-slate-300 font-mono block">
-                {formatSolToUsdAndHtg(realAllocatedSol).combinedLabel}
-              </span>
+              {!isEvmWallet && (
+                <span className="text-[10px] text-slate-300 font-mono block">
+                  {formatSolToUsdAndHtg(realAllocatedSol).combinedLabel}
+                </span>
+              )}
             </div>
 
             <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">

@@ -34,6 +34,8 @@ export default function TradingTerminalPage() {
     solanaPubKey,
     solanaBalance,
     setSolanaBalance,
+    evmBalance,
+    walletChain,
     isSolanaWalletActive,
     rpcLatency,
     disperseAmount,
@@ -108,6 +110,8 @@ export default function TradingTerminalPage() {
         equity={equity}
         activePositions={activePositions}
         solanaBalance={solanaBalance}
+        evmBalance={evmBalance}
+        walletChain={walletChain}
         rpcLatency={rpcLatency}
         handleResetDemo={handleResetDemo}
         onSelectTab={(tab) => setActiveTab(tab)}
