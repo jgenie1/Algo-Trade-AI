@@ -664,20 +664,26 @@ export function useTradingSimulation() {
             const hasSocials = /(twitter|t\.me|telegram|discord|http|\.com|\.net)/i.test(descriptionStr);
             const nameStr = matchingCoin.name || '';
             const isScamSpam = /(scam|rug|hack|fake|free sol|airdrop|giveaway)/i.test(nameStr + ' ' + descriptionStr);
-            const isCreatorSafe = matchingCoin.creator !== matchingCoin.bonding_curve && matchingCoin.creator !== '11111111111111111111111111111111';
+            // ─── Creator safety: only block known system/zero addresses ───
+            const isCreatorSafe = matchingCoin.creator !== '11111111111111111111111111111111'
+              && !!matchingCoin.creator
+              && matchingCoin.creator.length >= 32;
 
             let trigger = false;
             let details = '';
 
             if (isScamSpam) {
-              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Alerte Scam/Spam.`, 'info');
+              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Alerte Scam/Spam (nom/description suspect).`, 'info');
             } else if (!isCreatorSafe) {
-              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Créateur suspect.`, 'info');
+              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Créateur invalide (adresse système).`, 'info');
             } else {
               if (mode === 'PRECOCE') {
-                if (curveProgress < 12) {
+                // Relaxed: accept up to 25% curve (was 12%) — live API coins are rarely < 12%
+                if (curveProgress < 25) {
                   trigger = true;
                   details = `[Ultra-Précoce] Curve: ${curveProgress.toFixed(1)}%.`;
+                } else {
+                  addBotLogRef.current(bot.id, "Pump.fun Sniper", `$${matchingCoin.symbol} écarté: Curve ${curveProgress.toFixed(1)}% > 25% (mode Précoce).`, 'info');
                 }
               } else if (mode === 'MOMENTUM') {
                 const momentumScore = (replies * 6) + (hasSocials ? 30 : 0);
@@ -685,12 +691,14 @@ export function useTradingSimulation() {
                   trigger = true;
                   details = `[Momentum] Réponses: ${replies}.`;
                 } else {
-                  addBotLogRef.current(bot.id, "Pump.fun Sniper", `Jeton $${matchingCoin.symbol} écarté (Score ${momentumScore.toFixed(0)}% < 75%).`, 'info');
+                  addBotLogRef.current(bot.id, "Pump.fun Sniper", `Jeton $${matchingCoin.symbol} écarté (Score ${momentumScore.toFixed(0)} < 75). Réponses: ${replies}, Socials: ${hasSocials ? 'oui' : 'non'}.`, 'info');
                 }
               } else if (mode === 'RAYDIUM') {
-                if (curveProgress >= 78 && hasSocials) {
+                if (curveProgress >= 78) {
                   trigger = true;
                   details = `[Raydium completion] Curve: ${curveProgress.toFixed(1)}%.`;
+                } else {
+                  addBotLogRef.current(bot.id, "Pump.fun Sniper", `$${matchingCoin.symbol} écarté: Curve ${curveProgress.toFixed(1)}% < 78% (mode Raydium).`, 'info');
                 }
               }
             }
@@ -761,7 +769,9 @@ export function useTradingSimulation() {
                 mode: bot.mode || tradingModeRef.current
               };
 
-              const isBotReal = (bot.mode || 'DEMO') === 'REAL' && tradingModeRef.current === 'REAL';
+              // isBotReal: execute real transaction if the CURRENT mode is REAL
+              // (regardless of what mode was active when the bot was created)
+              const isBotReal = tradingModeRef.current === 'REAL';
               if (isBotReal) {
                 const priority = bot.priorityFee || 0.005;
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${matchingCoin.symbol}...`, 'info');
