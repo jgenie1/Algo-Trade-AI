@@ -240,6 +240,54 @@ export async function getPumpFunWsUrl(): Promise<string> {
   return process.env.PUMPFUN_JWT_TOKEN || '';
 }
 
+/**
+ * Returns a Solana Connection that successfully responds to getLatestBlockhash.
+ * Tries the user's custom RPC first, then falls back through multiple public endpoints.
+ */
+async function getWorkingConnection(): Promise<any> {
+  const { Connection } = await import('@solana/web3.js');
+
+  const customRpc = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || '';
+  const envRpc = process.env.SOLANA_RPC_URL || '';
+
+  // Ordered fallback list — most reliable free endpoints first
+  const candidates = [
+    customRpc,
+    envRpc,
+    'https://solana-rpc.publicnode.com',
+    'https://rpc.ankr.com/solana',
+    'https://api.mainnet-beta.solana.com',
+    'https://solana-mainnet.rpc.extrnode.com',
+    'https://mainnet.helius-rpc.com/?api-key=public',
+    'https://solana-api.projectserum.com',
+  ].filter(Boolean) as string[];
+
+  // Deduplicate while preserving order
+  const seen = new Set<string>();
+  const unique = candidates.filter(url => {
+    if (seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
+
+  for (const url of unique) {
+    try {
+      const conn = new Connection(url, { commitment: 'confirmed' });
+      // Quick health check — if this throws 403/timeout, try the next one
+      await conn.getLatestBlockhash({ commitment: 'confirmed' });
+      console.log(`[RPC] Using: ${url}`);
+      return conn;
+    } catch (err: any) {
+      console.warn(`[RPC] ${url} failed (${err?.message?.slice(0, 60)}), trying next...`);
+    }
+  }
+
+  throw new Error(
+    'Tous les RPCs Solana sont inaccessibles (403 / timeout). ' +
+    'Vérifiez votre connexion Internet ou configurez un RPC Solana personnel dans Paramètres → URL RPC.'
+  );
+}
+
 export async function executeRealPumpTrade(params: {
   action: 'buy' | 'sell';
   mint: string;
@@ -264,13 +312,9 @@ export async function executeRealPumpTrade(params: {
 
     const solanaPrivateKey = customPrivateKey || process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
 
-    const { Keypair, VersionedTransaction, Connection } = await import('@solana/web3.js');
+    const { Keypair, VersionedTransaction } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
-    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-    const connection = new Connection(rpcUrl, {
-      commitment: 'confirmed',
-      wsEndpoint: process.env.SOLANA_WSS_URL
-    });
+    const connection = await getWorkingConnection();
 
     // 1. Programmatic local keypair signing
     if (solanaPrivateKey) {
@@ -567,27 +611,13 @@ export async function disperseSolToSubWallets(params: {
   amountPerWallet: number;
 }): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
-    const { Keypair, SystemProgram, Transaction, Connection, PublicKey, VersionedTransaction } = await import('@solana/web3.js');
+    const { Keypair, SystemProgram, Transaction, PublicKey } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
+    const connection = await getWorkingConnection();
 
-    // Resolve private key: .env → localStorage → error
+    // Resolve private key: .env → localStorage → browser wallet
     const rawKey = process.env.SOLANA_PRIVATE_KEY ||
       (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
-
-    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
-      process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-    const connection = new Connection(rpcUrl, 'confirmed');
-
-    const transaction = new Transaction();
-    for (const pubKeyStr of params.subWalletPubKeys) {
-      transaction.add(
-        SystemProgram.transfer({
-          fromPubkey: new PublicKey('11111111111111111111111111111111'), // placeholder, replaced after signer resolved
-          toPubkey: new PublicKey(pubKeyStr),
-          lamports: Math.round(params.amountPerWallet * 1e9),
-        })
-      );
-    }
 
     if (rawKey) {
       let mainSigner: any;
@@ -662,16 +692,14 @@ export async function withdrawSolana(params: {
   amount: number;
 }): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
-    const { Keypair, SystemProgram, Transaction, Connection, PublicKey } = await import('@solana/web3.js');
+    const { Keypair, SystemProgram, Transaction, PublicKey } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
 
     // Resolve private key: .env → localStorage → browser wallet
     const rawKey = process.env.SOLANA_PRIVATE_KEY ||
       (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
 
-    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
-      process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-    const connection = new Connection(rpcUrl, 'confirmed');
+    const connection = await getWorkingConnection();
 
     if (rawKey) {
       let mainSigner: any;
