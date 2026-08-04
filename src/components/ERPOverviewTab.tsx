@@ -63,7 +63,7 @@ export default function ERPOverviewTab({
           <span className="text-[10px] text-white/50 font-mono block">
             ≈ {formatUsdToHtg(botAllocatedCapitalUsd)}
           </span>
-          <span className="text-[9px] text-white/30 font-body block mt-1">{bots.length} robot(s) de trading automatisés</span>
+          <span className="text-[9px] text-white/30 font-body block mt-1">{(bots || []).filter(b => (b.mode || 'DEMO') === tradingMode).length} robot(s) en mode {tradingMode}</span>
         </Card>
 
         <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden">

@@ -37,14 +37,18 @@ export default function SaaSERPPage() {
   const solValueUsd = (solanaBalance || 0) * solPriceUsd;
   const totalAvailableCashUsd = tradingMode === 'REAL' ? solValueUsd : balance;
 
-  const botAllocatedCapitalUsd = (bots || []).reduce((sum, b) => {
-    const cap = b.capital || 0;
-    return sum + (tradingMode === 'REAL' ? cap * solPriceUsd : cap);
-  }, 0);
+  const botAllocatedCapitalUsd = (bots || [])
+    .filter(b => (b.mode || 'DEMO') === tradingMode)
+    .reduce((sum, b) => {
+      const cap = (tradingMode === 'REAL' && (b.capital || 0) > 50) ? 0.5 : (b.capital || 0);
+      return sum + (tradingMode === 'REAL' ? cap * solPriceUsd : cap);
+    }, 0);
 
-  const openPositionsValueUsd = (activePositions || []).reduce((sum, p) => {
-    return sum + (p.pair.startsWith('SOL:') ? p.amount * solPriceUsd : p.amount);
-  }, 0);
+  const openPositionsValueUsd = (activePositions || [])
+    .filter(p => (p.mode || 'DEMO') === tradingMode)
+    .reduce((sum, p) => {
+      return sum + (tradingMode === 'REAL' ? (p.amount || 0) * solPriceUsd : (p.amount || 0));
+    }, 0);
 
   const totalAumUsd = totalAvailableCashUsd + botAllocatedCapitalUsd + openPositionsValueUsd;
   const convertedAum = formatUsdToHtg(totalAumUsd);

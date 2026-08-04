@@ -526,7 +526,7 @@ export default function TradingBotsManager({
                       <div className="text-xs text-purple-300 font-headline uppercase font-extrabold flex items-center gap-2">
                         <span>Leçon #{(l.id || '').replace('lrn_', '')}</span>
                         <span className="text-white/20">•</span>
-                        <span className="text-slate-200 font-body normal-case font-bold">Perte évitée: {(l.lossAmount || 0).toFixed(2)} $</span>
+                        <span className="text-slate-200 font-body normal-case font-bold">Perte évitée: {(l.lossAmount || 0).toFixed(2)} {(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}</span>
                       </div>
                       <p className="text-xs text-white font-body font-medium leading-relaxed">{l.learningEffect}</p>
                     </div>

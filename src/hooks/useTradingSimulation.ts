@@ -384,12 +384,12 @@ export function useTradingSimulation() {
 
 
 
-  // Compute live equity based on free balance, locked margins, active bots and live PnL
+  // Compute live equity based on free balance, locked margins, active bots and live PnL for current tradingMode
   useEffect(() => {
     let totalManualPnL = 0;
     let lockedManualMargin = 0;
 
-    const manualPositions = (activePositions || []).filter(p => p && !p.botId);
+    const manualPositions = (activePositions || []).filter(p => p && !p.botId && (p.mode || 'DEMO') === tradingMode);
     manualPositions.forEach(p => {
       const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
       const current = livePrices[p.pair] || entry;
@@ -408,19 +408,26 @@ export function useTradingSimulation() {
     });
 
     let activeBotsCapitalAndPnL = 0;
-    (bots || []).forEach(b => {
+    (bots || []).filter(b => b && (b.mode || 'DEMO') === tradingMode).forEach(b => {
       if (!b || b.status !== 'RUNNING') return;
-      const cap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0;
+      const cap = tradingMode === 'REAL' ? 0 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0);
       const botPnL = typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : (typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : 0);
       activeBotsCapitalAndPnL += cap + botPnL;
     });
 
-    const safeBal = typeof balance === 'number' && !isNaN(balance) ? balance : 10000;
-    const safeVault = typeof reserveVault === 'number' && !isNaN(reserveVault) ? reserveVault : 0;
+    const isRealMode = tradingMode === 'REAL';
+    const safeBal = isRealMode
+      ? (solanaBalance !== null ? solanaBalance : (evmBalance !== null ? evmBalance : 0))
+      : (typeof balance === 'number' && !isNaN(balance) ? balance : 10000);
+
+    const safeVault = isRealMode
+      ? (Number(reserveVaultSol) || 0)
+      : (typeof reserveVault === 'number' && !isNaN(reserveVault) ? reserveVault : 0);
+
     const calcEquity = safeBal + lockedManualMargin + activeBotsCapitalAndPnL + totalManualPnL + safeVault;
 
-    setEquity(isNaN(calcEquity) ? safeBal : parseFloat(calcEquity.toFixed(2)));
-  }, [activePositions, livePrices, balance, bots, reserveVault]);
+    setEquity(isNaN(calcEquity) ? safeBal : parseFloat(calcEquity.toFixed(isRealMode ? 4 : 2)));
+  }, [activePositions, livePrices, balance, bots, reserveVault, reserveVaultSol, solanaBalance, evmBalance, tradingMode]);
 
   // Refs for intervals
   const botsRef = useRef(bots);
