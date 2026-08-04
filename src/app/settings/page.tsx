@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Settings, Check, RefreshCw, RotateCcw, Radio, SlidersHorizontal, Globe } from 'lucide-react';
-import { SOL_USD_RATE, getUsdHtgRate, fetchLiveUsdHtgRate } from '@/lib/utils';
+import { Settings, Check, RefreshCw, RotateCcw, Radio, SlidersHorizontal, Globe, Key, Eye, EyeOff } from 'lucide-react';
+import { SOL_USD_RATE, getUsdHtgRate, fetchLiveUsdHtgRate, cn } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import CEXKeyManager from '@/components/CEXKeyManager';
 import SettingsNotificationsCard from '@/components/SettingsNotificationsCard';
 import { getNotificationSettings, saveNotificationSettings, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, dispatchAlert } from '@/services/notificationService';
@@ -16,6 +17,8 @@ export default function SettingsPage() {
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const [rpcUrl, setRpcUrl] = useState<string>('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');
+  const [solanaPrivateKey, setSolanaPrivateKey] = useState<string>('');
+  const [showPrivateKey, setShowPrivateKey] = useState<boolean>(false);
   const [slippage, setSlippage] = useState<string>('15');
   const [priorityFee, setPriorityFee] = useState<string>('0.005');
   const [aiModel, setAiModel] = useState<string>('gemini-2.5-flash');
@@ -33,10 +36,12 @@ export default function SettingsPage() {
     setNotifSettings(getNotificationSettings());
     if (typeof window !== 'undefined') {
       const storedRpc = localStorage.getItem('settings_rpc_url');
+      const storedKey = localStorage.getItem('settings_solana_private_key');
       const storedSlippage = localStorage.getItem('settings_slippage');
       const storedFee = localStorage.getItem('settings_priority_fee');
       const storedModel = localStorage.getItem('settings_ai_model');
       if (storedRpc) setRpcUrl(storedRpc);
+      if (storedKey) setSolanaPrivateKey(storedKey);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
       if (storedModel) setAiModel(storedModel);
@@ -54,6 +59,7 @@ export default function SettingsPage() {
     e.preventDefault();
     if (typeof window !== 'undefined') {
       localStorage.setItem('settings_rpc_url', rpcUrl);
+      localStorage.setItem('settings_solana_private_key', solanaPrivateKey.trim());
       localStorage.setItem('settings_slippage', slippage);
       localStorage.setItem('settings_priority_fee', priorityFee);
       localStorage.setItem('settings_ai_model', aiModel);
@@ -97,6 +103,45 @@ export default function SettingsPage() {
       <CEXKeyManager />
 
       <form onSubmit={handleSaveAllSettings} className="space-y-6">
+        {/* Card Clé Privée Solana */}
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <h3 className="text-base font-bold font-headline text-emerald-400 flex items-center gap-2">
+              <Key className="h-5 w-5" /> Clé Privée Solana (Trading Automatisé Réel)
+            </h3>
+            <Badge className={cn(
+              "text-[10px] uppercase font-mono font-bold px-2.5 py-1 border-none",
+              solanaPrivateKey ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+            )}>
+              {solanaPrivateKey ? "Configurée" : "Non configurée"}
+            </Badge>
+          </div>
+
+          <div className="space-y-3 font-body">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-white/60 font-headline">Clé Privée Solana Mainnet (Format Base58 ou Array JSON)</label>
+              <button
+                type="button"
+                onClick={() => setShowPrivateKey(prev => !prev)}
+                className="text-xs text-purple-400 hover:text-purple-300 font-extrabold flex items-center gap-1 font-headline"
+              >
+                {showPrivateKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showPrivateKey ? 'Masquer' : 'Afficher'}
+              </button>
+            </div>
+            <Input
+              type={showPrivateKey ? "text" : "password"}
+              placeholder="Ex: 4Zv7k... (Base58) ou [12, 34, 56...] (Array JSON)"
+              value={solanaPrivateKey}
+              onChange={(e) => setSolanaPrivateKey(e.target.value)}
+              className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
+            />
+            <p className="text-[10px] text-white/50 leading-relaxed font-body">
+              🔒 <strong>Sécurité local first :</strong> Votre clé est stockée uniquement dans la mémoire locale de votre navigateur. Requis pour permettre aux robots d'exécuter des snipes Solana en arrière-plan sans confirmation manuelle. Si vide, l'application demandera une validation visuelle Phantom / Solflare.
+            </p>
+          </div>
+        </Card>
+
         <SettingsNotificationsCard
           notifSettings={notifSettings}
           setNotifSettings={setNotifSettings}

@@ -206,70 +206,116 @@ export async function executeRealPumpTrade(params: {
 }): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
     const { action, mint, amount, denominatedInSol, slippage, priorityFee, customPrivateKey, pool = 'pump' } = params;
-    const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY || '';
-    if (!solanaPrivateKey && !customPrivateKey) {
-      throw new Error("Clé privée principale ou personnalisée manquante.");
-    }
+
+    const solanaPrivateKey = customPrivateKey || process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
 
     const { Keypair, VersionedTransaction, Connection } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
-
-    // 1. Recover Keypair locally
-    let signer: any;
-    try {
-      if (customPrivateKey) {
-        const secretKeyUint8 = new Uint8Array(Buffer.from(customPrivateKey, 'base64'));
-        signer = Keypair.fromSecretKey(secretKeyUint8);
-      } else {
-        signer = Keypair.fromSecretKey(bs58.decode(solanaPrivateKey));
-      }
-    } catch (err) {
-      throw new Error("Format de la clé privée invalide.");
-    }
-    const publicKeyStr = signer.publicKey.toBase58();
-
-    // 2. Fetch serialized unsigned transaction from PumpPortal
-    const response = await fetch(`https://pumpportal.fun/api/trade-local`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        publicKey: publicKeyStr,
-        action: action, 
-        mint: mint, 
-        amount: amount, 
-        denominatedInSol: denominatedInSol ? "true" : "false",
-        slippage: slippage,
-        priorityFee: priorityFee,
-        pool: pool
-      })
-    });
-
-    if (response.status !== 200) {
-      const errorText = await response.text();
-      throw new Error(`Erreur API Trade : ${errorText}`);
-    }
-
-    const transactionData = await response.arrayBuffer();
-    const tx = VersionedTransaction.deserialize(new Uint8Array(transactionData));
-
-    // 3. Sign transaction locally
-    tx.sign([signer]);
-
-    // 4. Send transaction using the configured Chainstack Solana RPC
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
     const connection = new Connection(rpcUrl, {
       commitment: 'confirmed',
       wsEndpoint: process.env.SOLANA_WSS_URL
     });
-    const signature = await connection.sendTransaction(tx, {
-      skipPreflight: true,
-      preflightCommitment: 'confirmed'
-    });
 
-    return {
-      success: true,
-      txHash: signature
-    };
+    // 1. Programmatic local keypair signing
+    if (solanaPrivateKey) {
+      let signer: any;
+      try {
+        if (customPrivateKey) {
+          const secretKeyUint8 = new Uint8Array(Buffer.from(customPrivateKey, 'base64'));
+          signer = Keypair.fromSecretKey(secretKeyUint8);
+        } else {
+          const trimmed = solanaPrivateKey.trim();
+          let keyBytes: Uint8Array;
+          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            keyBytes = new Uint8Array(JSON.parse(trimmed));
+          } else {
+            keyBytes = bs58.decode(trimmed);
+          }
+          signer = Keypair.fromSecretKey(keyBytes);
+        }
+      } catch (err) {
+        throw new Error("Format de la clé privée invalide (BS58 ou Array JSON requis).");
+      }
+      const publicKeyStr = signer.publicKey.toBase58();
+
+      const response = await fetch(`https://pumpportal.fun/api/trade-local`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: publicKeyStr,
+          action,
+          mint,
+          amount,
+          denominatedInSol: denominatedInSol ? "true" : "false",
+          slippage,
+          priorityFee,
+          pool
+        })
+      });
+
+      if (response.status !== 200) {
+        const errorText = await response.text();
+        throw new Error(`Erreur API Trade : ${errorText}`);
+      }
+
+      const transactionData = await response.arrayBuffer();
+      const tx = VersionedTransaction.deserialize(new Uint8Array(transactionData));
+      tx.sign([signer]);
+
+      const signature = await connection.sendTransaction(tx, {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+
+      return {
+        success: true,
+        txHash: signature
+      };
+    }
+
+    // 2. Browser wallet popup signing fallback (Phantom / Solflare / Backpack)
+    const winSolana = typeof window !== 'undefined' ? ((window as any).solana || (window as any).phantom?.solana) : null;
+    if (winSolana && winSolana.publicKey) {
+      const publicKeyStr = winSolana.publicKey.toBase58();
+
+      const response = await fetch(`https://pumpportal.fun/api/trade-local`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: publicKeyStr,
+          action,
+          mint,
+          amount,
+          denominatedInSol: denominatedInSol ? "true" : "false",
+          slippage,
+          priorityFee,
+          pool
+        })
+      });
+
+      if (response.status !== 200) {
+        const errorText = await response.text();
+        throw new Error(`Erreur API Trade : ${errorText}`);
+      }
+
+      const transactionData = await response.arrayBuffer();
+      const tx = VersionedTransaction.deserialize(new Uint8Array(transactionData));
+
+      // Request user signature in extension modal
+      const signedTx = await winSolana.signTransaction(tx);
+      const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+
+      return {
+        success: true,
+        txHash: signature
+      };
+    }
+
+    throw new Error("Clé privée Solana manquante. Veuillez saisir votre clé dans les Paramètres ou connecter votre wallet Phantom / Solflare.");
   } catch (error: any) {
     console.error("Error executing real Pump.fun trade:", error);
     return {
@@ -281,15 +327,22 @@ export async function executeRealPumpTrade(params: {
 
 export async function getRealSolanaBalance(): Promise<{ success: boolean; balance?: number; publicKey?: string; error?: string }> {
   try {
-    const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY || '';
+    const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
     if (!solanaPrivateKey) {
-      return { success: false, error: "Clé privée non configurée dans le fichier .env" };
+      return { success: false, error: "Clé privée non configurée" };
     }
     const { Keypair, Connection } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
 
-    const signer = Keypair.fromSecretKey(bs58.decode(solanaPrivateKey));
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    let signer: any;
+    const trimmed = solanaPrivateKey.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      signer = Keypair.fromSecretKey(new Uint8Array(JSON.parse(trimmed)));
+    } else {
+      signer = Keypair.fromSecretKey(bs58.decode(trimmed));
+    }
+
+    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
     const connection = new Connection(rpcUrl, 'confirmed');
 
     const balanceLamports = await connection.getBalance(signer.publicKey);
@@ -298,9 +351,8 @@ export async function getRealSolanaBalance(): Promise<{ success: boolean; balanc
       balance: balanceLamports / 1e9,
       publicKey: signer.publicKey.toBase58()
     };
-  } catch (err: any) {
-    console.error("Error getting Solana balance:", err);
-    return { success: false, error: err.message || "Erreur de connexion RPC" };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Erreur de connexion RPC" };
   }
 }
 
