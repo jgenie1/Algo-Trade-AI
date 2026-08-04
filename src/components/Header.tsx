@@ -169,6 +169,7 @@ export default function Header() {
       const w = { name: providerName, address: pubKey, chain: "Solana" as const };
       localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
       setConnectedWallet(w);
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
 
     } catch (err: any) {
       console.error('[Wallet] Phantom connection error:', err);
@@ -194,6 +195,7 @@ export default function Header() {
           const w = { name: providerName, address: addr, chain: "BSC" as const };
           localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
           setConnectedWallet(w);
+          if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
           return;
         }
       }
@@ -427,6 +429,7 @@ export default function Header() {
                   onClick={() => {
                     localStorage.removeItem('connected_web3_wallet');
                     setConnectedWallet(null);
+                    if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
                   }}
                   className="w-full h-10 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-headline font-bold text-xs rounded-xl"
                 >

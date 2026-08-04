@@ -194,21 +194,38 @@ export function useTradingSimulation() {
         const storedWallet = localStorage.getItem('connected_web3_wallet');
         if (!storedWallet) return false;
         const parsed = JSON.parse(storedWallet) as { address: string; chain: string; name: string };
-        if (parsed.chain !== 'Solana' || !parsed.address) return false;
+        if (!parsed || parsed.chain !== 'Solana' || !parsed.address) return false;
 
-        // Fetch balance from Solana RPC using the browser wallet's public key
-        const { Connection, PublicKey } = await import('@solana/web3.js');
-        const rpcUrl = localStorage.getItem('settings_rpc_url')
-          || 'https://solana-mainnet.core.chainstack.com/39a622a578bd62b';
-        const connection = new Connection(rpcUrl, 'confirmed');
-        const pubKey = new PublicKey(parsed.address);
-        const lamports = await connection.getBalance(pubKey);
-        const sol = lamports / 1e9;
-
-        setSolanaBalance(sol);
+        // Instantly activate Solana wallet state from localStorage so UI shows connected immediately!
         setSolanaPubKey(parsed.address);
         setIsSolanaWalletActive(true);
         setWalletChain('Solana');
+        setSolanaBalance((prev) => (prev !== null ? prev : 0));
+
+        // Fetch balance from Solana RPC using public endpoints fallback
+        const { Connection, PublicKey } = await import('@solana/web3.js');
+        const pubKey = new PublicKey(parsed.address);
+
+        const customRpc = localStorage.getItem('settings_rpc_url');
+        const rpcEndpoints = [
+          customRpc,
+          'https://api.mainnet-beta.solana.com',
+          'https://solana-rpc.publicnode.com',
+          'https://rpc.ankr.com/solana',
+          'https://solana-mainnet.rpc.extrnode.com'
+        ].filter(Boolean) as string[];
+
+        for (const rpcUrl of rpcEndpoints) {
+          try {
+            const connection = new Connection(rpcUrl, { commitment: 'confirmed' });
+            const lamports = await connection.getBalance(pubKey);
+            const sol = lamports / 1e9;
+            setSolanaBalance(sol);
+            return true;
+          } catch (rpcErr) {
+            console.warn(`[Wallet RPC] ${rpcUrl} failed:`, rpcErr);
+          }
+        }
         return true;
       } catch (e) {
         console.warn('[Wallet] Browser Solana balance fetch failed:', e);
@@ -290,8 +307,18 @@ export function useTradingSimulation() {
     };
 
     updateWalletAndStatus();
-    const interval = setInterval(updateWalletAndStatus, 15000);
-    return () => clearInterval(interval);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('web3_wallet_updated', updateWalletAndStatus);
+      window.addEventListener('storage', updateWalletAndStatus);
+    }
+    const interval = setInterval(updateWalletAndStatus, 10000);
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('web3_wallet_updated', updateWalletAndStatus);
+        window.removeEventListener('storage', updateWalletAndStatus);
+      }
+      clearInterval(interval);
+    };
   }, [isMounted]);
 
 
