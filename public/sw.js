@@ -1,6 +1,6 @@
 // Service Worker PWA pour Algo-Trade-AI
-const CACHE_NAME = 'algotrade-pwa-v2';
-const DYNAMIC_CACHE = 'algotrade-dynamic-v2';
+const CACHE_NAME = 'algotrade-pwa-v3';
+const DYNAMIC_CACHE = 'algotrade-dynamic-v3';
 
 const STATIC_ASSETS = [
   '/',
@@ -14,22 +14,23 @@ const STATIC_ASSETS = [
 
 // Installation du Service Worker et mise en cache initiale
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[Service Worker] Caching app shell');
       return cache.addAll(STATIC_ASSETS);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Activation et nettoyage des anciens caches
+// Activation et nettoyage de TOUS les anciens caches (Purge v1, v2, etc.)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME && key !== DYNAMIC_CACHE) {
-            console.log('[Service Worker] Removing old cache', key);
+            console.log('[Service Worker] Removing old cache:', key);
             return caches.delete(key);
           }
         })
@@ -38,35 +39,50 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Interception des requêtes réseau (Network-First pour API, Cache-First pour Assets statiques)
+// Interception des requêtes réseau (Strict Network-First pour HTML/Navigations)
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // Ignorer les requêtes non-GET et les requêtes externes API dynamiques
   if (event.request.method !== 'GET') return;
 
-  // Recommandation Network-First avec fallback vers le cache
+  const isHtml = event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html');
+
+  if (isHtml) {
+    // Force toujours la récupération réseau pour les pages HTML afin de garantir la dernière version
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/');
+          });
+        })
+    );
+    return;
+  }
+
+  // Cache-First pour les ressources statiques immuables (_next/static, images, fonts)
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const responseClone = networkResponse.clone();
           caches.open(DYNAMIC_CACHE).then((cache) => {
             cache.put(event.request, responseClone);
           });
         }
         return networkResponse;
-      })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          if (event.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/');
-          }
-        });
-      })
+      });
+    })
   );
 });
 

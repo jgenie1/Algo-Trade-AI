@@ -9,6 +9,7 @@ export default function SWRegister() {
         navigator.serviceWorker.register('/sw.js').then(
           (registration) => {
             console.log('PWA ServiceWorker registered with scope: ', registration.scope);
+            registration.update();
           },
           (err) => {
             console.warn('PWA ServiceWorker registration failed: ', err);
