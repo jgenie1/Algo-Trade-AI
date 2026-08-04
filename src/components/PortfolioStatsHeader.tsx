@@ -4,6 +4,7 @@ import React from 'react';
 import { RotateCcw } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useAppState } from '@/context/AppContext';
 
 interface PortfolioStatsHeaderProps {
   tradingMode: 'DEMO' | 'REAL';
@@ -34,6 +35,7 @@ export default function PortfolioStatsHeader({
   handleResetDemo,
   onSelectTab
 }: PortfolioStatsHeaderProps) {
+  const { reserveVaultSol, bots } = useAppState();
   const isDemo = tradingMode === 'DEMO';
 
   const demoPositionsCount = activePositions.filter(
@@ -48,12 +50,29 @@ export default function PortfolioStatsHeader({
     (sum, p) => sum + (p.amount || 0), 0
   );
 
+  const realBots = (bots || []).filter(
+    (b) => (b.mode || 'DEMO') === 'REAL' && b.status === 'RUNNING'
+  );
+
+  const realBotsCapitalAndPnL = realBots.reduce((sum, b) => {
+    const cap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0;
+    const pnl = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
+    return sum + cap + pnl;
+  }, 0);
+
+  const realUnrealizedPnL = realPositions.reduce((sum, p) => {
+    const profitVal = typeof p.profit === 'number' && !isNaN(p.profit) ? p.profit : (typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : 0);
+    return sum + profitVal;
+  }, 0);
+
   // --- Determine which wallet/balance to show in REAL mode ---
   const isEvmWallet = walletChain === 'BSC' || walletChain === 'Ethereum';
   const evmCurrencyLabel = walletChain === 'BSC' ? 'BNB' : walletChain === 'Ethereum' ? 'ETH' : 'ETH';
 
   const realBalance = isEvmWallet ? evmBalance : solanaBalance;
   const realCurrency = isEvmWallet ? evmCurrencyLabel : 'SOL';
+  const realVaultVal = isEvmWallet ? 0 : (Number(reserveVaultSol) || 0);
+  const realEquity = (realBalance || 0) + realVaultVal + realAllocatedSol + realUnrealizedPnL + realBotsCapitalAndPnL;
 
   const realBalanceDisplay = realBalance !== null
     ? `${realBalance.toFixed(4)} ${realCurrency}`
@@ -204,9 +223,30 @@ export default function PortfolioStatsHeader({
               </div>
             </div>
 
+            {/* Real Equity */}
             <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
               <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
-                Allocations Sniper
+                Equity Réelle
+              </div>
+              <div className="text-lg sm:text-xl font-extrabold text-white font-body">
+                {realBalance !== null ? `${realEquity.toFixed(4)} ${realCurrency}` : `0.0000 ${realCurrency}`}
+              </div>
+              {!isEvmWallet && realBalance !== null && (
+                <span className="text-[10px] text-emerald-400 font-mono font-bold block">
+                  {formatSolToUsdAndHtg(realEquity).combinedLabel}
+                </span>
+              )}
+              {isEvmWallet && realBalance !== null && (
+                <span className="text-[10px] text-emerald-400 font-mono font-bold block">
+                  ≈ ${(realEquity * (walletChain === 'Ethereum' ? 3000 : 300)).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USD
+                </span>
+              )}
+            </div>
+
+            {/* Real Allocations */}
+            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
+              <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
+                Allocations ({realPositions.length + realBots.length} Actifs)
               </div>
               <div className="text-lg sm:text-xl font-extrabold text-violet-300 font-body">
                 {realAllocatedSol.toFixed(3)} {realCurrency}
@@ -218,15 +258,7 @@ export default function PortfolioStatsHeader({
               )}
             </div>
 
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
-                Snipes Actifs
-              </div>
-              <div className="text-lg sm:text-xl font-extrabold text-cyan-400 font-body">
-                {realPositions.length}
-              </div>
-            </div>
-
+            {/* Latency RPC */}
             <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
               <div className="text-[10px] uppercase font-extrabold text-cyan-400 font-headline flex items-center gap-1 tracking-wide">
                 <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse inline-block" />

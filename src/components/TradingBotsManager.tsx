@@ -81,6 +81,7 @@ export default function TradingBotsManager({
     balance, 
     setBalance, 
     reserveVault,
+    reserveVaultSol,
     bots, 
     setBots, 
     botLogs, 
@@ -91,18 +92,29 @@ export default function TradingBotsManager({
     isLoading 
   } = useAppState();
 
-  const allocatableBalance = Math.max(0, balance - (reserveVault || 0));
+  const isReal = tradingMode === 'REAL';
+  const rawBalance = isReal ? (solanaBalance || 0) : balance;
+  const currentReserveVault = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
+  const allocatableBalance = Math.max(0, rawBalance - currentReserveVault);
 
   // New Bot Form State
   const [botPair, setBotPair] = useState<string>('ALL');
   const [botStrategy, setBotStrategy] = useState<'RSI Pullback' | 'EMA Cross' | 'BB Mean Reversion' | 'SuperTrend Momentum' | 'VWAP Breakout' | 'AI Autopilot (Machine à Cash)' | 'Pump.fun Sniper Bot'>('AI Autopilot (Machine à Cash)');
   const [botTimeframe, setBotTimeframe] = useState<string>('15');
-  const [botCapital, setBotCapital] = useState<number>(1000);
+  const [botCapital, setBotCapital] = useState<number>(() => isReal ? 0.5 : 1000);
   const [botRiskProfile, setBotRiskProfile] = useState<'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'>('MODERATE');
   const [pumpSniperMode, setPumpSniperMode] = useState<'PRECOCE' | 'MOMENTUM' | 'RAYDIUM'>('PRECOCE');
   const [priorityFee, setPriorityFee] = useState<number>(0.005);
   const [autoVolume, setAutoVolume] = useState<boolean>(false);
   const [botCustomRules, setBotCustomRules] = useState<string>('');
+
+  React.useEffect(() => {
+    if (tradingMode === 'REAL' && botCapital === 1000) {
+      setBotCapital(0.5);
+    } else if (tradingMode === 'DEMO' && botCapital === 0.5) {
+      setBotCapital(1000);
+    }
+  }, [tradingMode]);
 
   const handleStartBot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,13 +124,13 @@ export default function TradingBotsManager({
     }
 
     if (tradingMode === 'REAL') {
-      if (solanaBalance === null || botCapital > solanaBalance) {
-        alert(`Solde SOL insuffisant. Requis: ${botCapital} SOL, Disponible: ${solanaBalance?.toFixed(3)} SOL`);
+      if (solanaBalance === null || botCapital > allocatableBalance) {
+        alert(`Solde SOL allocable insuffisant. Requis: ${botCapital} SOL, Capital allocable (hors Coffre-Fort SOL): ${allocatableBalance.toFixed(3)} SOL (Coffre-Fort protégé: ${currentReserveVault.toFixed(3)} SOL).`);
         return;
       }
     } else {
       if (botCapital > allocatableBalance) {
-        alert(`Capital insuffisant pour le bot. Requis: ${botCapital} $, Capital allocable (hors Coffre-Fort de Réserve 10%): ${allocatableBalance.toFixed(2)} $. Le coffre-fort ($${(Number(reserveVault) || 0).toFixed(2)}) est intouchable et protégé.`);
+        alert(`Capital insuffisant pour le bot. Requis: ${botCapital} $, Capital allocable (hors Coffre-Fort de Réserve 10%): $${allocatableBalance.toFixed(2)}. Le coffre-fort ($${currentReserveVault.toFixed(2)}) est intouchable et protégé.`);
         return;
       }
     }
@@ -316,11 +328,14 @@ export default function TradingBotsManager({
                 {tradingMode === 'REAL' ? "Capital Allocateur (SOL)" : "Capital Allocateur (USD)"}
               </label>
               <span className="text-xs text-emerald-400 font-mono font-bold">
-                Allocable: ${allocatableBalance.toFixed(2)} (Hors Coffre ${ (Number(reserveVault) || 0).toFixed(2) })
+                {tradingMode === 'REAL'
+                  ? `Allocable: ${allocatableBalance.toFixed(3)} SOL (Hors Coffre ${currentReserveVault.toFixed(3)} SOL)`
+                  : `Allocable: $${allocatableBalance.toFixed(2)} (Hors Coffre $${currentReserveVault.toFixed(2)})`}
               </span>
             </div>
             <Input
               type="number"
+              step={tradingMode === 'REAL' ? "0.1" : "10"}
               value={botCapital || ""}
               onChange={(e) => setBotCapital(Math.max(0, parseFloat(e.target.value) || 0))}
               className="w-full h-11 bg-black/40 border border-white/15 rounded-xl px-4 text-sm font-bold focus:ring-[#c2ff0c] text-white font-body"
