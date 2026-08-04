@@ -1461,7 +1461,6 @@ export function useTradingSimulation() {
           circuitBreakerLogs.forEach(log => addBotLogRef.current(log.id, log.strategy, log.message, 'error'));
         }, 50);
       }
-    }
 
     setActivePositions(prev => prev.filter(x => x.id !== posId));
   };
