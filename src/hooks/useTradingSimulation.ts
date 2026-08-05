@@ -1349,24 +1349,34 @@ export function useTradingSimulation() {
     const maxLoss = -amt;
     const profit = Math.max(maxLoss, Math.min(maxGain, rawProfit));
 
+    const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
+
     const posMode = p.mode || 'DEMO';
     if (posMode === 'DEMO') {
       if (profit > 0) {
-        const vaultSkim = profit * 0.10;
-        const netProfit = profit * 0.90;
+        const vaultSkim = autoReserveEnabled ? profit * 0.10 : 0;
+        const netProfit = profit - vaultSkim;
         setBalance(bal => bal + amt + netProfit);
-        if (setReserveVault) {
-          setReserveVault(vault => vault + vaultSkim);
+        if (vaultSkim > 0 && setReserveVault) {
+          setReserveVault(vault => {
+            const updated = vault + vaultSkim;
+            if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault', updated.toString());
+            return updated;
+          });
         }
       } else {
         const returnAmount = Math.max(0, amt + profit);
         setBalance(bal => bal + returnAmount);
       }
     } else if (posMode === 'REAL') {
-      if (profit > 0) {
+      if (profit > 0 && autoReserveEnabled) {
         const vaultSkimSol = profit * 0.10;
         if (setReserveVaultSol) {
-          setReserveVaultSol(vault => vault + vaultSkimSol);
+          setReserveVaultSol(vault => {
+            const updated = vault + vaultSkimSol;
+            if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault_sol', updated.toString());
+            return updated;
+          });
         }
       }
     }
