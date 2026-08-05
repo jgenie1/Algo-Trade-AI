@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import TransactionHistoryTable from '@/components/TransactionHistoryTable';
 import WithdrawFormCard from '@/components/WithdrawFormCard';
+import ReserveVaultCard from '@/components/ReserveVaultCard';
 
 const SOLANA_NETWORK_FEE = 0.00005;
 const PRIORITY_FEE_ESTIMATE = 0.001;
@@ -224,6 +225,9 @@ export default function WithdrawPage() {
           </Button>
         </Card>
       </div>
+
+      {/* Interactive Coffre-Fort (Vault 10% SOL / USD) Card */}
+      <ReserveVaultCard solanaBalance={solanaBalance} />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         <div className="md:col-span-8">

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import TransactionHistoryTable from '@/components/TransactionHistoryTable';
 import DepositGuidesCard from '@/components/DepositGuidesCard';
+import ReserveVaultCard from '@/components/ReserveVaultCard';
 
 const SOL_EXPLORER = 'https://solscan.io/account/';
 const MANUAL_SOL_KEY = 'manual_solana_deposit_address';
@@ -233,6 +234,9 @@ export default function DepositPage() {
           </Button>
         </Card>
       </div>
+
+      {/* Interactive Coffre-Fort (Vault 10% SOL / USD) Card */}
+      <ReserveVaultCard solanaBalance={solanaBalance} />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         <Card className="md:col-span-7 bg-[#14101a] border-white/10 rounded-2xl relative overflow-hidden">
