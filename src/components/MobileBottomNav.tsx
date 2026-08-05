@@ -16,7 +16,12 @@ import { useAppState } from '@/context/AppContext';
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const [isMounted, setIsMounted] = React.useState(false);
   const { reserveVault, reserveVaultSol, tradingMode, activePositions, bots } = useAppState();
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const vaultAmt = tradingMode === 'REAL' ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
   const activePositionsCount = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode).length;
@@ -33,7 +38,10 @@ export default function MobileBottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#0c0714]/95 backdrop-blur-2xl border-t border-white/15 px-3 py-2 shadow-[0_-8px_30px_rgba(0,0,0,0.85)]">
+    <div 
+      suppressHydrationWarning
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#0c0714]/95 backdrop-blur-2xl border-t border-white/15 px-3 py-2 shadow-[0_-8px_30px_rgba(0,0,0,0.85)]"
+    >
       <div className="flex items-center justify-between max-w-md mx-auto">
         {leftNavItems.map((item) => {
           const isActive = pathname === item.href;
@@ -47,9 +55,9 @@ export default function MobileBottomNav() {
                 isActive ? "text-[#c2ff0c]" : "text-white/40 hover:text-white"
               )}
             >
-              <div className="relative">
+              <div className="relative flex items-center justify-center">
                 <Icon className={cn("h-5 w-5 transition-transform duration-200", isActive ? "text-[#c2ff0c] scale-110" : "text-white/40")} />
-                {item.badge && (
+                {isMounted && item.badge && (
                   <span className="absolute -top-1.5 -right-2 bg-[#c2ff0c] text-black font-black text-[9px] px-1.5 py-0.2 rounded-full shadow-[0_0_8px_rgba(194,255,12,0.6)]">
                     {item.badge}
                   </span>
@@ -78,9 +86,9 @@ export default function MobileBottomNav() {
                 isActive ? "text-[#c2ff0c]" : "text-white/40 hover:text-white"
               )}
             >
-              <div className="relative">
+              <div className="relative flex items-center justify-center">
                 <Icon className={cn("h-5 w-5 transition-transform duration-200", isActive ? "text-[#c2ff0c] scale-110" : "text-white/40")} />
-                {item.badge && (
+                {isMounted && item.badge && (
                   <span className="absolute -top-1.5 -right-2 bg-purple-500 text-white font-black text-[8px] px-1 py-0.2 rounded-full animate-pulse shadow-sm">
                     {item.badge}
                   </span>
