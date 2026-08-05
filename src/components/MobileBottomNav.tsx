@@ -16,22 +16,24 @@ import { useAppState } from '@/context/AppContext';
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
-  const { reserveVault, reserveVaultSol, tradingMode } = useAppState();
+  const { reserveVault, reserveVaultSol, tradingMode, activePositions, bots } = useAppState();
 
   const vaultAmt = tradingMode === 'REAL' ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
+  const activePositionsCount = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode).length;
+  const activeBotsCount = (bots || []).filter(b => b.status === 'RUNNING').length;
 
   const leftNavItems = [
-    { href: '/', label: 'Terminal', icon: Home },
-    { href: '/strategies', label: 'Bots', icon: Bot },
+    { href: '/', label: 'Terminal', icon: Home, badge: activePositionsCount > 0 ? activePositionsCount.toString() : undefined },
+    { href: '/strategies', label: 'Bots', icon: Bot, badge: activeBotsCount > 0 ? activeBotsCount.toString() : undefined },
   ];
 
   const rightNavItems = [
-    { href: '/deposit', label: 'Dépôt', icon: Wallet, badge: vaultAmt > 0 ? '$' : undefined },
+    { href: '/deposit', label: 'Dépôt', icon: Wallet, badge: vaultAmt > 0 ? (tradingMode === 'REAL' ? 'SOL' : '$') : undefined },
     { href: '/analytics', label: 'Analytics', icon: BarChart2 },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#0c0714]/95 backdrop-blur-xl border-t border-white/10 px-3 py-2 shadow-[0_-5px_25px_rgba(0,0,0,0.7)]">
+    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#0c0714]/95 backdrop-blur-2xl border-t border-white/15 px-3 py-2 shadow-[0_-8px_30px_rgba(0,0,0,0.85)]">
       <div className="flex items-center justify-between max-w-md mx-auto">
         {leftNavItems.map((item) => {
           const isActive = pathname === item.href;
@@ -41,11 +43,18 @@ export default function MobileBottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-1 text-[10px] font-headline font-extrabold transition-all relative py-1 px-2.5 rounded-xl active:scale-95",
+                "flex flex-col items-center gap-1 text-[10px] font-headline font-extrabold transition-all relative py-1 px-3 rounded-xl active:scale-95",
                 isActive ? "text-[#c2ff0c]" : "text-white/40 hover:text-white"
               )}
             >
-              <Icon className={cn("h-5 w-5 transition-transform", isActive ? "text-[#c2ff0c] scale-110" : "text-white/40")} />
+              <div className="relative">
+                <Icon className={cn("h-5 w-5 transition-transform duration-200", isActive ? "text-[#c2ff0c] scale-110" : "text-white/40")} />
+                {item.badge && (
+                  <span className="absolute -top-1.5 -right-2 bg-[#c2ff0c] text-black font-black text-[9px] px-1.5 py-0.2 rounded-full shadow-[0_0_8px_rgba(194,255,12,0.6)]">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
               <span>{item.label}</span>
               {isActive && (
                 <span className="h-1.5 w-1.5 rounded-full bg-[#c2ff0c] absolute -bottom-1 shadow-[0_0_8px_#c2ff0c]" />
@@ -65,14 +74,14 @@ export default function MobileBottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-1 text-[10px] font-headline font-extrabold transition-all relative py-1 px-2.5 rounded-xl active:scale-95",
+                "flex flex-col items-center gap-1 text-[10px] font-headline font-extrabold transition-all relative py-1 px-3 rounded-xl active:scale-95",
                 isActive ? "text-[#c2ff0c]" : "text-white/40 hover:text-white"
               )}
             >
               <div className="relative">
-                <Icon className={cn("h-5 w-5 transition-transform", isActive ? "text-[#c2ff0c] scale-110" : "text-white/40")} />
+                <Icon className={cn("h-5 w-5 transition-transform duration-200", isActive ? "text-[#c2ff0c] scale-110" : "text-white/40")} />
                 {item.badge && (
-                  <span className="absolute -top-1 -right-2 bg-[#c2ff0c] text-black font-black text-[8px] px-1 rounded-full animate-pulse shadow-sm">
+                  <span className="absolute -top-1.5 -right-2 bg-purple-500 text-white font-black text-[8px] px-1 py-0.2 rounded-full animate-pulse shadow-sm">
                     {item.badge}
                   </span>
                 )}
