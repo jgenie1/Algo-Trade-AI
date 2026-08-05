@@ -33,11 +33,11 @@ function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", classNa
 }
 
 export default function AnalyticsPage() {
-  const { tradingMode, setTradingMode, activePositions, closedPositions, bots, transactions } = useAppState();
+  const { tradingMode, setTradingMode, activePositions, closedPositions, bots, transactions, balance } = useAppState();
   const [isMounted, setIsMounted] = useState(false);
   const isReal = tradingMode === "REAL";
-  const filteredActive = activePositions.filter(p => (p.mode || (p.pair?.startsWith("SOL:") ? "REAL" : "DEMO")) === tradingMode);
-  const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith("SOL:") ? "REAL" : "DEMO")) === tradingMode);
+  const filteredActive = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode);
+  const filteredClosed = (closedPositions || []).filter(p => (p.mode || 'DEMO') === tradingMode);
 
   const winningTrades = filteredClosed.filter(p => p.profit > 0).length;
   const losingTrades = filteredClosed.filter(p => p.profit <= 0).length;
@@ -56,7 +56,9 @@ export default function AnalyticsPage() {
       : avgDurationMs < 3600000 ? `${Math.round(avgDurationMs / 60000)} min`
       : `${(avgDurationMs / 3600000).toFixed(1)}h` : "-";
 
-  const baseVal = isReal ? 0 : 10000;
+  // Base capital for equity curve & drawdown calculation
+  const storedSolBalance = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_solana_balance') || '0') : 0;
+  const baseVal = isReal ? (storedSolBalance > 0 ? storedSolBalance : 1.0) : 10000;
   let peak = baseVal, maxDD = 0, temp = baseVal;
   const pnlData = [baseVal];
   const sortedClosed = [...filteredClosed].sort((a, b) => a.timestamp - b.timestamp);

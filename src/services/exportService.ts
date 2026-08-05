@@ -31,19 +31,24 @@ export function exportBotsPerformanceToCSV(bots: any[], filename: string = 'algo
     return;
   }
 
-  const headers = ['ID Bot', 'Nom/Stratégie', 'Paire', 'Statut', 'Capital Alloué ($)', 'PnL ($)', 'PnL (%)', 'Trades Totaux', 'Win Rate (%)', 'Modèle IA'];
-  const rows = bots.map(b => [
-    b.id || '',
-    b.strategy || b.name || '',
-    b.pair || '',
-    b.status || '',
-    b.capital || 0,
-    b.pnl ?? b.netProfit ?? 0,
-    b.pnlPercent || 0,
-    b.tradesCount ?? b.totalTrades ?? 0,
-    b.winRate || 0,
-    b.aiModel || 'Gemini 2.5'
-  ]);
+  const headers = ['ID Bot', 'Mode', 'Devise', 'Nom/Stratégie', 'Paire', 'Statut', 'Capital Alloué', 'PnL Net', 'Trades Totaux', 'Win Rate (%)', 'Modèle IA'];
+  const rows = bots.map(b => {
+    const isReal = (b.mode || 'DEMO') === 'REAL';
+    const currency = isReal ? 'SOL' : 'USD';
+    return [
+      b.id || '',
+      isReal ? 'RÉEL' : 'DÉMO',
+      currency,
+      b.strategy || b.name || '',
+      b.pair || '',
+      b.status || '',
+      b.capital || 0,
+      b.pnl ?? b.netProfit ?? 0,
+      b.tradesCount ?? b.totalTrades ?? 0,
+      b.winRate || 0,
+      b.aiModel || 'Gemini 2.5'
+    ];
+  });
 
   const csvContent = [
     headers.join(','),
