@@ -33,6 +33,13 @@ export default function TradingTerminalPage() {
 
   useEffect(() => {
     setIsClient(true);
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam === 'tokens' || tabParam === 'manual' || tabParam === 'bots' || tabParam === 'wallets') {
+        setActiveTab(tabParam as any);
+      }
+    }
   }, []);
 
   const {
@@ -140,10 +147,10 @@ export default function TradingTerminalPage() {
 
       {/* Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full">
-        <TabsList className="flex w-full bg-black/40 border border-white/15 p-1.5 rounded-xl gap-2 h-auto mb-6">
+        <TabsList className="flex w-full bg-black/40 border border-white/15 p-1.5 rounded-xl gap-2 h-auto mb-6 overflow-x-auto no-scrollbar scrollbar-none whitespace-nowrap">
           <TabsTrigger
             value="manual"
-            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-amber-500/25 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/30 text-slate-300 hover:text-white"
+            className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-amber-500/25 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/30 text-slate-300 hover:text-white"
           >
             <Zap className="inline-block h-4 w-4 mr-1.5 text-amber-400" />
             Trading Manuel & Analyse
@@ -151,7 +158,7 @@ export default function TradingTerminalPage() {
 
           <TabsTrigger
             value="bots"
-            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-slate-300 hover:text-white"
+            className="flex-1 min-w-[190px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-slate-300 hover:text-white"
           >
             <Bot className="inline-block h-4 w-4 mr-1.5 text-[#c2ff0c]" />
             Bots Automatiques & Intelligence
@@ -159,7 +166,7 @@ export default function TradingTerminalPage() {
 
           <TabsTrigger
             value="tokens"
-            className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
+            className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
           >
             <Coins className="inline-block h-4 w-4 text-purple-400" />
             Mes Tokens & Vente en Bloc
@@ -168,7 +175,7 @@ export default function TradingTerminalPage() {
           {tradingMode === 'REAL' && (
             <TabsTrigger
               value="wallets"
-              className="flex-1 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
+              className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
             >
               <span className="text-sm">💳</span>
               Multi-Wallets Solana

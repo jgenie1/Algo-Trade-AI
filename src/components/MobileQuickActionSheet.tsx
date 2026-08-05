@@ -18,7 +18,9 @@ import {
   RefreshCw,
   TrendingUp,
   Bot,
-  Trophy
+  Trophy,
+  Coins,
+  Layers
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAppState } from '@/context/AppContext';
@@ -84,6 +86,34 @@ export default function MobileQuickActionSheet() {
 
           <div className="grid grid-cols-2 gap-3 py-2 font-body">
             <Link
+              href="/?tab=tokens"
+              onClick={() => setIsOpen(false)}
+              className="p-3.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 rounded-2xl flex flex-col items-start gap-1.5"
+            >
+              <div className="p-2 bg-purple-500/30 text-purple-200 rounded-xl">
+                <Coins className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-extrabold text-purple-200 font-headline block truncate">Mes Tokens & USD</span>
+                <span className="text-[10px] text-white/50 block truncate">Portefeuille & Vente</span>
+              </div>
+            </Link>
+
+            <Link
+              href="/?tab=tokens"
+              onClick={() => setIsOpen(false)}
+              className="p-3.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 rounded-2xl flex flex-col items-start gap-1.5"
+            >
+              <div className="p-2 bg-indigo-500/30 text-[#c2ff0c] rounded-xl">
+                <Layers className="h-5 w-5 text-[#c2ff0c]" />
+              </div>
+              <div className="min-w-0 w-full">
+                <span className="text-xs font-extrabold text-[#c2ff0c] font-headline block truncate">Vendre Tout en Bloc</span>
+                <span className="text-[10px] text-white/50 block truncate">Conversion USD</span>
+              </div>
+            </Link>
+
+            <Link
               href="/strategies/leaderboard"
               onClick={() => setIsOpen(false)}
               className="p-3.5 bg-[#c2ff0c]/10 hover:bg-[#c2ff0c]/20 border border-[#c2ff0c]/30 rounded-2xl flex flex-col items-start gap-1.5"
@@ -100,7 +130,7 @@ export default function MobileQuickActionSheet() {
             <Link
               href="/strategies"
               onClick={() => setIsOpen(false)}
-              className="p-3.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-2xl flex flex-col items-start gap-1.5"
+              className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-1.5"
             >
               <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl">
                 <Bot className="h-5 w-5" />
@@ -108,34 +138,6 @@ export default function MobileQuickActionSheet() {
               <div className="min-w-0 w-full">
                 <span className="text-xs font-bold text-purple-300 font-headline block truncate">Marketplace IA</span>
                 <span className="text-[10px] text-white/50 block truncate">Catalogue Bots</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/deposit"
-              onClick={() => setIsOpen(false)}
-              className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-1.5"
-            >
-              <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
-                <ArrowDownLeft className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 w-full">
-                <span className="text-xs font-bold text-white font-headline block truncate">Dépôt / Créditer</span>
-                <span className="text-[10px] text-white/40 block truncate">Recharger le solde</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/withdraw"
-              onClick={() => setIsOpen(false)}
-              className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex flex-col items-start gap-1.5"
-            >
-              <div className="p-2 bg-purple-500/20 text-purple-400 rounded-xl">
-                <ArrowUpRight className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 w-full">
-                <span className="text-xs font-bold text-white font-headline block truncate">Retrait de Fonds</span>
-                <span className="text-[10px] text-white/40 block truncate">Portefeuille crypto</span>
               </div>
             </Link>
 

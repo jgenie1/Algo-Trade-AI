@@ -40,7 +40,7 @@ import {
   type SwapToken 
 } from '@/services/dexSwapService';
 import { useAppState } from '@/context/AppContext';
-import { formatUsdToHtg } from '@/lib/utils';
+import { cn, formatUsdToHtg } from '@/lib/utils';
 
 interface WalletTokenPortfolioProps {
   solanaPubKey: string | null;
@@ -284,53 +284,41 @@ export default function WalletTokenPortfolio({
               Aucun token détecté sur ce portefeuille.
             </div>
           ) : (
-            <div className="border border-white/5 rounded-xl overflow-hidden">
-              <Table>
-                <TableHeader className="bg-white/[0.03] border-b border-white/5">
-                  <TableRow className="border-b border-white/5 hover:bg-transparent">
-                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline pl-4 w-10">
-                      <Checkbox 
-                        checked={isAllSelected}
-                        onCheckedChange={handleToggleSelectAll}
-                        className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
-                      />
-                    </TableHead>
-                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline">Token</TableHead>
-                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Solde</TableHead>
-                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Cours Unit (USD)</TableHead>
-                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Valeur Totale (USD)</TableHead>
-                    <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right pr-4">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tokens.map((token) => {
-                    const tokenKey = getTokenKey(token);
-                    return (
-                      <TableRow key={tokenKey} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                        <TableCell className="py-3.5 pl-4 border-none w-10">
-                          {!token.isStablecoin ? (
-                            <Checkbox 
-                              checked={selectedAddresses.has(tokenKey)}
-                              onCheckedChange={() => handleToggleTokenSelection(tokenKey)}
-                              className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
-                            />
-                          ) : (
-                            <span className="text-white/20 text-xs text-center block">-</span>
-                          )}
-                        </TableCell>
-
-                      <TableCell className="py-3.5 border-none">
+            <>
+              {/* Mobile Card View (Visible on sm:hidden) */}
+              <div className="sm:hidden space-y-3">
+                {tokens.map((token) => {
+                  const tokenKey = getTokenKey(token);
+                  const isSelected = selectedAddresses.has(tokenKey);
+                  return (
+                    <div 
+                      key={tokenKey}
+                      className={cn(
+                        "p-4 rounded-2xl border transition-all space-y-3",
+                        isSelected 
+                          ? "bg-purple-950/20 border-purple-500/40 shadow-lg shadow-purple-950/20" 
+                          : "bg-white/[0.02] border-white/10"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-3">
+                          {!token.isStablecoin && (
+                            <Checkbox 
+                              checked={isSelected}
+                              onCheckedChange={() => handleToggleTokenSelection(tokenKey)}
+                              className="h-5 w-5 border-white/40 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
+                            />
+                          )}
                           {token.logoURI ? (
-                            <img src={token.logoURI} alt={token.symbol} className="h-8 w-8 rounded-full bg-black/40 border border-white/10" />
+                            <img src={token.logoURI} alt={token.symbol} className="h-9 w-9 rounded-full bg-black/40 border border-white/10" />
                           ) : (
-                            <div className="h-8 w-8 rounded-full bg-purple-900/40 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs">
+                            <div className="h-9 w-9 rounded-full bg-purple-900/40 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs">
                               {token.symbol.slice(0, 2)}
                             </div>
                           )}
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-white text-xs font-headline">{token.symbol}</span>
+                              <span className="font-extrabold text-white text-sm font-headline">{token.symbol}</span>
                               {token.isNative && (
                                 <Badge className="bg-amber-500/20 text-amber-300 border-none text-[8px] px-1.5 py-0 font-mono">
                                   NATIVE
@@ -342,28 +330,29 @@ export default function WalletTokenPortfolio({
                                 </Badge>
                               )}
                             </div>
-                            <span className="text-[10px] text-white/40 font-body block truncate max-w-[140px]">{token.name}</span>
+                            <span className="text-[10px] text-white/40 font-body block truncate max-w-[120px]">{token.name}</span>
                           </div>
                         </div>
-                      </TableCell>
 
-                      <TableCell className="py-3.5 text-right font-mono text-xs font-semibold text-white border-none">
-                        {token.balance.toLocaleString('en-US', { maximumFractionDigits: token.decimals > 6 ? 4 : 2 })}
-                      </TableCell>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] text-white/50 block font-mono">
+                            ${token.priceUsd < 0.01 ? token.priceUsd.toFixed(6) : token.priceUsd.toFixed(2)}
+                          </span>
+                          <span className="text-sm font-black text-[#c2ff0c] font-headline block">
+                            ${token.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
 
-                      <TableCell className="py-3.5 text-right font-mono text-xs text-white/70 border-none">
-                        ${token.priceUsd < 0.01 ? token.priceUsd.toFixed(6) : token.priceUsd.toFixed(2)}
-                      </TableCell>
+                      <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs font-mono">
+                        <span className="text-white/60">
+                          Solde: <strong className="text-white">{token.balance.toLocaleString('en-US', { maximumFractionDigits: token.decimals > 6 ? 4 : 2 })}</strong>
+                        </span>
 
-                      <TableCell className="py-3.5 text-right font-headline text-xs font-bold text-[#c2ff0c] border-none">
-                        ${token.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-
-                      <TableCell className="py-3.5 text-right pr-4 border-none">
                         {token.isStablecoin ? (
-                          <span className="text-[10px] text-emerald-400 font-mono flex items-center justify-end gap-1">
+                          <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
                             <ShieldCheck className="h-3.5 w-3.5" />
-                            Déjà en USD
+                            USD
                           </span>
                         ) : (
                           <Button
@@ -385,19 +374,134 @@ export default function WalletTokenPortfolio({
                                 chain: token.chain
                               }
                             )}
-                            className="h-8 px-3 bg-purple-600/20 hover:bg-purple-600/35 border border-purple-500/30 text-purple-200 text-xs font-bold font-headline rounded-xl transition-all"
+                            className="h-8 px-3 bg-purple-600/25 hover:bg-purple-600/40 border border-purple-500/40 text-purple-200 text-xs font-bold font-headline rounded-xl"
                           >
                             <ArrowRightLeft className="h-3 w-3 mr-1 text-purple-300" />
-                            Échanger en USD
+                            Échanger
                           </Button>
                         )}
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   );
                 })}
-                </TableBody>
-              </Table>
-            </div>
+              </div>
+
+              {/* Desktop Table View (Visible on hidden sm:block) */}
+              <div className="hidden sm:block border border-white/5 rounded-xl overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-white/[0.03] border-b border-white/5">
+                    <TableRow className="border-b border-white/5 hover:bg-transparent">
+                      <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline pl-4 w-10">
+                        <Checkbox 
+                          checked={isAllSelected}
+                          onCheckedChange={handleToggleSelectAll}
+                          className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
+                        />
+                      </TableHead>
+                      <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline">Token</TableHead>
+                      <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Solde</TableHead>
+                      <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Cours Unit (USD)</TableHead>
+                      <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right">Valeur Totale (USD)</TableHead>
+                      <TableHead className="py-3 text-[10px] uppercase font-bold text-white/40 font-headline text-right pr-4">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tokens.map((token) => {
+                      const tokenKey = getTokenKey(token);
+                      return (
+                        <TableRow key={tokenKey} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                          <TableCell className="py-3.5 pl-4 border-none w-10">
+                            {!token.isStablecoin ? (
+                              <Checkbox 
+                                checked={selectedAddresses.has(tokenKey)}
+                                onCheckedChange={() => handleToggleTokenSelection(tokenKey)}
+                                className="border-white/30 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-500"
+                              />
+                            ) : (
+                              <span className="text-white/20 text-xs text-center block">-</span>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="py-3.5 border-none">
+                            <div className="flex items-center gap-3">
+                              {token.logoURI ? (
+                                <img src={token.logoURI} alt={token.symbol} className="h-8 w-8 rounded-full bg-black/40 border border-white/10" />
+                              ) : (
+                                <div className="h-8 w-8 rounded-full bg-purple-900/40 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs">
+                                  {token.symbol.slice(0, 2)}
+                                </div>
+                              )}
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-white text-xs font-headline">{token.symbol}</span>
+                                  {token.isNative && (
+                                    <Badge className="bg-amber-500/20 text-amber-300 border-none text-[8px] px-1.5 py-0 font-mono">
+                                      NATIVE
+                                    </Badge>
+                                  )}
+                                  {token.isStablecoin && (
+                                    <Badge className="bg-emerald-500/20 text-emerald-300 border-none text-[8px] px-1.5 py-0 font-mono">
+                                      STABLE
+                                    </Badge>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-white/40 font-body block truncate max-w-[140px]">{token.name}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="py-3.5 text-right font-mono text-xs font-semibold text-white border-none">
+                            {token.balance.toLocaleString('en-US', { maximumFractionDigits: token.decimals > 6 ? 4 : 2 })}
+                          </TableCell>
+
+                          <TableCell className="py-3.5 text-right font-mono text-xs text-white/70 border-none">
+                            ${token.priceUsd < 0.01 ? token.priceUsd.toFixed(6) : token.priceUsd.toFixed(2)}
+                          </TableCell>
+
+                          <TableCell className="py-3.5 text-right font-headline text-xs font-bold text-[#c2ff0c] border-none">
+                            ${token.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+
+                          <TableCell className="py-3.5 text-right pr-4 border-none">
+                            {token.isStablecoin ? (
+                              <span className="text-[10px] text-emerald-400 font-mono flex items-center justify-end gap-1">
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                Déjà en USD
+                              </span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => onOpenSwap(
+                                  {
+                                    symbol: token.symbol,
+                                    name: token.name,
+                                    address: token.address,
+                                    decimals: token.decimals,
+                                    chain: token.chain,
+                                    logoURI: token.logoURI
+                                  },
+                                  {
+                                    symbol: token.chain === 'SOL' ? 'USDC' : 'USDT',
+                                    name: token.chain === 'SOL' ? 'USD Coin' : 'Tether USD',
+                                    address: token.chain === 'SOL' ? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' : '0xdac17f958d2ee523a2206206994597c13d831ec7',
+                                    decimals: 6,
+                                    chain: token.chain
+                                  }
+                                )}
+                                className="h-8 px-3 bg-purple-600/20 hover:bg-purple-600/35 border border-purple-500/30 text-purple-200 text-xs font-bold font-headline rounded-xl transition-all"
+                              >
+                                <ArrowRightLeft className="h-3 w-3 mr-1 text-purple-300" />
+                                Échanger en USD
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
