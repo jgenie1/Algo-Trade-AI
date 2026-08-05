@@ -1428,42 +1428,63 @@ export function useTradingSimulation() {
       return [closed, ...closedPrev];
     });
     
-    const isRealSolanaPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && p.pair.startsWith('SOL:');
-    if (isRealSolanaPos) {
-      const parts = p.pair.split(':');
-      const mintAddress = parts[1];
-      if (mintAddress && !mintAddress.startsWith('ukhh')) {
-        const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
-        const priority = botConfig?.priorityFee || 0.005;
-        const targetPool = 'auto'; // let PumpPortal auto-route to pump/pump-amm/raydium
-        const sourceLabel = p.botId || 'manual';
-        const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
-        
-        addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Envoi de la transaction de vente sur Solana pour $${parts[2] || 'TOKEN'}...`, 'info');
-
-        executeRealPumpTrade({
-          action: 'sell',
-          mint: mintAddress,
-          amount: '100%',
-          denominatedInSol: false,
-          slippage: 15,
-          priorityFee: priority,
-          pool: targetPool
-        }).then((res) => {
-          if (res && res.success && res.txHash) {
-            addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE RÉUSSIE] Hash: ${res.txHash.slice(0, 16)}... Tokens vendus contre SOL sur la blockchain !`, 'trade');
-            setClosedPositions(closedPrev => 
-              closedPrev.map(item => item.id === p.id ? { ...item, sellTxHash: res.txHash } : item)
-            );
-            // Refresh wallet balance from Solana RPC so updated SOL appears on screen
-            setTimeout(() => {
-              if (refreshWalletRef.current) refreshWalletRef.current();
-            }, 2500);
-          } else {
-            addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE RÉELLE] Échec: ${res.error || 'Erreur réseau.'}`, 'error');
-          }
-        });
+    // Robust extraction of Solana token mint address from any pair format (SOL:mint:symbol, PUMP:mint, or mint)
+    let mintAddress = '';
+    if (p.mint && p.mint.length >= 32 && p.mint.length <= 44) {
+      mintAddress = p.mint;
+    } else if (p.pair) {
+      if (p.pair.includes(':')) {
+        const parts = p.pair.split(':');
+        const candidate = parts[1] || parts[0];
+        if (candidate && candidate.length >= 32 && candidate.length <= 44) {
+          mintAddress = candidate;
+        } else if (parts[0] && parts[0].length >= 32 && parts[0].length <= 44) {
+          mintAddress = parts[0];
+        }
+      } else if (p.pair.length >= 32 && p.pair.length <= 44) {
+        mintAddress = p.pair;
       }
+    }
+
+    const isRealSolanaPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && (mintAddress.length >= 32 && mintAddress.length <= 44 || !!p.txHash);
+    if (isRealSolanaPos && mintAddress && !mintAddress.startsWith('ukhh')) {
+      const parts = (p.pair || '').split(':');
+      const cleanSymbol = parts[2] || parts[0] || 'TOKEN';
+      const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
+      const priority = botConfig?.priorityFee || 0.005;
+      const targetPool = 'auto'; // let PumpPortal auto-route to pump/pump-amm/raydium
+      const sourceLabel = p.botId || 'manual';
+      const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
+      
+      addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Envoi de la transaction de vente sur Solana Mainnet pour $${cleanSymbol}...`, 'info');
+
+      executeRealPumpTrade({
+        action: 'sell',
+        mint: mintAddress,
+        amount: '100%',
+        denominatedInSol: false,
+        slippage: 15,
+        priorityFee: priority,
+        pool: targetPool
+      }).then((res) => {
+        if (res && res.success && res.txHash) {
+          addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE RÉUSSIE - SOL CRÉDITÉ BLOCKCHAIN] Hash: ${res.txHash.slice(0, 16)}... Tokens vendus contre SOL sur la blockchain Solana !`, 'trade');
+          setClosedPositions(closedPrev => 
+            closedPrev.map(item => item.id === p.id ? { ...item, sellTxHash: res.txHash } : item)
+          );
+
+          // Trigger immediate and multi-stage wallet balance refreshes from Solana RPC
+          const triggerBalanceSync = () => {
+            if (refreshWalletRef.current) refreshWalletRef.current();
+          };
+          triggerBalanceSync();
+          setTimeout(triggerBalanceSync, 2000);
+          setTimeout(triggerBalanceSync, 5000);
+          setTimeout(triggerBalanceSync, 10000);
+        } else {
+          addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE RÉELLE BLOCKCHAIN] ${res?.error || 'Erreur réseau.'}`, 'error');
+        }
+      });
     }
 
     const sourceLabel = p.botId ? p.botId : 'manual';
