@@ -122,13 +122,22 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
 
+        // Forex/Commodity pairs cannot be real SOL on-chain positions
+        const isNonSolanaPair = cleanPair.startsWith('FX:') || cleanPair.includes('GBP') || cleanPair.includes('EUR') || cleanPair.includes('JPY') || cleanPair.includes('XAU') || (cleanPair.includes('USD') && !cleanPair.startsWith('SOL:'));
+        
+        let calculatedMode = p.mode ? p.mode : (cleanPair.startsWith('SOL:') && amt < 100 ? 'REAL' : 'DEMO');
+        // Force DEMO mode for non-Solana pairs or positions with synthetic huge amounts (>10)
+        if (isNonSolanaPair || amt > 10) {
+          calculatedMode = 'DEMO';
+        }
+
         cleaned.push({
           ...p,
           pair: cleanPair,
           amount: amt,
           entryPrice: entry,
           leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
-          mode: p.mode ? p.mode : (cleanPair.startsWith('SOL:') && amt < 100 ? 'REAL' : 'DEMO')
+          mode: calculatedMode
         });
       }
 

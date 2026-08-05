@@ -813,6 +813,8 @@ export function useTradingSimulation() {
                 continue;
               }
 
+              let posTradeAmount = bot.capital;
+
               if (tradingModeRef.current === 'DEMO') {
                 const totalFunds = balanceRef.current + bot.capital;
                 if (totalFunds <= 0) {
@@ -820,9 +822,14 @@ export function useTradingSimulation() {
                   continue;
                 }
               } else {
-                const solBal = solanaBalanceRef.current;
-                if (solBal === null || solBal <= 0.001) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde SOL insuffisant.`, 'error');
+                const solBal = solanaBalanceRef.current ?? 0;
+                if (solBal <= 0.002) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible).`, 'error');
+                  continue;
+                }
+                posTradeAmount = Math.min(bot.capital, Math.max(0.005, solBal * 0.5));
+                if (posTradeAmount > solBal) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Capital requis (${posTradeAmount.toFixed(4)} SOL) supérieur au solde disponible (${solBal.toFixed(4)} SOL).`, 'error');
                   continue;
                 }
               }
@@ -842,7 +849,7 @@ export function useTradingSimulation() {
                 type: 'BUY' as const,
                 entryPrice: lastClose,
                 currentPrice: lastClose,
-                amount: bot.capital,
+                amount: posTradeAmount,
                 leverage: 1,
                 sl: parseFloat(slPrice.toFixed(5)),
                 tp: parseFloat(tpPrice.toFixed(5)),
@@ -1125,16 +1132,32 @@ export function useTradingSimulation() {
                 }
 
                 const cleanPair = currentPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-                if (tradingModeRef.current === 'DEMO') {
-                  const totalFunds = balanceRef.current + bot.capital;
-                  if (totalFunds <= 0) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde insuffisant.`, 'error');
+                const isRealMode = (bot.mode || tradingModeRef.current) === 'REAL';
+                let calculatedTradeAmt = parseFloat((bot.capital / 3).toFixed(2));
+
+                if (isRealMode) {
+                  // Forex / Commodities non-Solana pairs cannot be traded in REAL mode on Solana mainnet
+                  const isNonSolanaPair = currentPair.startsWith('FX:') || currentPair.includes('GBP') || currentPair.includes('EUR') || currentPair.includes('JPY') || currentPair.includes('XAU') || (currentPair.includes('USD') && !currentPair.startsWith('SOL:'));
+                  if (isNonSolanaPair) {
+                    addBotLogRef.current(bot.id, bot.strategy, `[MODE RÉEL SOLANA] Signal ${signal} sur ${cleanPair} REJETÉ : Les paires Forex/CEX (${cleanPair}) ne sont pas tradables en SOL Réel sur le réseau Solana.`, 'info');
+                    continue;
+                  }
+
+                  const solBal = solanaBalanceRef.current ?? 0;
+                  if (solBal <= 0.002) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible).`, 'error');
+                    continue;
+                  }
+                  
+                  calculatedTradeAmt = Math.min(bot.capital / 3, Math.max(0.005, solBal * 0.25));
+                  if (calculatedTradeAmt > solBal) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde réel disponible (${solBal.toFixed(4)} SOL).`, 'error');
                     continue;
                   }
                 } else {
-                  const solBal = solanaBalanceRef.current;
-                  if (solBal === null || solBal <= 0.001) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL insuffisant.`, 'error');
+                  const totalFunds = balanceRef.current + bot.capital;
+                  if (totalFunds <= 0) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde insuffisant.`, 'error');
                     continue;
                   }
                 }
@@ -1165,7 +1188,7 @@ export function useTradingSimulation() {
                   type: signal,
                   entryPrice: lastClose,
                   currentPrice: lastClose,
-                  amount: parseFloat((bot.capital / 3).toFixed(2)),
+                  amount: calculatedTradeAmt,
                   leverage: bot.strategy === 'AI Autopilot (Machine à Cash)'
                     ? (bot.riskProfile === 'CONSERVATIVE' ? 5 : bot.riskProfile === 'AGGRESSIVE' ? 20 : 10)
                     : 10,
