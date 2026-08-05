@@ -23,7 +23,8 @@ import {
   Check,
   ExternalLink,
   ArrowDownUp,
-  Lock
+  Lock,
+  PanelLeft
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
@@ -55,7 +56,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function Header() {
-  const { isMobile } = useSidebar();
+  const { isMobile, state, toggleSidebar } = useSidebar();
   const { 
     tradingMode, 
     setTradingMode, 
@@ -311,59 +312,73 @@ export default function Header() {
     });
   });
 
-  // Sort notification list
   const activeNotificationsCount = notifications.length;
 
   return (
-    <header className="flex h-16 items-center justify-between bg-transparent border-none px-0 w-full mb-6 shrink-0" suppressHydrationWarning>
-      {/* Left side: Mobile trigger or search bar */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
-        {isMobile && <SidebarTrigger className="text-white/60 hover:text-white mr-2" />}
+    <header 
+      className="flex h-16 items-center justify-between gap-2 max-w-full bg-[#100d16]/80 backdrop-blur-xl border border-white/10 rounded-2xl px-2.5 sm:px-4 w-full mb-6 shrink-0 shadow-xl shadow-black/40 overflow-x-auto no-scrollbar" 
+      suppressHydrationWarning
+    >
+      {/* Left Zone: Navigation Toggle / Search / Live Status */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        {/* Explicit Sidebar Show/Hide Toggle Button */}
+        <Button
+          type="button"
+          onClick={toggleSidebar}
+          className={cn(
+            "h-10 px-3 font-headline font-bold text-xs rounded-xl flex items-center gap-2 transition-all shrink-0 shadow-sm border",
+            state === "expanded"
+              ? "bg-white/5 hover:bg-white/10 border-white/10 text-white/80 hover:text-white"
+              : "bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 border-[#c2ff0c]/50 text-[#c2ff0c] shadow-[0_0_15px_rgba(194,255,12,0.3)] animate-pulse"
+          )}
+          title={state === "expanded" ? "Masquer le menu latéral (Ctrl+B)" : "Afficher le menu latéral (Ctrl+B)"}
+        >
+          <PanelLeft className="h-4 w-4 text-[#c2ff0c]" />
+          <span className="hidden sm:inline font-headline text-[11px] uppercase tracking-wider font-extrabold">
+            {state === "expanded" ? "Masquer" : "Afficher Menu"}
+          </span>
+        </Button>
         
-        <div className="relative w-full hidden md:block">
+        {/* Search Bar */}
+        <div className="relative w-32 md:w-44 lg:w-56 hidden sm:block shrink-0">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           <input 
             type="text" 
-            placeholder="Rechercher ici..." 
-            className="w-full h-11 pl-10 pr-12 rounded-xl text-sm bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-[#c2ff0c]/50 transition-all duration-200"
+            placeholder="Rechercher..." 
+            className="w-full h-10 pl-10 pr-10 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-[#c2ff0c]/50 transition-all duration-200"
             disabled
           />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-white/10 border border-white/15 rounded text-white/50 pointer-events-none">
+          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono font-medium bg-white/10 border border-white/15 rounded text-white/50 pointer-events-none hidden md:inline">
             ⌘K
           </kbd>
         </div>
+
+        {/* Live AI Mode Status Badge */}
+        <div className="hidden 2xl:flex items-center gap-2 px-3 py-2 rounded-xl bg-[#c2ff0c]/10 border border-[#c2ff0c]/25 text-[#c2ff0c] text-xs font-semibold shrink-0">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#c2ff0c] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#c2ff0c]"></span>
+          </span>
+          <Sparkles className="h-3.5 w-3.5 text-[#c2ff0c]" />
+          <span className="font-headline text-[11px] uppercase tracking-wider font-extrabold">Mode IA Actif</span>
+        </div>
       </div>
 
-      {/* Right side: Actions, Notifications, Settings, Profile */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 max-w-full overflow-x-auto no-scrollbar">
+      {/* Center / Trading & Security Controls Zone */}
+      <div className="flex items-center gap-2 shrink-0">
         {/* Panic Kill Switch 1-Clic */}
         <PanicKillSwitch />
 
-        {/* Sélecteur Multi-Langues FR / HT / EN */}
-        <select
-          value={getStoredLanguage()}
-          onChange={(e) => {
-            setStoredLanguage(e.target.value as Language);
-            window.location.reload();
-          }}
-          className="bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-xs font-bold text-white font-headline shrink-0"
-        >
-          <option value="FR">🇫🇷 FR</option>
-          <option value="HT">🇭🇹 HT</option>
-          <option value="EN">🇺🇸 EN</option>
-        </select>
-
-        {/* Bouton d'Installation PWA App */}
-        <PWAInstallBanner />
-
         {/* Coffre-Fort Intouchable (10% des Gains) */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[#c2ff0c] font-headline font-bold text-xs shadow-sm">
-          <Lock className="h-4 w-4 text-[#c2ff0c]" />
-          <div className="flex flex-col text-left leading-none">
-            <span className="text-[9px] text-white/50 font-body uppercase font-semibold">
-              Coffre-Fort (10% {tradingMode === 'REAL' ? 'SOL' : 'USD'})
+        <div className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[#c2ff0c] font-headline text-xs shadow-sm shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center text-[#c2ff0c]">
+            <Lock className="h-3.5 w-3.5" />
+          </div>
+          <div className="flex flex-col text-left justify-center leading-tight">
+            <span className="text-[9px] text-white/50 font-body uppercase font-bold tracking-wider whitespace-nowrap">
+              Coffre-Fort ({tradingMode === 'REAL' ? 'SOL' : 'USD'})
             </span>
-            <span className="text-xs font-mono font-bold text-[#c2ff0c]">
+            <span className="text-xs font-mono font-extrabold text-[#c2ff0c]">
               {tradingMode === 'REAL' 
                 ? `${(Number(reserveVaultSol) || 0).toFixed(2)} SOL` 
                 : `$${(Number(reserveVault) || 0).toFixed(2)}`}
@@ -374,21 +389,24 @@ export default function Header() {
         {/* DEX Swap Quick Trigger Button */}
         <Button
           onClick={() => setIsSwapOpen(true)}
-          className="h-10 px-3.5 bg-[#171122] hover:bg-[#201830] border border-[#c2ff0c]/30 text-[#c2ff0c] font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all"
+          className="h-10 px-3 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/35 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0"
         >
-          <ArrowDownUp className="h-4 w-4" />
-          <span className="hidden md:inline font-headline uppercase">Swap DEX</span>
+          <ArrowDownUp className="h-4 w-4 text-[#c2ff0c]" />
+          <span className="hidden md:inline font-headline uppercase tracking-wide">Swap DEX</span>
         </Button>
 
         {/* DEX Swap Modal */}
         <DEXSwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} />
+      </div>
 
+      {/* Right Zone: Wallet / Language / Notifications / Settings / Profile */}
+      <div className="flex items-center gap-2 shrink-0">
         {/* Web3 Multi-Chain Connect Wallet Button */}
         <Dialog>
           <DialogTrigger asChild>
             {connectedWallet ? (
               <Button
-                className="h-10 px-3.5 bg-[#171122] hover:bg-[#201830] border border-emerald-500/30 text-white font-headline font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-emerald-500/40 text-white font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -397,18 +415,18 @@ export default function Header() {
                 <span className="font-mono text-xs font-semibold text-emerald-400">
                   {connectedWallet.address.slice(0, 4)}...{connectedWallet.address.slice(-4)}
                 </span>
-                <span className="text-[9px] bg-white/10 px-1.5 py-0.5 rounded font-headline uppercase text-white/70 hidden md:inline">
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-headline uppercase font-bold hidden md:inline">
                   {connectedWallet.chain}
                 </span>
               </Button>
             ) : (
               <Button
-                className="h-10 px-4 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_15px_rgba(147,51,234,0.35)] hover:shadow-[0_0_25px_rgba(147,51,234,0.6)] flex items-center gap-2 border border-purple-400/30 transition-all duration-300 transform hover:-translate-y-0.5"
+                className="h-10 px-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_15px_rgba(147,51,234,0.35)] hover:shadow-[0_0_25px_rgba(147,51,234,0.6)] flex items-center gap-2 border border-purple-400/30 transition-all transform hover:-translate-y-0.5"
               >
                 <Wallet className="h-4 w-4 text-[#c2ff0c] animate-pulse" />
-                <span className="hidden sm:inline">Connecter Web3</span>
-                <span className="text-[9px] bg-black/30 text-[#c2ff0c] px-1.5 py-0.5 rounded font-mono font-normal">
-                  Multi-Chain
+                <span className="hidden sm:inline">Web3</span>
+                <span className="text-[9px] bg-black/40 text-[#c2ff0c] px-1.5 py-0.5 rounded font-mono font-normal">
+                  Multi
                 </span>
               </Button>
             )}
@@ -511,7 +529,6 @@ export default function Header() {
                   </span>
                 </button>
 
-
                 <div className="pt-3 border-t border-white/10 space-y-2">
                   <label className="text-[11px] font-bold text-emerald-400 font-headline flex items-center gap-1.5">
                     <span>🔑</span> Ou Coller une Adresse Publique Solana :
@@ -541,15 +558,25 @@ export default function Header() {
                 </div>
               </div>
             )}
-
           </DialogContent>
         </Dialog>
 
-        {/* Premium badge */}
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#c2ff0c]/10 border border-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-semibold">
-          <Sparkles className="h-3.5 w-3.5 text-[#c2ff0c]" />
-          <span>Mode IA Actif</span>
-        </div>
+        {/* Bouton d'Installation PWA App */}
+        <PWAInstallBanner />
+
+        {/* Sélecteur Multi-Langues FR / HT / EN */}
+        <select
+          value={getStoredLanguage()}
+          onChange={(e) => {
+            setStoredLanguage(e.target.value as Language);
+            window.location.reload();
+          }}
+          className="h-10 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-2 text-xs font-bold text-white font-headline shrink-0 transition-colors cursor-pointer focus:outline-none"
+        >
+          <option value="FR" className="bg-[#14101a]">🇫🇷 FR</option>
+          <option value="HT" className="bg-[#14101a]">🇭🇹 HT</option>
+          <option value="EN" className="bg-[#14101a]">🇺🇸 EN</option>
+        </select>
 
         {/* 1. Notification Dropdown (Bell) */}
         <Popover>
@@ -557,11 +584,11 @@ export default function Header() {
             <Button
               variant="outline"
               size="icon"
-              className="h-11 w-11 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 relative"
+              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 relative shrink-0"
             >
-              <Bell className="h-4.5 w-4.5" />
+              <Bell className="h-4 w-4" />
               {activeNotificationsCount > 0 && (
-                <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-black animate-pulse" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-black animate-pulse" />
               )}
             </Button>
           </PopoverTrigger>
@@ -603,9 +630,9 @@ export default function Header() {
             <Button
               variant="outline"
               size="icon"
-              className="h-11 w-11 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200"
+              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 shrink-0"
             >
-              <Settings className="h-4.5 w-4.5" />
+              <Settings className="h-4 w-4" />
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-[#14101a] border-white/10 text-white rounded-2xl max-w-md shadow-2xl">

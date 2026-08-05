@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import Header from '@/components/Header';
 import SidebarNav from '@/components/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
@@ -20,11 +20,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         variant="floating" 
         className="border-none bg-transparent shadow-2xl [&>div]:glass-panel [&>div]:!bg-[#100d14]/45 [&>div]:rounded-2xl"
       >
-        <SidebarHeader className="p-4 flex flex-row items-center gap-3 h-16 border-b border-white/5">
-          <LogoIcon className="h-8 w-8 text-[#c2ff0c]" />
-          <span className="font-headline text-xl font-bold tracking-tight text-gradient-lime group-data-[collapsible=icon]:hidden">
-            AlgoTradeAI
-          </span>
+        <SidebarHeader className="p-4 flex flex-row items-center justify-between gap-3 h-16 border-b border-white/5">
+          <div className="flex items-center gap-3 min-w-0">
+            <LogoIcon className="h-8 w-8 text-[#c2ff0c] shrink-0" />
+            <span className="font-headline text-xl font-bold tracking-tight text-gradient-lime group-data-[collapsible=icon]:hidden truncate">
+              AlgoTradeAI
+            </span>
+          </div>
+          <SidebarTrigger className="text-white/60 hover:text-[#c2ff0c] group-data-[collapsible=icon]:hidden shrink-0" title="Réduire / Cacher le menu (Ctrl+B)" />
         </SidebarHeader>
         <SidebarContent className="flex-1 py-4">
           <SidebarNav />

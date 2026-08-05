@@ -52,30 +52,42 @@ export async function fetchSwapQuote(
   }
 
   try {
-    // Si c'est sur Solana, on peut utiliser l'API publique Jupiter Quote
+    // Si c'est sur Solana, on tente d'utiliser l'API publique Jupiter Quote avec Timeout & AbortController
     if (fromToken.chain === 'SOL' && toToken.chain === 'SOL') {
       const amountLamports = Math.floor(amount * Math.pow(10, fromToken.decimals));
       const url = `https://quote-api.jup.ag/v6/quote?inputMint=${fromToken.address}&outputMint=${toToken.address}&amount=${amountLamports}&slippageBps=${Math.round(slippagePct * 100)}`;
       
-      const res = await fetch(url, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        const outAmountRaw = parseInt(data.outAmount || '0');
-        const outAmountFormatted = (outAmountRaw / Math.pow(10, toToken.decimals)).toFixed(4);
-        const priceImpact = parseFloat(data.priceImpactPct || '0.01');
-        
-        return {
-          inAmount: amount.toString(),
-          outAmount: outAmountFormatted,
-          priceImpactPct: Math.max(0, priceImpact),
-          estimatedFeeUsd: 0.05,
-          routePlan: data.routePlan ? data.routePlan.map((r: any) => r.swapInfo?.label || 'Raydium/Orca').join(' -> ') : 'Jupiter Direct Route',
-          executionPrice: parseFloat(outAmountFormatted) / amount
-        };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 sec timeout maximum
+
+      try {
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.outAmount) {
+            const outAmountRaw = parseInt(data.outAmount || '0');
+            const outAmountFormatted = (outAmountRaw / Math.pow(10, toToken.decimals)).toFixed(4);
+            const priceImpact = parseFloat(data.priceImpactPct || '0.01');
+            
+            return {
+              inAmount: amount.toString(),
+              outAmount: outAmountFormatted,
+              priceImpactPct: Math.max(0, priceImpact),
+              estimatedFeeUsd: 0.05,
+              routePlan: data.routePlan ? data.routePlan.map((r: any) => r.swapInfo?.label || 'Raydium/Orca').join(' -> ') : 'Jupiter Direct Route',
+              executionPrice: parseFloat(outAmountFormatted) / amount
+            };
+          }
+        }
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        // Silent fallback - ne perturbe pas l'application
       }
     }
   } catch (err) {
-    console.warn("Jupiter API error fallback to algorithmic simulation", err);
+    // Fallback silencieux vers la simulation algorithmique
   }
 
   // Fallback / EVM Simulation basée sur les taux de marché actuels

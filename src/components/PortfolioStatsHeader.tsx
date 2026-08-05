@@ -1,8 +1,8 @@
 "use client";
 
 import React from 'react';
-import { RotateCcw } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg } from '@/lib/utils';
+import { RotateCcw, ShieldCheck, Zap, Lock, Activity, Wallet } from 'lucide-react';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAppState } from '@/context/AppContext';
 
@@ -77,12 +77,10 @@ export default function PortfolioStatsHeader({
     ? `${realBalance.toFixed(4)} ${realCurrency}`
     : `0.0000 ${isEvmWallet ? evmCurrencyLabel : 'SOL'}`;
 
-  // USD approximation (rough estimate — ETH ~$3000, BNB ~$300, SOL ~$200)
   const getApproxUsd = () => {
     if (realBalance === null) return null;
     if (walletChain === 'Ethereum') return (realBalance * 3000).toFixed(2);
     if (walletChain === 'BSC') return (realBalance * 300).toFixed(2);
-    // Solana: use existing helper
     return null;
   };
   const approxUsd = getApproxUsd();
@@ -94,9 +92,12 @@ export default function PortfolioStatsHeader({
     : 'Mode Réel (Solana)';
 
   return (
-    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#140f1d] border border-white/15 rounded-2xl p-5 w-full shadow-2xl">
-      {/* Mode Toggle Switch (Demo vs Real) */}
-      <div className="flex items-center bg-black/40 border border-white/15 p-1.5 rounded-xl gap-1 shrink-0">
+    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#14101a] border border-white/10 rounded-2xl p-4 sm:p-5 w-full shadow-2xl relative overflow-hidden backdrop-blur-xl">
+      {/* Top Accent Line */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/40 via-purple-500/50 to-[#c2ff0c]/40" />
+
+      {/* Mode Switch Controls Segment */}
+      <div className="flex items-center bg-black/40 border border-white/10 p-1.5 rounded-xl gap-1 shrink-0">
         <Button
           variant="ghost"
           onClick={() => {
@@ -104,14 +105,14 @@ export default function PortfolioStatsHeader({
             onSelectTab('manual');
           }}
           className={cn(
-            "px-4 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-2 border-none",
+            "px-4 py-2 h-9 text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-2 border-none cursor-pointer",
             isDemo
-              ? "bg-amber-500/30 text-amber-300 border border-amber-500/30 shadow-md shadow-amber-500/10 font-black"
-              : "text-slate-400 hover:text-white hover:bg-white/5"
+              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-black"
+              : "text-white/40 hover:text-white hover:bg-white/5"
           )}
         >
           <span className="h-2 w-2 rounded-full bg-amber-400" />
-          Mode Démo (Simulé)
+          Mode Démo (USD)
         </Button>
 
         <Button
@@ -121,10 +122,10 @@ export default function PortfolioStatsHeader({
             onSelectTab('manual');
           }}
           className={cn(
-            "px-4 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-2 border-none",
+            "px-4 py-2 h-9 text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-2 border-none cursor-pointer",
             !isDemo
-              ? "bg-purple-600/35 text-purple-200 border border-purple-500/30 shadow-md shadow-purple-500/10 font-black"
-              : "text-slate-400 hover:text-white hover:bg-white/5"
+              ? "bg-purple-600/25 text-purple-200 border border-purple-500/40 shadow-sm font-black"
+              : "text-white/40 hover:text-white hover:bg-white/5"
           )}
         >
           <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
@@ -136,137 +137,159 @@ export default function PortfolioStatsHeader({
             variant="ghost"
             onClick={handleResetDemo}
             title="Réinitialiser le solde à 10 000 $, effacer les bots & positions démo."
-            className="px-3 py-2 h-auto text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 ml-2"
+            className="px-3 py-2 h-9 text-[11px] font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-1.5 bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 ml-1 cursor-pointer"
           >
             <RotateCcw className="h-3.5 w-3.5 text-rose-400" />
-            Réinitialiser Démo
+            Réinitialiser
           </Button>
         )}
       </div>
 
-      {/* Portfolio Stats Panel */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4 flex-1 justify-end">
+      {/* Portfolio Metrics Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 flex-1 justify-end">
         {isDemo ? (
           <>
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
+            {/* Card 1: Solde Démo */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+              <div className="text-[10px] uppercase font-bold text-amber-400/90 font-headline tracking-wide flex items-center gap-1">
+                <Wallet className="h-3 w-3 text-amber-400" />
                 Solde Démo
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-amber-400 font-body">
+              <div className="text-base sm:text-lg font-black text-amber-300 font-headline tracking-tight">
                 {balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
               </div>
+              <div className="text-[10px] text-white/40 font-mono font-medium">
+                ≈ {formatUsdToHtg(balance)}
+              </div>
             </div>
 
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-[#c2ff0c] font-headline flex items-center gap-1 tracking-wide">
-                🔒 Coffre-Fort (10%)
+            {/* Card 2: Coffre-Fort (Vault) */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+              <div className="text-[10px] uppercase font-bold text-[#c2ff0c] font-headline flex items-center gap-1 tracking-wide">
+                <Lock className="h-3 w-3 text-[#c2ff0c]" />
+                Coffre-Fort (10%)
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-[#c2ff0c] font-body">
+              <div className="text-base sm:text-lg font-black text-[#c2ff0c] font-headline tracking-tight">
                 ${(Number(reserveVault) || 0).toFixed(2)}
               </div>
+              <div className="text-[10px] text-white/40 font-mono font-medium">
+                ≈ {formatUsdToHtg(Number(reserveVault) || 0)}
+              </div>
             </div>
 
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
+            {/* Card 3: Equity */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+              <div className="text-[10px] uppercase font-bold text-white/60 font-headline tracking-wide flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3 text-purple-400" />
                 Equity
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-white font-body">
+              <div className="text-base sm:text-lg font-black text-white font-headline tracking-tight">
                 {equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
+              </div>
+              <div className="text-[10px] text-white/40 font-mono font-medium">
+                ≈ {formatUsdToHtg(equity)}
               </div>
             </div>
 
-            <div className="p-3 bg-[#140f1d] border border-white/10 rounded-xl space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
-                Trades
+            {/* Card 4: Trades Actifs */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all col-span-2 sm:col-span-1">
+              <div className="text-[10px] uppercase font-bold text-cyan-400 font-headline tracking-wide flex items-center gap-1">
+                <Activity className="h-3 w-3 text-cyan-400" />
+                Positions
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-cyan-400 font-body">
-                {demoPositionsCount}
+              <div className="text-base sm:text-lg font-black text-cyan-300 font-headline tracking-tight">
+                {demoPositionsCount} actives
+              </div>
+              <div className="text-[10px] text-white/40 font-body">
+                Mode simulation
               </div>
             </div>
           </>
         ) : (
           <>
-            {/* Real Wallet Balance */}
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
+            {/* Card 1: Solde Réel */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+              <div className="text-[10px] uppercase font-bold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
                 <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse inline-block" />
                 Solde Réel
                 {walletChain && (
-                  <span className="ml-1 text-[9px] text-purple-400/70 font-mono font-bold bg-purple-400/10 px-1 rounded">
+                  <span className="ml-0.5 text-[8px] text-purple-300 font-mono font-bold bg-purple-500/20 px-1 rounded">
                     {walletChain}
                   </span>
                 )}
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-purple-200 font-body flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span>{realBalanceDisplay}</span>
+              <div className="text-base sm:text-lg font-black text-purple-200 font-headline tracking-tight">
+                {realBalanceDisplay}
+              </div>
+              {!isEvmWallet && solanaBalance !== null && (
+                <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                  {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
                 </div>
-                {/* USD estimate for EVM wallets */}
-                {isEvmWallet && approxUsd && (
-                  <span className="text-[10px] text-emerald-400 font-mono font-bold">
-                    ≈ ${Number(approxUsd).toLocaleString('fr-FR')} USD
-                  </span>
-                )}
-                {/* SOL USD+HTG conversion */}
-                {!isEvmWallet && solanaBalance !== null && (
-                  <span className="text-[10px] text-emerald-400 font-mono font-bold">
-                    {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
-                  </span>
-                )}
-                {/* No wallet connected yet */}
-                {realBalance === null && (
-                  <span className="text-[10px] text-amber-400 font-mono">
-                    Connectez un wallet ↗
-                  </span>
-                )}
+              )}
+              {isEvmWallet && approxUsd && (
+                <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                  ≈ ${Number(approxUsd).toLocaleString('fr-FR')} USD
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: Coffre-Fort SOL Réel */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+              <div className="text-[10px] uppercase font-bold text-amber-400 font-headline flex items-center gap-1 tracking-wide">
+                <Lock className="h-3 w-3 text-amber-400" />
+                Coffre-Fort (10%)
+              </div>
+              <div className="text-base sm:text-lg font-black text-amber-300 font-headline tracking-tight">
+                {realVaultVal.toFixed(4)} SOL
+              </div>
+              <div className="text-[10px] text-amber-200/80 font-mono font-bold">
+                {formatSolToUsdAndHtg(realVaultVal).combinedLabel}
               </div>
             </div>
 
-            {/* Real Equity */}
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
+            {/* Card 3: Equity Réelle */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+              <div className="text-[10px] uppercase font-bold text-white/60 font-headline tracking-wide flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3 text-emerald-400" />
                 Equity Réelle
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-white font-body">
-                {realBalance !== null ? `${realEquity.toFixed(4)} ${realCurrency}` : `0.0000 ${realCurrency}`}
+              <div className="text-base sm:text-lg font-black text-white font-headline tracking-tight">
+                {realEquity.toFixed(4)} {realCurrency}
               </div>
-              {!isEvmWallet && realBalance !== null && (
-                <span className="text-[10px] text-emerald-400 font-mono font-bold block">
+              {!isEvmWallet && (
+                <div className="text-[10px] text-emerald-400 font-mono font-bold">
                   {formatSolToUsdAndHtg(realEquity).combinedLabel}
-                </span>
-              )}
-              {isEvmWallet && realBalance !== null && (
-                <span className="text-[10px] text-emerald-400 font-mono font-bold block">
-                  ≈ ${(realEquity * (walletChain === 'Ethereum' ? 3000 : 300)).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USD
-                </span>
+                </div>
               )}
             </div>
 
-            {/* Real Allocations */}
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-slate-300 font-headline tracking-wide">
-                Allocations ({realPositions.length + realBots.length} Actifs)
+            {/* Card 4: Allocations */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+              <div className="text-[10px] uppercase font-bold text-violet-300 font-headline tracking-wide flex items-center gap-1">
+                <Zap className="h-3 w-3 text-violet-400" />
+                Allocations
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-violet-300 font-body">
+              <div className="text-base sm:text-lg font-black text-violet-200 font-headline tracking-tight">
                 {realAllocatedSol.toFixed(3)} {realCurrency}
               </div>
               {!isEvmWallet && (
-                <span className="text-[10px] text-slate-300 font-mono block">
+                <div className="text-[10px] text-white/40 font-mono">
                   {formatSolToUsdAndHtg(realAllocatedSol).combinedLabel}
-                </span>
+                </div>
               )}
             </div>
 
-            {/* Latency RPC */}
-            <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center space-y-0.5">
-              <div className="text-[10px] uppercase font-extrabold text-cyan-400 font-headline flex items-center gap-1 tracking-wide">
+            {/* Card 5: RPC Latency */}
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all col-span-2 sm:col-span-1">
+              <div className="text-[10px] uppercase font-bold text-cyan-400 font-headline tracking-wide flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse inline-block" />
                 Latency RPC
               </div>
-              <div className="text-lg sm:text-xl font-extrabold text-cyan-300 font-body flex items-center gap-1.5">
-                <span>
-                  {rpcLatency !== null ? `${rpcLatency} ms` : 'Connecté'}
-                </span>
+              <div className="text-base sm:text-lg font-black text-cyan-300 font-headline tracking-tight">
+                {rpcLatency !== null ? `${rpcLatency} ms` : 'Connecté'}
+              </div>
+              <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                Mainnet Solana
               </div>
             </div>
           </>

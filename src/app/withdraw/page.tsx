@@ -151,21 +151,23 @@ export default function WithdrawPage() {
           <p className="text-sm text-white/40 mt-1 font-body">Débitez vos fonds virtuels ou retirez vos gains Solana vers votre hot wallet.</p>
         </div>
 
-        <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-xl gap-1 shrink-0">
+        <div className="flex items-center bg-black/40 border border-white/10 p-1.5 rounded-xl gap-1 shrink-0">
           <Button
             variant="ghost"
             onClick={() => setTradingMode('DEMO')}
-            className={cn("h-auto px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg font-headline border-none",
-              tradingMode === 'DEMO' ? "bg-amber-500/25 text-amber-300" : "text-white/40")}
+            className={cn("px-4 py-2 h-9 text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-2 border-none cursor-pointer",
+              tradingMode === 'DEMO' ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-black" : "text-white/40 hover:text-white hover:bg-white/5")}
           >
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
             Mode Démo
           </Button>
           <Button
             variant="ghost"
             onClick={() => setTradingMode('REAL')}
-            className={cn("h-auto px-3.5 py-1.5 text-[10px] font-bold uppercase rounded-lg font-headline border-none",
-              tradingMode === 'REAL' ? "bg-purple-600/25 text-purple-300" : "text-white/40")}
+            className={cn("px-4 py-2 h-9 text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-2 border-none cursor-pointer",
+              tradingMode === 'REAL' ? "bg-purple-600/25 text-purple-200 border border-purple-500/40 shadow-sm font-black" : "text-white/40 hover:text-white hover:bg-white/5")}
           >
+            <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
             Mode Réel (Solana)
           </Button>
         </div>

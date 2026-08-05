@@ -96,10 +96,16 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
       }
 
       setIsQuoting(true);
-      const q = await fetchSwapQuote(fromToken, toToken, numAmount, slippage);
-      if (!isCancelled) {
-        setQuote(q);
-        setIsQuoting(false);
+      try {
+        const q = await fetchSwapQuote(fromToken, toToken, numAmount, slippage);
+        if (!isCancelled) {
+          setQuote(q);
+          setIsQuoting(false);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setIsQuoting(false);
+        }
       }
     };
 

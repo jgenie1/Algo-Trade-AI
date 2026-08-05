@@ -69,10 +69,10 @@ export default function PWAInstallBanner() {
     <>
       <Button
         onClick={handleInstallClick}
-        className="h-10 px-3 bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 border border-[#c2ff0c]/40 text-[#c2ff0c] font-headline font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
+        className="h-10 px-3 bg-white/5 hover:bg-[#c2ff0c]/15 border border-[#c2ff0c]/30 text-[#c2ff0c] font-headline font-bold text-xs rounded-xl flex items-center gap-2 shadow-sm transition-all shrink-0"
       >
         <Download className="h-4 w-4 text-[#c2ff0c]" />
-        <span className="hidden md:inline uppercase">Installer PWA App</span>
+        <span className="hidden lg:inline uppercase font-headline tracking-wide">PWA App</span>
       </Button>
 
       {/* Guide d'installation iOS Safari / Desktop */}

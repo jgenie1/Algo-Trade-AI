@@ -92,10 +92,10 @@ export default function PanicKillSwitch() {
     <>
       <Button
         onClick={() => setIsOpen(true)}
-        className="h-10 px-3.5 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 font-headline font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(244,63,94,0.4)]"
+        className="h-10 px-3 bg-gradient-to-r from-rose-950/60 to-red-950/60 hover:from-rose-900/80 hover:to-red-900/80 border border-rose-500/40 text-rose-300 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(244,63,94,0.35)] shrink-0"
       >
         <AlertOctagon className="h-4 w-4 text-rose-400 animate-pulse" />
-        <span className="hidden md:inline font-headline uppercase">Arrêt d'Urgence (Panic)</span>
+        <span className="hidden md:inline font-headline uppercase tracking-wide">Arrêt d'Urgence</span>
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
