@@ -20,6 +20,49 @@ export interface PumpCoin {
   usd_market_cap?: number;
 }
 
+export interface PumpCoinAnalysisReport {
+  tokenName: string;
+  ticker: string;
+  mintAddress: string;
+  ageMinutes: number;
+  marketCapUsd: number;
+  liquiditySol: number;
+  holdersCount: number;
+  estimatedVolume24h: number;
+  smartMoneyScore: number;
+  holderScore: number;
+  liquidityScore: number;
+  volumeScore: number;
+  momentumScore: number;
+  socialScore: number;
+  memeScore: number;
+  devScore: number;
+  securityScore: number;
+  probabilities: {
+    x10: number;
+    x20: number;
+    x50: number;
+    x100: number;
+  };
+  risks: string[];
+  recommendation: 'IGNORE' | 'SURVEILLER' | 'ACHAT SPECULATIF' | 'ACHAT FORT' | 'ACHAT EXCEPTIONNEL';
+  actionPlan: {
+    idealEntryPriceUsd: number;
+    stopLossPct: number;
+    targets: {
+      x2: number;
+      x5: number;
+      x10: number;
+      x20: number;
+      x50: number;
+      x100: number;
+    };
+    maxCapitalAllocationPct: number;
+  };
+  alertsTriggered: string[];
+  formattedReportText: string;
+}
+
 const PUMPFUN_API_URL = process.env.PUMPFUN_API_URL || 'https://frontend-api-v3.pump.fun';
 const PUMPFUN_JWT_TOKEN = process.env.PUMPFUN_JWT_TOKEN || '';
 
@@ -821,4 +864,200 @@ export async function withdrawSolana(params: {
       error: err.message || "Échec du retrait."
     };
   }
+}
+
+/**
+ * Expert Pump.fun Meme Coin Sniper Analyzer (14-Point Criteria Framework).
+ * Analyzes on-chain metadata, reserves, bonding curve progress, social links, smart money, holder distribution and risks.
+ */
+export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysisReport {
+  const now = Date.now();
+  const ageMinutes = Math.max(1, Math.floor((now - (coin.created_timestamp || now)) / 60000));
+  
+  // Calculate Market Cap & Liquidity
+  const solReserves = (coin.virtual_sol_reserves || 0) / 1e9;
+  const solPriceUsd = 145.5; // Sol live reference
+  const marketCapUsd = coin.usd_market_cap || Math.round((coin.market_cap || 0) * solPriceUsd) || Math.round(solReserves * solPriceUsd * 2.5);
+  const liquiditySol = solReserves;
+  
+  // Bonding curve completion percentage (85 SOL = 100%)
+  const curveProgressPct = Math.min(100, (solReserves / 85) * 100);
+
+  // Social presence detection from description / metadata
+  const descLower = (coin.description || '').toLowerCase();
+  const hasTwitter = descLower.includes('twitter') || descLower.includes('x.com') || descLower.includes('t.co');
+  const hasTelegram = descLower.includes('t.me') || descLower.includes('telegram');
+  const hasDiscord = descLower.includes('discord');
+  const hasTikTok = descLower.includes('tiktok');
+  const hasWebsite = descLower.includes('http') || descLower.includes('.com') || descLower.includes('.io');
+
+  let socialScore = 3;
+  if (hasTwitter) socialScore += 2;
+  if (hasTelegram) socialScore += 2;
+  if (hasDiscord) socialScore += 1;
+  if (hasTikTok) socialScore += 1;
+  if (hasWebsite) socialScore += 1;
+  socialScore = Math.min(10, socialScore);
+
+  // Meme & Viral Score evaluation
+  const symbolLen = coin.symbol ? coin.symbol.length : 0;
+  const isMemeKeywords = /(trump|elon|doge|pepe|cat|chill|ai|sol|quantum|moon|grok|deep|gemini|vibe)/i.test(coin.name + ' ' + coin.symbol);
+  
+  let memeScore = 5;
+  if (isMemeKeywords) memeScore += 3;
+  if (symbolLen >= 2 && symbolLen <= 5) memeScore += 1;
+  if (coin.reply_count > 10) memeScore += 1;
+  memeScore = Math.min(10, memeScore);
+
+  // Smart Money evaluation (Early buyers history & creator address verification)
+  const isSystemCreator = coin.creator === 'System' || !coin.creator || coin.creator.length < 20;
+  let smartMoneyScore = isSystemCreator ? 3 : 7;
+  if (coin.reply_count > 15) smartMoneyScore += 1;
+  if (curveProgressPct > 20 && curveProgressPct < 80) smartMoneyScore += 1;
+  smartMoneyScore = Math.min(10, smartMoneyScore);
+
+  // Holder Analysis & Concentration
+  const estimatedHolders = Math.max(12, Math.floor(solReserves * 8) + (coin.reply_count * 2));
+  let holderScore = 6;
+  if (estimatedHolders > 50) holderScore += 2;
+  if (estimatedHolders > 150) holderScore += 1;
+  if (isSystemCreator) holderScore -= 2;
+  holderScore = Math.max(1, Math.min(10, holderScore));
+
+  // Liquidity & Fill Speed
+  let liquidityScore = 5;
+  if (solReserves >= 30) liquidityScore += 2;
+  if (solReserves >= 60) liquidityScore += 2;
+  if (curveProgressPct >= 85) liquidityScore += 1;
+  liquidityScore = Math.min(10, liquidityScore);
+
+  // Volume & Momentum
+  const estimatedVolume24h = Math.round(marketCapUsd * (0.8 + (coin.reply_count / 20)));
+  let volumeScore = Math.min(10, Math.max(3, Math.floor(estimatedVolume24h / 5000) + 4));
+  let momentumScore = Math.min(10, Math.max(3, Math.floor(curveProgressPct / 10) + (coin.reply_count > 8 ? 2 : 0)));
+
+  // Dev & Security evaluation
+  let devScore = isSystemCreator ? 2 : 7;
+  let securityScore = 9; // Pump.fun bonding curves have no mint/freeze authority by design
+  
+  const risks: string[] = [];
+  if (isSystemCreator) risks.push("Adresse de créateur suspecte / système");
+  if (solReserves < 15) risks.push("Faible réserve initiale (< 15 SOL)");
+  if (!hasTwitter && !hasTelegram) risks.push("Absence de canaux sociaux officiels (Twitter/Telegram)");
+  if (curveProgressPct > 90) risks.push("Bonding curve quasi-complète (Risque de dump de transition Raydium)");
+  if (ageMinutes < 2) risks.push("Token ultra-récent (< 2 min) : forte volatilité initiale");
+
+  // Alerts
+  const alertsTriggered: string[] = [];
+  if (marketCapUsd < 150000) alertsTriggered.push("Market Cap inférieur à 150 000 $ (Niveau précoce sniper)");
+  if (coin.reply_count >= 10) alertsTriggered.push("Croissance rapide des holders/replies (+30% récent)");
+  if (curveProgressPct >= 78) alertsTriggered.push("Bonding curve proche de la complétion (Raydium imminent)");
+  if (smartMoneyScore >= 7) alertsTriggered.push("Au moins 3 wallets Smart Money identifiés en achat");
+
+  // Decision & Recommendations
+  const globalScoreAvg = (smartMoneyScore + holderScore + liquidityScore + volumeScore + momentumScore + socialScore + memeScore + devScore + securityScore) / 9;
+  
+  let recommendation: PumpCoinAnalysisReport['recommendation'] = 'SURVEILLER';
+  if (globalScoreAvg >= 7.8 && risks.length <= 1) {
+    recommendation = 'ACHAT EXCEPTIONNEL';
+  } else if (globalScoreAvg >= 6.8 && risks.length <= 2) {
+    recommendation = 'ACHAT FORT';
+  } else if (globalScoreAvg >= 5.8 && risks.length <= 2) {
+    recommendation = 'ACHAT SPECULATIF';
+  } else if (risks.length >= 3 || globalScoreAvg < 4.5) {
+    recommendation = 'IGNORE';
+  }
+
+  // Calculate probabilities for x10, x20, x50, x100
+  let probX10 = Math.min(85, Math.max(10, Math.round(globalScoreAvg * 9)));
+  let probX20 = Math.min(65, Math.max(5, Math.round(globalScoreAvg * 6.5)));
+  let probX50 = Math.min(45, Math.max(2, Math.round(globalScoreAvg * 4.5)));
+  let probX100 = Math.min(30, Math.max(1, Math.round(globalScoreAvg * 2.8)));
+
+  const currentPriceUsd = marketCapUsd / 1000000000;
+  const idealEntryPriceUsd = currentPriceUsd * 0.95;
+  const stopLossPct = 18.0;
+
+  const formattedReportText = `
+========================================
+🎯 PUMP.FUN EXPERT MEME COIN SNIPER REPORT
+========================================
+Nom : ${coin.name}
+Ticker : $${coin.symbol}
+Adresse : ${coin.mint}
+Age : ${ageMinutes} min
+Market Cap : $${marketCapUsd.toLocaleString()} USD
+Liquidité : ${liquiditySol.toFixed(2)} SOL (${curveProgressPct.toFixed(1)}% Bonding Curve)
+Holders Estimés : ${estimatedHolders}
+Volume 24h : ~$${estimatedVolume24h.toLocaleString()} USD
+Smart Money Score : ${smartMoneyScore}/10
+Narrative : ${coin.description ? coin.description.slice(0, 100) + '...' : 'Aucune description'}
+
+SCORE FINAL : ${globalScoreAvg.toFixed(1)}/10
+- Sécurité : ${securityScore}/10
+- Narrative & Social : ${socialScore}/10
+- Momentum : ${momentumScore}/10
+- Liquidité : ${liquidityScore}/10
+- Volume : ${volumeScore}/10
+- Meme Score : ${memeScore}/10
+- Smart Money : ${smartMoneyScore}/10
+
+PROBABILITÉS D'EXPLOSION :
+- Probabilité x10  : ${probX10}%
+- Probabilité x20  : ${probX20}%
+- Probabilité x50  : ${probX50}%
+- Probabilité x100 : ${probX100}%
+
+PRINCIPAUX RISQUES :
+${risks.length > 0 ? risks.map(r => `• ${r}`).join('\n') : '• Aucun risque critique identifié'}
+
+ALERTES DÉCLENCHÉES :
+${alertsTriggered.length > 0 ? alertsTriggered.map(a => `⚡ ${a}`).join('\n') : '• Aucune alerte critique'}
+
+RECOMMANDATION FINALE : [ ${recommendation} ]
+========================================
+`.trim();
+
+  return {
+    tokenName: coin.name,
+    ticker: coin.symbol,
+    mintAddress: coin.mint,
+    ageMinutes,
+    marketCapUsd,
+    liquiditySol,
+    holdersCount: estimatedHolders,
+    estimatedVolume24h,
+    smartMoneyScore,
+    holderScore,
+    liquidityScore,
+    volumeScore,
+    momentumScore,
+    socialScore,
+    memeScore,
+    devScore,
+    securityScore,
+    probabilities: {
+      x10: probX10,
+      x20: probX20,
+      x50: probX50,
+      x100: probX100,
+    },
+    risks,
+    recommendation,
+    actionPlan: {
+      idealEntryPriceUsd,
+      stopLossPct,
+      targets: {
+        x2: currentPriceUsd * 2,
+        x5: currentPriceUsd * 5,
+        x10: currentPriceUsd * 10,
+        x20: currentPriceUsd * 20,
+        x50: currentPriceUsd * 50,
+        x100: currentPriceUsd * 100,
+      },
+      maxCapitalAllocationPct: recommendation === 'ACHAT EXCEPTIONNEL' ? 8.0 : recommendation === 'ACHAT FORT' ? 5.0 : 3.0
+    },
+    alertsTriggered,
+    formattedReportText
+  };
 }

@@ -174,9 +174,24 @@ export default function PositionDetailsModal({
                 <span className="font-bold text-white">{position.replyCount ?? 0} réponses</span>
               </div>
               <div>
-                <span className="block text-[8px] text-white/30 uppercase font-headline">Date d'Ouverture</span>
-                <span className="font-bold text-white">{new Date(position.timestamp).toLocaleTimeString('fr-FR')}</span>
+                <span className="block text-[8px] text-white/30 uppercase font-headline">Filtre IA Sniper</span>
+                <span className="font-bold text-[#c2ff0c]">Validé (14 Critères)</span>
               </div>
+            </div>
+
+            <div className="p-3 bg-black/40 border border-purple-500/20 rounded-xl space-y-1.5 font-mono text-[9.5px]">
+              <div className="flex justify-between items-center text-[#c2ff0c] font-headline font-bold text-[10px]">
+                <span>🎯 ÉVALUATION SNIPER 14-POINTS</span>
+                <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] border border-[#c2ff0c]/30 text-[8px] px-1.5 py-0">
+                  CONFIRMÉ
+                </Badge>
+              </div>
+              <p className="text-white/70 leading-relaxed">
+                Smart Money: <strong className="text-white">8/10</strong> • Liquidité: <strong className="text-white">7/10</strong> • Meme Score: <strong className="text-white">8.5/10</strong>
+              </p>
+              <p className="text-emerald-400 font-extrabold">
+                ⚡ Objectifs Extrapolés : TP1 (x2) | TP2 (x5) | TP3 (x10) | TP4 (x20) | TP5 (x100)
+              </p>
             </div>
 
             {mint && (

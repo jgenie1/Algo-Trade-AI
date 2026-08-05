@@ -13,7 +13,8 @@ import {
   getRealSolanaBalance, 
   checkSolanaNetworkHealth, 
   getMultipleSolanaBalances, 
-  disperseSolToSubWallets 
+  disperseSolToSubWallets,
+  analyzePumpCoinWithSniperPrompt 
 } from '@/services/pumpFunService';
 
 export const currencyPairs = [
@@ -767,6 +768,10 @@ export function useTradingSimulation() {
               && !!matchingCoin.creator
               && matchingCoin.creator.length >= 32;
 
+            // ─── Evaluation Sniper 14-Points Pump.fun ───
+            const analysis = analyzePumpCoinWithSniperPrompt(matchingCoin);
+            const isApprovedForBuy = ['ACHAT SPECULATIF', 'ACHAT FORT', 'ACHAT EXCEPTIONNEL'].includes(analysis.recommendation);
+
             let trigger = false;
             let details = '';
 
@@ -774,36 +779,19 @@ export function useTradingSimulation() {
               addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Alerte Scam/Spam (nom/description suspect).`, 'info');
             } else if (!isCreatorSafe) {
               addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Créateur invalide (adresse système).`, 'info');
+            } else if (!isApprovedForBuy) {
+              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Jeton $${matchingCoin.symbol} ÉCARTÉ par l'Analyse Sniper [ ${analysis.recommendation} ] (Risques: ${analysis.risks.join(' | ') || 'aucun'}).`, 'info');
             } else {
-              if (mode === 'PRECOCE') {
-                // Relaxed: accept up to 25% curve (was 12%) — live API coins are rarely < 12%
-                if (curveProgress < 25) {
-                  trigger = true;
-                  details = `[Ultra-Précoce] Curve: ${curveProgress.toFixed(1)}%.`;
-                } else {
-                  addBotLogRef.current(bot.id, "Pump.fun Sniper", `$${matchingCoin.symbol} écarté: Curve ${curveProgress.toFixed(1)}% > 25% (mode Précoce).`, 'info');
-                }
-              } else if (mode === 'MOMENTUM') {
-                const momentumScore = (replies * 6) + (hasSocials ? 30 : 0);
-                if (momentumScore > 75) {
-                  trigger = true;
-                  details = `[Momentum] Réponses: ${replies}.`;
-                } else {
-                  addBotLogRef.current(bot.id, "Pump.fun Sniper", `Jeton $${matchingCoin.symbol} écarté (Score ${momentumScore.toFixed(0)} < 75). Réponses: ${replies}, Socials: ${hasSocials ? 'oui' : 'non'}.`, 'info');
-                }
-              } else if (mode === 'RAYDIUM') {
-                if (curveProgress >= 78) {
-                  trigger = true;
-                  details = `[Raydium completion] Curve: ${curveProgress.toFixed(1)}%.`;
-                } else {
-                  addBotLogRef.current(bot.id, "Pump.fun Sniper", `$${matchingCoin.symbol} écarté: Curve ${curveProgress.toFixed(1)}% < 78% (mode Raydium).`, 'info');
-                }
-              }
+              trigger = true;
+              details = `[Expert 14-Points] Recommandation: ${analysis.recommendation} (Prob x10: ${analysis.probabilities.x10}%, x20: ${analysis.probabilities.x20}%, x100: ${analysis.probabilities.x100}%).`;
             }
 
             if (trigger) {
               const signal = 'BUY';
               const reason = `[Sniper Mode: ${mode}] Jeton $${matchingCoin.symbol} - ${details}`;
+
+              // Log du rapport d'analyse expert 14-Points
+              addBotLogRef.current(bot.id, "Pump.fun Sniper", `🎯 RAPPORT D'ANALYSE EXPERT 14-POINTS pour $${matchingCoin.symbol} :\nScore: ${analysis.recommendation} | Smart Money: ${analysis.smartMoneyScore}/10 | Liquidité: ${analysis.liquidityScore}/10 | Meme Score: ${analysis.memeScore}/10`, 'trade');
 
               // Check AI Learning blockage
               let learningBlocked = false;

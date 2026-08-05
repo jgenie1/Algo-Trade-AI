@@ -53,12 +53,17 @@ export default function AIAnalysisConsoleCard({
   return (
     <Card className="glass-panel border-white/5 shadow-xl flex flex-col justify-between overflow-hidden">
       <CardHeader className="pb-3">
-        <CardTitle className="font-headline text-lg text-white flex items-center gap-2">
-          <BrainCircuit className="h-5 w-5 text-[#c2ff0c]" />
-          <span>Console Analyse IA</span>
+        <CardTitle className="font-headline text-lg text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BrainCircuit className="h-5 w-5 text-[#c2ff0c]" />
+            <span>Console Analyse IA</span>
+          </div>
+          <span className="text-[9px] font-mono font-extrabold px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30">
+            🎯 Sniper Pump.fun (14 Critères)
+          </span>
         </CardTitle>
         <CardDescription className="text-white/40 text-xs font-body">
-          Configurez la paire et le timeframe puis lancez l'analyse visuelle.
+          Configurez la paire et le timeframe puis lancez l'analyse visuelle & algorithmique.
         </CardDescription>
       </CardHeader>
 
