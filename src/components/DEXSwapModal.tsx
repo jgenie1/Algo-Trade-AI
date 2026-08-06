@@ -22,17 +22,34 @@ import {
 } from 'lucide-react';
 import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap } from '@/services/dexSwapService';
 import { useAppState } from '@/context/AppContext';
-import { formatUsdToHtg } from '@/lib/utils';
+import { cn, formatUsdToHtg } from '@/lib/utils';
 
 interface DEXSwapModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialFromToken?: SwapToken;
   initialToToken?: SwapToken;
+  solanaBalance?: number | null;
 }
 
-export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initialToToken }: DEXSwapModalProps) {
+export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initialToToken, solanaBalance: propSolanaBalance }: DEXSwapModalProps) {
   const { balance, setBalance, tradingMode } = useAppState();
+  
+  const [solanaBalanceState, setSolanaBalanceState] = useState<number | null>(propSolanaBalance ?? null);
+
+  useEffect(() => {
+    if (propSolanaBalance !== undefined && propSolanaBalance !== null) {
+      setSolanaBalanceState(propSolanaBalance);
+    } else if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('trade_claimed_sol_balance');
+      if (stored) {
+        const parsed = parseFloat(stored);
+        if (!isNaN(parsed)) setSolanaBalanceState(parsed);
+      }
+    }
+  }, [propSolanaBalance, isOpen]);
+
+  const solanaBalance = solanaBalanceState;
   
   const [activeChain, setActiveChain] = useState<'SOL' | 'EVM'>('SOL');
   
@@ -42,7 +59,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
 
   const [fromToken, setFromToken] = useState<SwapToken>(initialFromToken || availableTokens[0] || POPULAR_TOKENS[0]);
   const [toToken, setToToken] = useState<SwapToken>(initialToToken || availableTokens[1] || POPULAR_TOKENS[1]);
-  const [amount, setAmount] = useState<string>('1.0');
+  const [amount, setAmount] = useState<string>('0.5');
   const [slippage, setSlippage] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('settings_slippage');
@@ -51,13 +68,22 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
         if (!isNaN(parsed) && parsed > 0) return parsed;
       }
     }
-    return 0.5;
+    return 15.0;
   });
 
   const [quote, setQuote] = useState<SwapQuote | null>(null);
   const [isQuoting, setIsQuoting] = useState<boolean>(false);
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
-  const [swapResult, setSwapResult] = useState<{ txHash: string; message: string } | null>(null);
+  const [swapResult, setSwapResult] = useState<{ success: boolean; txHash: string; message: string } | null>(null);
+
+  const availableBalanceNum = activeChain === 'SOL'
+    ? (solanaBalance !== null ? solanaBalance : (tradingMode === 'DEMO' ? balance / 145.5 : 0))
+    : (tradingMode === 'DEMO' ? balance : 0);
+
+  const handlePercentageSelect = (pct: number) => {
+    const calculated = (availableBalanceNum * (pct / 100)).toFixed(fromToken.decimals > 6 ? 4 : 2);
+    setAmount(calculated);
+  };
 
   // Synchroniser les tokens d'entrée si fournis lors de l'ouverture
   useEffect(() => {
@@ -136,26 +162,23 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     const res = await executeDEXSwap(fromToken, toToken, numAmount, quote, tradingMode === 'REAL');
 
     setIsSwapping(false);
-    if (res.success) {
-      setSwapResult({ txHash: res.txHash, message: res.message });
+    setSwapResult({ success: res.success, txHash: res.txHash, message: res.message });
 
-      // Mettre à jour le solde virtuel en mode Démo
-      if (tradingMode === 'DEMO') {
-        const outQty = parseFloat(quote.outAmount) || 0;
-        
-        let fromValueUsd = numAmount * getTokenUsdPrice(fromToken);
-        let toValueUsd = outQty * getTokenUsdPrice(toToken);
+    if (res.success && tradingMode === 'DEMO') {
+      const outQty = parseFloat(quote.outAmount) || 0;
+      
+      let fromValueUsd = numAmount * getTokenUsdPrice(fromToken);
+      let toValueUsd = outQty * getTokenUsdPrice(toToken);
 
-        if (toToken.symbol === 'USDC' || toToken.symbol === 'USDT') {
-          toValueUsd = outQty;
-        }
-        if (fromToken.symbol === 'USDC' || fromToken.symbol === 'USDT') {
-          fromValueUsd = numAmount;
-        }
-
-        const netDiffUsd = toValueUsd - fromValueUsd;
-        setBalance(prev => Math.max(0, prev + netDiffUsd));
+      if (toToken.symbol === 'USDC' || toToken.symbol === 'USDT') {
+        toValueUsd = outQty;
       }
+      if (fromToken.symbol === 'USDC' || fromToken.symbol === 'USDT') {
+        fromValueUsd = numAmount;
+      }
+
+      const netDiffUsd = toValueUsd - fromValueUsd;
+      setBalance(prev => Math.max(0, prev + netDiffUsd));
     }
   };
 
@@ -179,16 +202,25 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
 
         {swapResult ? (
           <div className="py-6 space-y-4 text-center font-body">
-            <div className="h-14 w-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30">
-              <CheckCircle2 className="h-8 w-8" />
+            <div className={cn(
+              "h-14 w-14 rounded-full flex items-center justify-center mx-auto border",
+              swapResult.success 
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" 
+                : "bg-rose-500/20 text-rose-400 border-rose-500/30"
+            )}>
+              {swapResult.success ? <CheckCircle2 className="h-8 w-8" /> : <RefreshCw className="h-8 w-8 text-rose-400" />}
             </div>
-            <h3 className="text-lg font-extrabold text-white font-headline">Transaction Confirmée !</h3>
+            <h3 className="text-lg font-extrabold text-white font-headline">
+              {swapResult.success ? "Transaction Confirmée !" : "Échec du Swap"}
+            </h3>
             <p className="text-xs text-white/70">{swapResult.message}</p>
 
-            <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-left font-mono text-[11px] space-y-1">
-              <span className="text-white/40 block uppercase font-headline">Hash Transaction On-Chain :</span>
-              <span className="text-[#c2ff0c] break-all">{swapResult.txHash}</span>
-            </div>
+            {swapResult.txHash && (
+              <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-left font-mono text-[11px] space-y-1">
+                <span className="text-white/40 block uppercase font-headline">Hash Transaction On-Chain :</span>
+                <span className="text-[#c2ff0c] break-all">{swapResult.txHash}</span>
+              </div>
+            )}
 
             <Button
               onClick={() => setSwapResult(null)}
@@ -229,7 +261,11 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
             <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-2">
               <div className="flex justify-between text-xs text-white/50 font-headline font-bold">
                 <span>Payer avec</span>
-                <span>Solde : {tradingMode === 'DEMO' ? `$${balance.toLocaleString('en-US', {maximumFractionDigits: 2})}` : 'Portefeuille'}</span>
+                <span>
+                  Solde : {activeChain === 'SOL'
+                    ? `${solanaBalance !== null ? solanaBalance.toFixed(3) : (balance / 145.5).toFixed(2)} SOL`
+                    : `$${balance.toLocaleString('en-US', {maximumFractionDigits: 2})}`}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <Input
@@ -252,6 +288,20 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
                     <option key={t.symbol} value={t.symbol}>{t.symbol} ({t.chain})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Quick % Select Buttons */}
+              <div className="flex items-center gap-1.5 pt-1">
+                {[25, 50, 75, 100].map(pct => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => handlePercentageSelect(pct)}
+                    className="flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-mono font-bold text-white/70 hover:text-[#c2ff0c] transition-all"
+                  >
+                    {pct === 100 ? 'MAX' : `${pct}%`}
+                  </button>
+                ))}
               </div>
             </div>
 
