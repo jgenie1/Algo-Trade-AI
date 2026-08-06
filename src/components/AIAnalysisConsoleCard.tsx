@@ -58,9 +58,14 @@ export default function AIAnalysisConsoleCard({
             <BrainCircuit className="h-5 w-5 text-[#c2ff0c]" />
             <span>Console Analyse IA</span>
           </div>
-          <span className="text-[9px] font-mono font-extrabold px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30">
-            🎯 Sniper Pump.fun (14 Critères)
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-mono font-extrabold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              🔄 Auto-Apprentissage Actif
+            </span>
+            <span className="text-[9px] font-mono font-extrabold px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30">
+              🎯 Sniper 14 Critères
+            </span>
+          </div>
         </CardTitle>
         <CardDescription className="text-white/40 text-xs font-body">
           Configurez la paire et le timeframe puis lancez l'analyse visuelle & algorithmique.

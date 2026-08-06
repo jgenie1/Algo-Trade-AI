@@ -3,9 +3,10 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wand2, Sparkles, Bot, CheckCircle, ArrowRight } from 'lucide-react';
+import { Wand2, Sparkles, Bot, CheckCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
 import { currencyPairs, timeframes } from '@/hooks/useTradingSimulation';
+import { getLearningTelemetrySummary } from '@/services/aiClosedLoopLearningService';
 
 export default function AIStrategyGeneratorForm() {
   const { tradingMode, balance, setBalance, setBots, setBotLogs } = useAppState();
@@ -138,6 +139,27 @@ export default function AIStrategyGeneratorForm() {
       </CardHeader>
 
       <CardContent className="p-0 space-y-4">
+        {/* Closed-Loop Auto-Learning Status Banner */}
+        {(() => {
+          const summary = getLearningTelemetrySummary();
+          return (
+            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-1">
+              <div className="flex items-center justify-between text-[11px] font-headline font-bold">
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 animate-spin text-emerald-400" />
+                  Auto-Learning Télemetrie ({summary.winRatePct}% Win Rate)
+                </span>
+                <span className="text-white/40 font-mono font-normal">
+                  {summary.totalTradesRecorded} trades analysés
+                </span>
+              </div>
+              <p className="text-[10px] text-white/50 font-body">
+                {summary.recommendedPromptTuning}
+              </p>
+            </div>
+          );
+        })()}
+
         <form onSubmit={handleGenerate} className="space-y-3">
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-white/40 uppercase font-headline">Règles de Trading (Prompt)</label>

@@ -10,7 +10,8 @@
     "postbuild": "node -e \"if (require('fs').existsSync('.next/standalone')) { require('fs').mkdirSync('.next/standalone/.next', {recursive: true}); require('fs').cpSync('.next/static', '.next/standalone/.next/static', {recursive: true, force: true}); if (require('fs').existsSync('public')) require('fs').cpSync('public', '.next/standalone/public', {recursive: true, force: true}); require('fs').cpSync('.next/standalone', 'dist', {recursive: true, force: true}); require('fs').mkdirSync('dist/_next', {recursive: true}); require('fs').cpSync('.next/static', 'dist/_next/static', {recursive: true, force: true}); }\"",
     "start": "node server.js",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:integration": "npx tsx scripts/run-integration-tests.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",

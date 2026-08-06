@@ -17,6 +17,7 @@ import {
   disperseSolToSubWallets,
   analyzePumpCoinWithSniperPrompt 
 } from '@/services/pumpFunService';
+import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
 
 export const currencyPairs = [
   { value: 'ALL', label: '🌐 Toutes les Paires (Scan Multi-Actifs Continu)', ticker: 'ALL' },
@@ -1489,6 +1490,17 @@ export function useTradingSimulation() {
       if (closedPrev.some(x => x.id === closed.id)) return closedPrev;
       return [closed, ...closedPrev];
     });
+
+    try {
+      recordTradeTelemetry({
+        botId: p.botId,
+        strategyName: p.botId ? 'Bot Strategy' : 'Ordre Manuel',
+        symbol: p.pair,
+        type: profit >= 0 ? 'WIN' : (reason.includes('Stop Loss') ? 'STOP_LOSS_HIT' : 'LOSS'),
+        pnlUsd: profit,
+        pnlPercentage: entry > 0 ? ((exitPrice - entry) / entry) * 100 : 0
+      });
+    } catch (e) {}
 
     if (posMode === 'REAL' && refreshWalletRef.current) {
       setTimeout(() => refreshWalletRef.current(), 1000);
