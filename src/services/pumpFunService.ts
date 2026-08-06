@@ -401,7 +401,7 @@ export async function executeRealPumpTrade(params: {
   priorityFee: number;
   customPrivateKey?: string; // Optional private key (base64) for sub-wallets
   pool?: 'pump' | 'pump-amm' | 'raydium' | 'raydium-cpmm' | 'launchlab' | 'bonk' | 'auto'; // Swap pool routing
-}): Promise<{ success: boolean; txHash?: string; error?: string }> {
+}): Promise<{ success: boolean; txHash?: string; error?: string; walletUsed?: string }> {
   try {
     const { action, mint, amount, denominatedInSol, slippage, priorityFee, customPrivateKey, pool = 'auto' } = params;
 
@@ -411,16 +411,31 @@ export async function executeRealPumpTrade(params: {
       throw new Error(`Adresse de contrat (mint) invalide : "${mintTrimmed}". Vérifiez le CA du jeton Pump.fun.`);
     }
 
-    // Normalize amount: always send as string to avoid JSON type issues
-    const amountStr = typeof amount === 'string' ? amount : String(amount);
-
-    const solanaPrivateKey = customPrivateKey || process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
+    // Normalize amount: for SELL with denominatedInSol false, ensure "100%" or numeric string
+    let amountStr = typeof amount === 'string' ? amount : String(amount);
+    if (action === 'sell' && !denominatedInSol && (amountStr === '100' || amountStr === '100%')) {
+      amountStr = '100%';
+    }
 
     const { Keypair, VersionedTransaction } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
     const connection = await getWorkingConnection();
 
-    // 1. Programmatic local keypair signing
+    // Browser wallet provider detection (Phantom / Solflare / Backpack)
+    const winSolana = typeof window !== 'undefined' ? ((window as any).solana || (window as any).phantom?.solana) : null;
+    const isPhantomConnectedInUI = typeof window !== 'undefined' && !!localStorage.getItem('connected_web3_wallet');
+
+    // Priority Order:
+    // 1. Explicit Sub-Wallet key (customPrivateKey)
+    // 2. Connected Phantom Browser Wallet (if connected in UI and active in browser)
+    // 3. Saved Private Key (settings_solana_private_key / process.env)
+
+    let solanaPrivateKey = customPrivateKey || '';
+    if (!solanaPrivateKey && !isPhantomConnectedInUI) {
+      solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
+    }
+
+    // A. Programmatic local keypair signing (Sub-wallets or saved settings key without Phantom)
     if (solanaPrivateKey) {
       let signer: any;
       try {
@@ -442,6 +457,8 @@ export async function executeRealPumpTrade(params: {
       }
       const publicKeyStr = signer.publicKey.toBase58();
 
+      console.log(`[AUDIT TRANSACTION SOLANA] Action: ${action.toUpperCase()} | Mint: ${mintTrimmed} | Signeur: ${publicKeyStr} (Clé Privée Local) | Montant: ${amountStr} | Pool: ${pool}`);
+
       const response = await fetch(`https://pumpportal.fun/api/trade-local`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -459,8 +476,127 @@ export async function executeRealPumpTrade(params: {
 
       if (response.status !== 200) {
         const errorText = await response.text();
-        console.error(`[PumpPortal API Error] Status ${response.status} | Mint: ${mintTrimmed} | Pool: ${pool} | Action: ${action} | Amount: ${amountStr} | Body: ${errorText}`);
-        throw new Error(`Erreur API Trade (${response.status}) : ${errorText || 'Bad Request - vérifiez le mint/pool'}`);
+        console.error(`[PumpPortal API Error] Status ${response.status} | Signer: ${publicKeyStr} | Mint: ${mintTrimmed} | Action: ${action} | Amount: ${amountStr} | Error: ${errorText}`);
+        throw new Error(`Erreur API Trade PumpPortal (${response.status}) : ${errorText || 'Bad Request - vérifiez le montant/pool'}`);
+      }
+
+      const transactionData = await response.arrayBuffer();
+      const tx = VersionedTransaction.deserialize(new Uint8Array(transactionData));
+      tx.sign([signer]);
+
+      const signature = await connection.sendTransaction(tx, {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+
+      // Confirm transaction on blockchain before completing
+      try {
+        const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+        await connection.confirmTransaction({
+          signature,
+          blockhash: latestBlockhash.blockhash,
+          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+        }, 'confirmed');
+        console.log(`[SOLANA CONFIRMED] Transaction ${signature} confirmée sur le réseau ! Signeur: ${publicKeyStr}`);
+      } catch (confErr) {
+        console.warn(`[SOLANA CONFIRMATION WARNING] Transaction ${signature} envoyée (attente de finalité RPC)...`);
+      }
+
+      return {
+        success: true,
+        txHash: signature,
+        walletUsed: publicKeyStr
+      };
+    }
+
+    // B. Connected Phantom Browser Wallet (Phantom / Solflare / Backpack)
+    if (winSolana && winSolana.publicKey) {
+      const publicKeyStr = winSolana.publicKey.toBase58();
+
+      console.log(`[AUDIT TRANSACTION SOLANA] Action: ${action.toUpperCase()} | Mint: ${mintTrimmed} | Signeur: ${publicKeyStr} (Extension Phantom) | Montant: ${amountStr} | Pool: ${pool}`);
+
+      const response = await fetch(`https://pumpportal.fun/api/trade-local`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: publicKeyStr,
+          action,
+          mint: mintTrimmed,
+          amount: amountStr,
+          denominatedInSol: denominatedInSol ? "true" : "false",
+          slippage,
+          priorityFee,
+          pool
+        })
+      });
+
+      if (response.status !== 200) {
+        const errorText = await response.text();
+        console.error(`[PumpPortal API Error] Status ${response.status} | Signer: ${publicKeyStr} | Mint: ${mintTrimmed} | Action: ${action} | Amount: ${amountStr} | Error: ${errorText}`);
+        throw new Error(`Erreur API Trade PumpPortal (${response.status}) : ${errorText || 'Bad Request'}`);
+      }
+
+      const transactionData = await response.arrayBuffer();
+      const tx = VersionedTransaction.deserialize(new Uint8Array(transactionData));
+
+      // Request user signature in Phantom extension modal
+      const signedTx = await winSolana.signTransaction(tx);
+      const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed'
+      });
+
+      // Confirm transaction on blockchain
+      try {
+        const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+        await connection.confirmTransaction({
+          signature,
+          blockhash: latestBlockhash.blockhash,
+          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+        }, 'confirmed');
+      } catch (confErr) {
+        console.warn(`[SOLANA CONFIRMATION WARNING] Transaction ${signature} envoyée via Phantom...`);
+      }
+
+      return {
+        success: true,
+        txHash: signature,
+        walletUsed: publicKeyStr
+      };
+    }
+
+    // Fallback: If no browser extension and no settings key, check fallback settings key
+    const fallbackKey = process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
+    if (fallbackKey) {
+      let signer: any;
+      const trimmed = fallbackKey.trim();
+      let keyBytes: Uint8Array;
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        keyBytes = new Uint8Array(JSON.parse(trimmed));
+      } else {
+        keyBytes = bs58.decode(trimmed);
+      }
+      signer = Keypair.fromSecretKey(keyBytes);
+      const publicKeyStr = signer.publicKey.toBase58();
+
+      const response = await fetch(`https://pumpportal.fun/api/trade-local`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: publicKeyStr,
+          action,
+          mint: mintTrimmed,
+          amount: amountStr,
+          denominatedInSol: denominatedInSol ? "true" : "false",
+          slippage,
+          priorityFee,
+          pool
+        })
+      });
+
+      if (response.status !== 200) {
+        const errorText = await response.text();
+        throw new Error(`Erreur API Trade (${response.status}) : ${errorText}`);
       }
 
       const transactionData = await response.arrayBuffer();
@@ -474,49 +610,8 @@ export async function executeRealPumpTrade(params: {
 
       return {
         success: true,
-        txHash: signature
-      };
-    }
-
-    // 2. Browser wallet popup signing fallback (Phantom / Solflare / Backpack)
-    const winSolana = typeof window !== 'undefined' ? ((window as any).solana || (window as any).phantom?.solana) : null;
-    if (winSolana && winSolana.publicKey) {
-      const publicKeyStr = winSolana.publicKey.toBase58();
-
-      const response = await fetch(`https://pumpportal.fun/api/trade-local`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          publicKey: publicKeyStr,
-          action,
-          mint: mintTrimmed,
-          amount: amountStr,
-          denominatedInSol: denominatedInSol ? "true" : "false",
-          slippage,
-          priorityFee,
-          pool
-        })
-      });
-
-      if (response.status !== 200) {
-        const errorText = await response.text();
-        console.error(`[PumpPortal API Error] Status ${response.status} | Mint: ${mintTrimmed} | Pool: ${pool} | Action: ${action} | Amount: ${amountStr} | Body: ${errorText}`);
-        throw new Error(`Erreur API Trade (${response.status}) : ${errorText || 'Bad Request - vérifiez le mint/pool'}`);
-      }
-
-      const transactionData = await response.arrayBuffer();
-      const tx = VersionedTransaction.deserialize(new Uint8Array(transactionData));
-
-      // Request user signature in extension modal
-      const signedTx = await winSolana.signTransaction(tx);
-      const signature = await connection.sendRawTransaction(signedTx.serialize(), {
-        skipPreflight: true,
-        preflightCommitment: 'confirmed'
-      });
-
-      return {
-        success: true,
-        txHash: signature
+        txHash: signature,
+        walletUsed: publicKeyStr
       };
     }
 
@@ -574,17 +669,7 @@ export async function fetchLiveWalletBalance(): Promise<{
   let walletChain = '';
 
   try {
-    const realRes = await getRealSolanaBalance();
-    if (realRes.success && realRes.balance !== undefined && realRes.publicKey) {
-      return {
-        success: true,
-        solanaBalance: realRes.balance,
-        solanaPubKey: realRes.publicKey,
-        evmBalance: null,
-        walletChain: 'Solana'
-      };
-    }
-
+    // 1. If Phantom / Web3 wallet is explicitly connected in UI, check its balance FIRST!
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('connected_web3_wallet');
       let targetAddr = '';
@@ -624,6 +709,16 @@ export async function fetchLiveWalletBalance(): Promise<{
             break;
           } catch (rpcErr) {}
         }
+
+        if (solanaBalance !== null) {
+          return {
+            success: true,
+            solanaBalance,
+            solanaPubKey,
+            evmBalance: null,
+            walletChain: 'Solana'
+          };
+        }
       } else if (targetAddr && (targetChain === 'BSC' || targetChain === 'Ethereum')) {
         walletChain = targetChain;
         const win = window as any;
@@ -635,8 +730,27 @@ export async function fetchLiveWalletBalance(): Promise<{
           });
           const balWei = parseInt(balHex, 16);
           evmBalance = balWei / 1e18;
+          return {
+            success: true,
+            solanaBalance: null,
+            solanaPubKey: '',
+            evmBalance,
+            walletChain
+          };
         }
       }
+    }
+
+    // 2. Fallback to settings private key if no UI wallet connected
+    const realRes = await getRealSolanaBalance();
+    if (realRes.success && realRes.balance !== undefined && realRes.publicKey) {
+      return {
+        success: true,
+        solanaBalance: realRes.balance,
+        solanaPubKey: realRes.publicKey,
+        evmBalance: null,
+        walletChain: 'Solana'
+      };
     }
 
     return {

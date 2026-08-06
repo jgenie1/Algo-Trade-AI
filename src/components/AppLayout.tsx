@@ -18,16 +18,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <Sidebar 
         collapsible="icon" 
         variant="floating" 
-        className="border-none bg-transparent shadow-2xl [&>div]:glass-panel [&>div]:!bg-[#100d14]/45 [&>div]:rounded-2xl"
+        className="border-none bg-transparent shadow-2xl [&>div]:glass-panel [&>div]:!bg-[#0e0b12]/85 [&>div]:!border-white/10 [&>div]:shadow-[0_8px_32px_rgba(0,0,0,0.6)] [&>div]:rounded-2xl [&>div]:backdrop-blur-xl"
       >
-        <SidebarHeader className="p-4 flex flex-row items-center justify-between gap-3 h-16 border-b border-white/5">
-          <div className="flex items-center gap-3 min-w-0">
-            <LogoIcon className="h-8 w-8 text-[#c2ff0c] shrink-0" />
-            <span className="font-headline text-xl font-bold tracking-tight text-gradient-lime group-data-[collapsible=icon]:hidden truncate">
+        <SidebarHeader className="p-3 flex flex-row items-center justify-between gap-2 h-16 border-b border-white/10 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:justify-center">
+          <div className="flex items-center gap-3 min-w-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full">
+            <div className="size-9 rounded-xl bg-gradient-to-br from-[#c2ff0c]/20 to-[#c2ff0c]/5 border border-[#c2ff0c]/30 flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(194,255,12,0.25)]">
+              <LogoIcon className="h-5 w-5 text-[#c2ff0c] shrink-0 drop-shadow-[0_0_6px_rgba(194,255,12,0.5)]" />
+            </div>
+            <span className="font-headline text-lg font-bold tracking-tight text-gradient-lime group-data-[collapsible=icon]:hidden truncate">
               AlgoTradeAI
             </span>
           </div>
-          <SidebarTrigger className="text-white/60 hover:text-[#c2ff0c] group-data-[collapsible=icon]:hidden shrink-0" title="Réduire / Cacher le menu (Ctrl+B)" />
+          <SidebarTrigger className="text-white/60 hover:text-[#c2ff0c] hover:bg-white/10 group-data-[collapsible=icon]:hidden shrink-0" title="Réduire / Cacher le menu (Ctrl+B)" />
         </SidebarHeader>
         <SidebarContent className="flex-1 py-4">
           <SidebarNav />

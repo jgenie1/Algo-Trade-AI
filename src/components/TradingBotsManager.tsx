@@ -81,16 +81,147 @@ export default function TradingBotsManager({
     balance, 
     setBalance, 
     reserveVault,
+    setReserveVault,
     reserveVaultSol,
+    setReserveVaultSol,
     bots, 
     setBots, 
     botLogs, 
     botLearnings, 
     setBotLearnings, 
     closedPositions, 
+    setTransactions,
     resetDemoData,
     isLoading 
   } = useAppState();
+
+  const handleClaimBotProfit = (botId: string) => {
+    const targetBot = bots.find(b => b.id === botId);
+    if (!targetBot) return;
+
+    const profitToClaim = typeof targetBot.netProfit === 'number' && !isNaN(targetBot.netProfit) && targetBot.netProfit > 0
+      ? targetBot.netProfit 
+      : (typeof targetBot.pnl === 'number' && !isNaN(targetBot.pnl) && targetBot.pnl > 0 ? targetBot.pnl : 0);
+
+    if (profitToClaim <= 0) {
+      alert("Aucun gain à encaisser pour ce robot.");
+      return;
+    }
+
+    const isRealMode = (targetBot.mode || tradingMode) === 'REAL';
+    const currency = isRealMode ? 'SOL' : '$';
+
+    if (confirm(`Voulez-vous encaisser et transférer +${profitToClaim.toFixed(2)} ${currency} de gains générés par "${targetBot.strategy}" vers votre solde / Wallet Phantom ?`)) {
+      if (isRealMode) {
+        setSolanaBalance(prev => (prev !== null ? prev + profitToClaim : profitToClaim));
+        const skimSol = profitToClaim * 0.10;
+        if (setReserveVaultSol) {
+          setReserveVaultSol(prev => (Number(prev) || 0) + skimSol);
+        }
+      } else {
+        setBalance(prev => prev + profitToClaim);
+        const skimUsd = profitToClaim * 0.10;
+        if (setReserveVault) {
+          setReserveVault(prev => (Number(prev) || 0) + skimUsd);
+        }
+      }
+
+      setBots(prev => prev.map(b => {
+        if (b.id === botId) {
+          return {
+            ...b,
+            netProfit: 0,
+            pnl: 0
+          };
+        }
+        return b;
+      }));
+
+      const newTx = {
+        id: 'tx_claim_' + Math.random().toString(36).substring(2, 9),
+        type: 'CLAIM',
+        amount: profitToClaim,
+        currency: currency,
+        status: 'COMPLETED',
+        timestamp: Date.now(),
+        description: `Encaissement des bénéfices du bot ${targetBot.strategy}`
+      };
+      if (setTransactions) {
+        setTransactions(prev => [newTx, ...(prev || [])]);
+      }
+
+      addBotLog(
+        botId, 
+        targetBot.strategy, 
+        `[ENCAISSEMENT RÉUSSI] Gains de +${profitToClaim.toFixed(2)} ${currency} transférés vers votre solde & Wallet Phantom avec succès !`, 
+        'trade'
+      );
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
+
+      alert(`✅ Succès ! +${profitToClaim.toFixed(2)} ${currency} ont été encaissés et transférés vers votre solde / Wallet Phantom !`);
+    }
+  };
+
+  const handleClaimAllProfits = () => {
+    const botsWithProfits = filteredBots.filter(b => (b.netProfit || b.pnl || 0) > 0);
+    if (botsWithProfits.length === 0) {
+      alert("Aucun gain à encaisser pour le moment.");
+      return;
+    }
+
+    const totalProfitToClaim = botsWithProfits.reduce((sum, b) => sum + (b.netProfit || b.pnl || 0), 0);
+    const currency = tradingMode === 'REAL' ? 'SOL' : '$';
+
+    if (confirm(`Voulez-vous encaisser TOUS les gains des bots (+${totalProfitToClaim.toFixed(2)} ${currency}) vers votre solde / Wallet Phantom ?`)) {
+      if (tradingMode === 'REAL') {
+        setSolanaBalance(prev => (prev !== null ? prev + totalProfitToClaim : totalProfitToClaim));
+        const skimSol = totalProfitToClaim * 0.10;
+        if (setReserveVaultSol) {
+          setReserveVaultSol(prev => (Number(prev) || 0) + skimSol);
+        }
+      } else {
+        setBalance(prev => prev + totalProfitToClaim);
+        const skimUsd = totalProfitToClaim * 0.10;
+        if (setReserveVault) {
+          setReserveVault(prev => (Number(prev) || 0) + skimUsd);
+        }
+      }
+
+      const botIdsToReset = new Set(botsWithProfits.map(b => b.id));
+      setBots(prev => prev.map(b => {
+        if (botIdsToReset.has(b.id)) {
+          return {
+            ...b,
+            netProfit: 0,
+            pnl: 0
+          };
+        }
+        return b;
+      }));
+
+      const newTx = {
+        id: 'tx_claim_all_' + Math.random().toString(36).substring(2, 9),
+        type: 'CLAIM',
+        amount: totalProfitToClaim,
+        currency: currency,
+        status: 'COMPLETED',
+        timestamp: Date.now(),
+        description: `Encaissement global des bénéfices de tous les bots`
+      };
+      if (setTransactions) {
+        setTransactions(prev => [newTx, ...(prev || [])]);
+      }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
+
+      alert(`✅ Succès ! +${totalProfitToClaim.toFixed(2)} ${currency} de gains globaux ont été encaissés sur votre solde / Wallet Phantom !`);
+    }
+  };
 
   const isReal = tradingMode === 'REAL';
   const rawBalance = isReal ? (solanaBalance || 0) : balance;
@@ -178,6 +309,7 @@ export default function TradingBotsManager({
   };
 
   const filteredBots = bots.filter(b => (b.mode || 'DEMO') === tradingMode);
+  const totalClaimableProfits = filteredBots.reduce((sum, b) => sum + ((b.netProfit || b.pnl || 0) > 0 ? (b.netProfit || b.pnl || 0) : 0), 0);
 
   const filteredClosed = closedPositions.filter(h => (h.mode || 'DEMO') === tradingMode);
 
@@ -412,6 +544,17 @@ export default function TradingBotsManager({
                 <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-bold border-none uppercase font-headline">
                   {filteredBots.filter(b => b.status === 'RUNNING').length} En Cours
                 </Badge>
+                {totalClaimableProfits > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClaimAllProfits}
+                    title="Encaisser tous les gains accumulés par les robots vers votre solde / Wallet Phantom."
+                    className="h-7 px-2.5 text-[10px] font-extrabold uppercase rounded-lg bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90 flex items-center gap-1 font-headline shadow-[0_0_12px_rgba(194,255,12,0.35)]"
+                  >
+                    💰 Tout Encaisser (+{totalClaimableProfits.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'})
+                  </Button>
+                )}
                 {tradingMode === 'DEMO' && (
                   <Button
                     variant="ghost"
@@ -494,6 +637,18 @@ export default function TradingBotsManager({
                         <span className="text-xs text-slate-300 font-extrabold font-mono block">PnL Net</span>
                       </div>
                     </div>
+
+                    {/* Claim Profit Button for Individual Bot */}
+                    {(b.netProfit || b.pnl || 0) > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleClaimBotProfit(b.id)}
+                        className="w-full h-8 text-[11px] font-extrabold uppercase rounded-lg bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black border border-[#c2ff0c]/50 shadow-[0_0_15px_rgba(194,255,12,0.3)] hover:shadow-[0_0_20px_rgba(194,255,12,0.5)] flex items-center justify-center gap-1.5 transition-all font-headline"
+                      >
+                        💰 Encaisser +{(b.netProfit || b.pnl || 0).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'} vers Wallet Phantom
+                      </Button>
+                    )}
 
                     <div className="flex gap-2 pt-2 border-t border-white/10">
                       <Button

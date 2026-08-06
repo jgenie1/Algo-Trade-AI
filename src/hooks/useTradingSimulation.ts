@@ -1356,7 +1356,7 @@ export function useTradingSimulation() {
     }
   };
 
-  const closePositionById = (posId: string, exitPrice: number, reason: string) => {
+  const closePositionById = async (posId: string, exitPrice: number, reason: string) => {
     const p = activePositionsRef.current.find(x => x.id === posId);
     if (!p) return;
 
@@ -1367,14 +1367,71 @@ export function useTradingSimulation() {
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
     const isLong = p.type === 'BUY';
     const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
-    // Clamp profit: max loss is -amt (100% of capital), max gain is amt * lev * 5
     const maxGain = amt * lev * 5;
     const maxLoss = -amt;
     const profit = Math.max(maxLoss, Math.min(maxGain, rawProfit));
 
     const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
-
     const posMode = p.mode || 'DEMO';
+
+    let mintAddress = '';
+    if (p.mint && p.mint.length >= 32 && p.mint.length <= 44) {
+      mintAddress = p.mint;
+    } else if (p.pair) {
+      if (p.pair.includes(':')) {
+        const parts = p.pair.split(':');
+        const candidate = parts[1] || parts[0];
+        if (candidate && candidate.length >= 32 && candidate.length <= 44) {
+          mintAddress = candidate;
+        } else if (parts[0] && parts[0].length >= 32 && parts[0].length <= 44) {
+          mintAddress = parts[0];
+        }
+      } else if (p.pair.length >= 32 && p.pair.length <= 44) {
+        mintAddress = p.pair;
+      }
+    }
+
+    const isRealSolanaPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && (mintAddress.length >= 32 && mintAddress.length <= 44 || !!p.txHash);
+    let sellTxHash: string | undefined = undefined;
+
+    if (isRealSolanaPos && mintAddress && !mintAddress.startsWith('ukhh')) {
+      const parts = (p.pair || '').split(':');
+      const cleanSymbol = parts[2] || parts[0] || 'TOKEN';
+      const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
+      const priority = botConfig?.priorityFee || 0.005;
+      const targetPool = 'auto'; 
+      const sourceLabel = p.botId || 'manual';
+      const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
+
+      addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Envoi de la transaction de vente sur Solana Mainnet pour $${cleanSymbol}...`, 'info');
+
+      try {
+        const res = await executeRealPumpTrade({
+          action: 'sell',
+          mint: mintAddress,
+          amount: '100%',
+          denominatedInSol: false,
+          slippage: 15,
+          priorityFee: priority,
+          pool: targetPool
+        });
+
+        if (res && res.success && res.txHash) {
+          sellTxHash = res.txHash;
+          addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE RÉUSSIE - SOL CRÉDITÉ BLOCKCHAIN] Hash: ${res.txHash.slice(0, 16)}... Wallet utilisé: ${res.walletUsed || 'Défaut'}`, 'trade');
+        } else {
+          addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE RÉELLE BLOCKCHAIN] ${res?.error || 'Erreur réseau.'}. La position reste ouverte.`, 'error');
+          if (typeof window !== 'undefined') {
+            alert(`⚠️ Vente réelle annulée sur Solana : ${res?.error || 'Échec de transaction'}. La position reste active.`);
+          }
+          return;
+        }
+      } catch (sellErr: any) {
+        addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE RÉELLE BLOCKCHAIN] ${sellErr.message || 'Erreur inconnue'}. La position reste ouverte.`, 'error');
+        return;
+      }
+    }
+
     if (posMode === 'DEMO') {
       if (profit > 0) {
         const vaultSkim = autoReserveEnabled ? profit * 0.10 : 0;
@@ -1420,6 +1477,7 @@ export function useTradingSimulation() {
       botId: p.botId,
       botName: p.botName,
       buyTxHash: p.txHash,
+      sellTxHash: sellTxHash,
       mode: posMode
     };
 
@@ -1427,178 +1485,123 @@ export function useTradingSimulation() {
       if (closedPrev.some(x => x.id === closed.id)) return closedPrev;
       return [closed, ...closedPrev];
     });
-    
-    // Robust extraction of Solana token mint address from any pair format (SOL:mint:symbol, PUMP:mint, or mint)
-    let mintAddress = '';
-    if (p.mint && p.mint.length >= 32 && p.mint.length <= 44) {
-      mintAddress = p.mint;
-    } else if (p.pair) {
-      if (p.pair.includes(':')) {
-        const parts = p.pair.split(':');
-        const candidate = parts[1] || parts[0];
-        if (candidate && candidate.length >= 32 && candidate.length <= 44) {
-          mintAddress = candidate;
-        } else if (parts[0] && parts[0].length >= 32 && parts[0].length <= 44) {
-          mintAddress = parts[0];
-        }
-      } else if (p.pair.length >= 32 && p.pair.length <= 44) {
-        mintAddress = p.pair;
-      }
-    }
 
-    const isRealSolanaPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && (mintAddress.length >= 32 && mintAddress.length <= 44 || !!p.txHash);
-    if (isRealSolanaPos && mintAddress && !mintAddress.startsWith('ukhh')) {
-      const parts = (p.pair || '').split(':');
-      const cleanSymbol = parts[2] || parts[0] || 'TOKEN';
-      const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
-      const priority = botConfig?.priorityFee || 0.005;
-      const targetPool = 'auto'; // let PumpPortal auto-route to pump/pump-amm/raydium
-      const sourceLabel = p.botId || 'manual';
-      const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
-      
-      addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Envoi de la transaction de vente sur Solana Mainnet pour $${cleanSymbol}...`, 'info');
-
-      executeRealPumpTrade({
-        action: 'sell',
-        mint: mintAddress,
-        amount: '100%',
-        denominatedInSol: false,
-        slippage: 15,
-        priorityFee: priority,
-        pool: targetPool
-      }).then((res) => {
-        if (res && res.success && res.txHash) {
-          addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE RÉUSSIE - SOL CRÉDITÉ BLOCKCHAIN] Hash: ${res.txHash.slice(0, 16)}... Tokens vendus contre SOL sur la blockchain Solana !`, 'trade');
-          setClosedPositions(closedPrev => 
-            closedPrev.map(item => item.id === p.id ? { ...item, sellTxHash: res.txHash } : item)
-          );
-
-          // Trigger immediate and multi-stage wallet balance refreshes from Solana RPC
-          const triggerBalanceSync = () => {
-            if (refreshWalletRef.current) refreshWalletRef.current();
-          };
-          triggerBalanceSync();
-          setTimeout(triggerBalanceSync, 2000);
-          setTimeout(triggerBalanceSync, 5000);
-          setTimeout(triggerBalanceSync, 10000);
-        } else {
-          addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE RÉELLE BLOCKCHAIN] ${res?.error || 'Erreur réseau.'}`, 'error');
-        }
-      });
+    if (posMode === 'REAL' && refreshWalletRef.current) {
+      setTimeout(() => refreshWalletRef.current(), 1000);
+      setTimeout(() => refreshWalletRef.current(), 4000);
     }
 
     const sourceLabel = p.botId ? p.botId : 'manual';
     const logBotName = p.botId ? p.botId : 'Ordre Manuel';
     addBotLog(sourceLabel, logBotName, `Position fermée à ${exitPrice.toFixed(5)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'}`, 'trade');
       
-      if (profit < 0) {
-        let learningEffect = '';
-        if (p.entryRsi !== undefined) {
-          const emaStatus = p.entryEmaTrend === 'ABOVE' ? 'au-dessus de' : 'sous';
-          if (p.type === 'BUY' || p.type === 'LONG') {
-            learningEffect = `Éviter LONG sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
-          } else {
-            learningEffect = `Éviter SHORT sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
-          }
-        } else if (p.bondingCurveProgress !== undefined && p.replyCount !== undefined) {
-          learningEffect = `Bloquer l'achat de Meme Coins avec moins de ${p.replyCount + 1} réponses si la Bonding Curve est proche de ${p.bondingCurveProgress.toFixed(0)}%`;
+    if (profit < 0) {
+      let learningEffect = '';
+      if (p.entryRsi !== undefined) {
+        const emaStatus = p.entryEmaTrend === 'ABOVE' ? 'au-dessus de' : 'sous';
+        if (p.type === 'BUY' || p.type === 'LONG') {
+          learningEffect = `Éviter LONG sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
         } else {
-          learningEffect = `Renforcer la sélectivité sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')} suite à un échec technique`;
+          learningEffect = `Éviter SHORT sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} si RSI proche de ${p.entryRsi.toFixed(0)} et prix ${emaStatus} l'EMA 20`;
         }
-
-        const newLearning = {
-          id: 'lrn_' + Math.random().toString(36).substring(2, 9),
-          botId: p.botId || 'manual',
-          pair: p.pair,
-          type: p.type,
-          entryRsi: p.entryRsi,
-          entryEmaTrend: p.entryEmaTrend,
-          bondingCurveProgress: p.bondingCurveProgress,
-          replyCount: p.replyCount,
-          lossAmount: Math.abs(profit),
-          timestamp: Date.now(),
-          learningEffect
-        };
-
-        setBotLearnings(prev => {
-          if (prev.some(x => x.id === newLearning.id)) return prev;
-          return [newLearning, ...prev];
-        });
-
-        setTimeout(() => {
-          addBotLog(sourceLabel, sourceLabel, `[IA Apprentissage] Leçon enregistrée : "${learningEffect}".`, 'info');
-        }, 50);
-      } else if (profit > 0) {
-        const winningPattern = {
-          id: 'win_' + Math.random().toString(36).substring(2, 9),
-          botId: p.botId || 'manual',
-          pair: p.pair,
-          type: p.type,
-          lossAmount: 0,
-          timestamp: Date.now(),
-          learningEffect: `[Configuration Gagnante] Confirmation du modèle haussier/baissier sur ${p.pair.replace('FX:', '').replace('SOL:', '')} (+${profit.toFixed(2)} $)`
-        };
-        setBotLearnings(prev => [winningPattern, ...prev].slice(0, 50));
+      } else if (p.bondingCurveProgress !== undefined && p.replyCount !== undefined) {
+        learningEffect = `Bloquer l'achat de Meme Coins avec moins de ${p.replyCount + 1} réponses si la Bonding Curve est proche de ${p.bondingCurveProgress.toFixed(0)}%`;
+      } else {
+        learningEffect = `Renforcer la sélectivité sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '')} suite à un échec technique`;
       }
-      
-      const botIdVal = p.botId;
-      const profitVal = profit;
-      const circuitBreakerLogs: { id: string; strategy: string; message: string }[] = [];
 
-      const updatedBots = botsRef.current.map(b => {
-        if (b.id === botIdVal) {
-          const nextTotal = (b.totalTrades || 0) + 1;
-          const isWin = profitVal >= 0;
-          const nextWins = (b.winningTrades || 0) + (isWin ? 1 : 0);
-          const nextLosses = isWin ? 0 : (b.consecutiveLosses || 0) + 1;
-          const nextNetProfit = parseFloat(((b.netProfit || 0) + profitVal).toFixed(2));
-          // Capital remains the allocated budget assigned by user, rounded cleanly to 2 decimals
-          const cleanCapital = typeof b.capital === 'number' && !isNaN(b.capital) ? parseFloat(b.capital.toFixed(2)) : 1000;
+      const newLearning = {
+        id: 'lrn_' + Math.random().toString(36).substring(2, 9),
+        botId: p.botId || 'manual',
+        pair: p.pair,
+        type: p.type,
+        entryRsi: p.entryRsi,
+        entryEmaTrend: p.entryEmaTrend,
+        bondingCurveProgress: p.bondingCurveProgress,
+        replyCount: p.replyCount,
+        lossAmount: Math.abs(profit),
+        timestamp: Date.now(),
+        learningEffect
+      };
 
-          let nextStatus = b.status;
-          let nextMultiplier = b.selectivityMultiplier || 1.0;
-
-          if (isWin) {
-            nextMultiplier = Math.max(1.0, nextMultiplier - 0.2);
-          } else {
-            nextMultiplier = Math.min(2.0, nextMultiplier + 0.35);
-          }
-
-          const maxDrawdownLimit = -0.15 * cleanCapital;
-          if (cleanCapital <= 0) {
-            nextStatus = 'STOPPED';
-            circuitBreakerLogs.push({ id: b.id, strategy: b.strategy, message: `[CIRCUIT BREAKER] Capital épuisé. Arrêt.` });
-          } else if (nextNetProfit <= maxDrawdownLimit) {
-            nextStatus = 'STOPPED';
-            circuitBreakerLogs.push({ id: b.id, strategy: b.strategy, message: `[CIRCUIT BREAKER] Limite de perte de -15% atteinte. Arrêt.` });
-          } else if (nextLosses >= 3) {
-            nextStatus = 'STOPPED';
-            circuitBreakerLogs.push({ id: b.id, strategy: b.strategy, message: `[CIRCUIT BREAKER] 3 pertes consécutives subies. Arrêt.` });
-          }
-
-          return {
-            ...b,
-            capital: cleanCapital,
-            totalTrades: nextTotal,
-            winningTrades: nextWins,
-            consecutiveLosses: nextLosses,
-            netProfit: nextNetProfit,
-            pnl: nextNetProfit,
-            selectivityMultiplier: nextMultiplier,
-            status: nextStatus
-          };
-        }
-        return b;
+      setBotLearnings(prev => {
+        if (prev.some(x => x.id === newLearning.id)) return prev;
+        return [newLearning, ...prev];
       });
 
-      setBots(updatedBots);
-      botsRef.current = updatedBots;
+      setTimeout(() => {
+        addBotLog(sourceLabel, sourceLabel, `[IA Apprentissage] Leçon enregistrée : "${learningEffect}".`, 'info');
+      }, 50);
+    } else if (profit > 0) {
+      const winningPattern = {
+        id: 'win_' + Math.random().toString(36).substring(2, 9),
+        botId: p.botId || 'manual',
+        pair: p.pair,
+        type: p.type,
+        lossAmount: 0,
+        timestamp: Date.now(),
+        learningEffect: `[Configuration Gagnante] Confirmation du modèle haussier/baissier sur ${p.pair.replace('FX:', '').replace('SOL:', '')} (+${profit.toFixed(2)} $)`
+      };
+      setBotLearnings(prev => [winningPattern, ...prev].slice(0, 50));
+    }
+    
+    const botIdVal = p.botId;
+    const profitVal = profit;
+    const circuitBreakerLogs: { id: string; strategy: string; message: string }[] = [];
 
-      if (circuitBreakerLogs.length > 0) {
-        setTimeout(() => {
-          circuitBreakerLogs.forEach(log => addBotLogRef.current(log.id, log.strategy, log.message, 'error'));
-        }, 50);
+    const updatedBots = botsRef.current.map(b => {
+      if (b.id === botIdVal) {
+        const nextTotal = (b.totalTrades || 0) + 1;
+        const isWin = profitVal >= 0;
+        const nextWins = (b.winningTrades || 0) + (isWin ? 1 : 0);
+        const nextLosses = isWin ? 0 : (b.consecutiveLosses || 0) + 1;
+        const nextNetProfit = parseFloat(((b.netProfit || 0) + profitVal).toFixed(2));
+        const cleanCapital = typeof b.capital === 'number' && !isNaN(b.capital) ? parseFloat(b.capital.toFixed(2)) : 1000;
+
+        let nextStatus = b.status;
+        let nextMultiplier = b.selectivityMultiplier || 1.0;
+
+        if (isWin) {
+          nextMultiplier = Math.max(1.0, nextMultiplier - 0.2);
+        } else {
+          nextMultiplier = Math.min(2.0, nextMultiplier + 0.35);
+        }
+
+        const maxDrawdownLimit = -0.15 * cleanCapital;
+        if (cleanCapital <= 0) {
+          nextStatus = 'STOPPED';
+          circuitBreakerLogs.push({ id: b.id, strategy: b.strategy, message: `[CIRCUIT BREAKER] Capital épuisé. Arrêt.` });
+        } else if (nextNetProfit <= maxDrawdownLimit) {
+          nextStatus = 'STOPPED';
+          circuitBreakerLogs.push({ id: b.id, strategy: b.strategy, message: `[CIRCUIT BREAKER] Limite de perte de -15% atteinte. Arrêt.` });
+        } else if (nextLosses >= 3) {
+          nextStatus = 'STOPPED';
+          circuitBreakerLogs.push({ id: b.id, strategy: b.strategy, message: `[CIRCUIT BREAKER] 3 pertes consécutives subies. Arrêt.` });
+        }
+
+        return {
+          ...b,
+          capital: cleanCapital,
+          totalTrades: nextTotal,
+          winningTrades: nextWins,
+          consecutiveLosses: nextLosses,
+          netProfit: nextNetProfit,
+          pnl: nextNetProfit,
+          selectivityMultiplier: nextMultiplier,
+          status: nextStatus
+        };
       }
+      return b;
+    });
+
+    setBots(updatedBots);
+    botsRef.current = updatedBots;
+
+    if (circuitBreakerLogs.length > 0) {
+      setTimeout(() => {
+        circuitBreakerLogs.forEach(log => addBotLogRef.current(log.id, log.strategy, log.message, 'error'));
+      }, 50);
+    }
 
     setActivePositions(prev => prev.filter(x => x.id !== posId));
   };
