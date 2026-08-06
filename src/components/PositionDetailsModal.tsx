@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -131,7 +131,7 @@ export default function PositionDetailsModal({
               "text-xl font-bold font-body block",
               isProfit ? "text-emerald-400" : "text-rose-400"
             )}>
-              {isProfit ? '+' : ''}{profit.toFixed(isSol ? 3 : 2)} {isSol ? 'SOL' : '$'}
+              {isProfit ? '+' : ''}{formatSmartPnl(profit, isSol)} {isSol ? 'SOL' : '$'}
             </span>
             <span className="text-[10px] text-white/50 font-mono font-semibold block mt-0.5">
               {isSol ? formatSolToUsdAndHtg(profit).combinedLabel : `≈ ${formatUsdToHtg(profit)}`}

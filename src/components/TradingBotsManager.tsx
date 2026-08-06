@@ -9,7 +9,7 @@ import {
   History,
   RotateCcw
 } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -856,7 +856,7 @@ export default function TradingBotsManager({
                           "font-extrabold text-sm block font-mono",
                           isProfit ? "text-[#c2ff0c]" : "text-rose-400"
                         )}>
-                          {isProfit ? '+' : ''}{profitVal.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                          {isProfit ? '+' : ''}{formatSmartPnl(profitVal, tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')))} {tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')) ? 'SOL' : '$'}
                         </span>
                         <span className="text-xs text-slate-400 block font-body">
                           {h.timestamp ? new Date(h.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Bot, ShieldCheck, Target, Flame, RefreshCw } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import PerformanceStrategyCard from '@/components/PerformanceStrategyCard';
 
@@ -51,7 +51,7 @@ export default function PerformancePage() {
 
     const netGains = (
       <div className="flex flex-col">
-        <span>{isReal ? `${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)} SOL` : `${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)} $`}</span>
+        <span>{isReal ? `${totalProfit >= 0 ? '+' : ''}${formatSmartPnl(totalProfit, true)} SOL` : `${totalProfit >= 0 ? '+' : ''}${formatSmartPnl(totalProfit, false)} $`}</span>
         <span className="text-[9px] text-white/40 font-mono font-normal">
           {isReal ? formatSolToUsdAndHtg(totalProfit).combinedLabel : `≈ ${formatUsdToHtg(totalProfit)}`}
         </span>

@@ -113,3 +113,18 @@ export function formatUsdToHtg(usdAmount: number | null | undefined, customUsdHt
   const htgVal = amount * htgRate;
   return `${Math.round(htgVal).toLocaleString('fr-FR')} HTG`;
 }
+
+/**
+ * Formate un PnL/Profit avec adaptation automatique des décimales (2 à 4+ chiffres après la virgule).
+ * Pour le SOL ou les petites valeurs < 0.1, affiche automatiquement 4 décimales.
+ */
+export function formatSmartPnl(value: number | undefined | null, isSol: boolean = false): string {
+  const val = typeof value === 'number' && !isNaN(value) ? value : 0;
+  if (val === 0) return '0.00';
+  const absVal = Math.abs(val);
+  if (isSol || absVal < 0.1) {
+    if (absVal < 0.0001) return val.toFixed(6);
+    return val.toFixed(4);
+  }
+  return val.toFixed(2);
+}

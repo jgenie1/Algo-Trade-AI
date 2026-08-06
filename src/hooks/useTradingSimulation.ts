@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAppState } from '@/context/AppContext';
+import { formatSmartPnl } from '@/lib/utils';
 import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
 import { 
@@ -1472,8 +1473,8 @@ export function useTradingSimulation() {
       exitPrice: exitPrice,
       amount: p.amount,
       leverage: p.leverage,
-      profit: parseFloat(profit.toFixed(2)),
-      pnl: parseFloat(profit.toFixed(2)),
+      profit: Math.abs(profit) < 0.01 || posMode === 'REAL' ? parseFloat(profit.toFixed(4)) : parseFloat(profit.toFixed(2)),
+      pnl: Math.abs(profit) < 0.01 || posMode === 'REAL' ? parseFloat(profit.toFixed(4)) : parseFloat(profit.toFixed(2)),
       timestamp: p.timestamp || Date.now(),
       closeTimestamp: Date.now(),
       wasBot: !!p.botId,
@@ -1496,7 +1497,7 @@ export function useTradingSimulation() {
 
     const sourceLabel = p.botId ? p.botId : 'manual';
     const logBotName = p.botId ? p.botId : 'Ordre Manuel';
-    addBotLog(sourceLabel, logBotName, `Position fermée à ${exitPrice.toFixed(5)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'}`, 'trade');
+    addBotLog(sourceLabel, logBotName, `Position fermée à ${exitPrice.toFixed(5)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${formatSmartPnl(profit, posMode === 'REAL')} ${posMode === 'REAL' ? 'SOL' : '$'}`, 'trade');
       
     if (profit < 0) {
       let learningEffect = '';
