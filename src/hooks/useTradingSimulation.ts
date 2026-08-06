@@ -1141,13 +1141,6 @@ export function useTradingSimulation() {
                 let calculatedTradeAmt = parseFloat((bot.capital / 3).toFixed(2));
 
                 if (isRealMode) {
-                  // Forex / Commodities non-Solana pairs cannot be traded in REAL mode on Solana mainnet
-                  const isNonSolanaPair = currentPair.startsWith('FX:') || currentPair.includes('GBP') || currentPair.includes('EUR') || currentPair.includes('JPY') || currentPair.includes('XAU') || (currentPair.includes('USD') && !currentPair.startsWith('SOL:'));
-                  if (isNonSolanaPair) {
-                    addBotLogRef.current(bot.id, bot.strategy, `[MODE RÉEL SOLANA] Signal ${signal} sur ${cleanPair} REJETÉ : Les paires Forex/CEX (${cleanPair}) ne sont pas tradables en SOL Réel sur le réseau Solana.`, 'info');
-                    continue;
-                  }
-
                   const solBal = solanaBalanceRef.current ?? 0;
                   const minMarginSetting = typeof window !== 'undefined'
                     ? parseFloat(localStorage.getItem('settings_min_margin_sol') || '0.001')
