@@ -823,13 +823,18 @@ export function useTradingSimulation() {
                 }
               } else {
                 const solBal = solanaBalanceRef.current ?? 0;
-                if (solBal <= 0.002) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible).`, 'error');
+                const minMarginSetting = typeof window !== 'undefined'
+                  ? parseFloat(localStorage.getItem('settings_min_margin_sol') || '0.001')
+                  : 0.001;
+                const effectiveMinMargin = isNaN(minMarginSetting) || minMarginSetting <= 0 ? 0.001 : minMarginSetting;
+
+                if (solBal < effectiveMinMargin) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible, minimum requis: ${effectiveMinMargin.toFixed(4)} SOL).`, 'error');
                   continue;
                 }
-                posTradeAmount = Math.min(bot.capital, Math.max(0.005, solBal * 0.5));
+                posTradeAmount = Math.min(bot.capital, Math.max(effectiveMinMargin, solBal * 0.5));
                 if (posTradeAmount > solBal) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Capital requis (${posTradeAmount.toFixed(4)} SOL) supérieur au solde disponible (${solBal.toFixed(4)} SOL).`, 'error');
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Marge requise (${posTradeAmount.toFixed(4)} SOL) supérieure au solde disponible (${solBal.toFixed(4)} SOL).`, 'error');
                   continue;
                 }
               }
@@ -866,7 +871,7 @@ export function useTradingSimulation() {
               // (regardless of what mode was active when the bot was created)
               const isBotReal = tradingModeRef.current === 'REAL';
               if (isBotReal) {
-                const priority = bot.priorityFee || 0.005;
+                const priority = bot.priorityFee || (typeof window !== 'undefined' ? parseFloat(localStorage.getItem('settings_priority_fee') || '0.001') : 0.001);
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${matchingCoin.symbol}...`, 'info');
                 
                 executeRealPumpTrade({
@@ -1144,12 +1149,17 @@ export function useTradingSimulation() {
                   }
 
                   const solBal = solanaBalanceRef.current ?? 0;
-                  if (solBal <= 0.002) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible).`, 'error');
+                  const minMarginSetting = typeof window !== 'undefined'
+                    ? parseFloat(localStorage.getItem('settings_min_margin_sol') || '0.001')
+                    : 0.001;
+                  const effectiveMinMargin = isNaN(minMarginSetting) || minMarginSetting <= 0 ? 0.001 : minMarginSetting;
+
+                  if (solBal < effectiveMinMargin) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible, minimum requis: ${effectiveMinMargin.toFixed(4)} SOL).`, 'error');
                     continue;
                   }
                   
-                  calculatedTradeAmt = Math.min(bot.capital / 3, Math.max(0.005, solBal * 0.25));
+                  calculatedTradeAmt = Math.min(bot.capital / 3, Math.max(effectiveMinMargin, solBal * 0.25));
                   if (calculatedTradeAmt > solBal) {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde réel disponible (${solBal.toFixed(4)} SOL).`, 'error');
                     continue;
@@ -1398,7 +1408,7 @@ export function useTradingSimulation() {
       const parts = (p.pair || '').split(':');
       const cleanSymbol = parts[2] || parts[0] || 'TOKEN';
       const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
-      const priority = botConfig?.priorityFee || 0.005;
+      const priority = botConfig?.priorityFee || (typeof window !== 'undefined' ? parseFloat(localStorage.getItem('settings_priority_fee') || '0.001') : 0.001);
       const targetPool = 'auto'; 
       const sourceLabel = p.botId || 'manual';
       const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';

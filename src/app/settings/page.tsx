@@ -21,7 +21,8 @@ export default function SettingsPage() {
   const [solanaPubKeyInput, setSolanaPubKeyInput] = useState<string>('');
   const [showPrivateKey, setShowPrivateKey] = useState<boolean>(false);
   const [slippage, setSlippage] = useState<string>('15');
-  const [priorityFee, setPriorityFee] = useState<string>('0.005');
+  const [priorityFee, setPriorityFee] = useState<string>('0.001');
+  const [minMarginSol, setMinMarginSol] = useState<string>('0.001');
   const [aiModel, setAiModel] = useState<string>('gemini-2.5-flash');
 
   const [usdHtgRate, setUsdHtgRate] = useState<number>(132);
@@ -40,12 +41,14 @@ export default function SettingsPage() {
       const storedKey = localStorage.getItem('settings_solana_private_key');
       const storedSlippage = localStorage.getItem('settings_slippage');
       const storedFee = localStorage.getItem('settings_priority_fee');
+      const storedMargin = localStorage.getItem('settings_min_margin_sol');
       const storedModel = localStorage.getItem('settings_ai_model');
       const storedWallet = localStorage.getItem('connected_web3_wallet');
       if (storedRpc) setRpcUrl(storedRpc);
       if (storedKey) setSolanaPrivateKey(storedKey);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
+      if (storedMargin) setMinMarginSol(storedMargin);
       if (storedModel) setAiModel(storedModel);
       if (storedWallet) {
         try {
@@ -87,6 +90,7 @@ export default function SettingsPage() {
       localStorage.setItem('settings_solana_private_key', solanaPrivateKey.trim());
       localStorage.setItem('settings_slippage', slippage);
       localStorage.setItem('settings_priority_fee', priorityFee);
+      localStorage.setItem('settings_min_margin_sol', minMarginSol);
       localStorage.setItem('settings_ai_model', aiModel);
       localStorage.setItem('settings_usd_htg_rate', usdHtgRate.toString());
       saveNotificationSettings(notifSettings);
@@ -222,6 +226,80 @@ export default function SettingsPage() {
           handleTestNotification={handleTestNotification}
           isTestingNotif={isTestingNotif}
         />
+
+        {/* Card Paramètres Avancés Marge, Gas & Slippage */}
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <h3 className="text-base font-bold font-headline text-[#c2ff0c] flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5" /> Paramètres Avancés de Marge & Frais (Solana / EVM)
+            </h3>
+            <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-[10px] uppercase font-mono font-bold border-none">
+              Solana Mainnet
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 font-body">
+            {/* Marge Minimum Requise / Minimal Reserve */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 font-headline uppercase">
+                Marge Minimal / Solde Requis (SOL)
+              </label>
+              <Input
+                type="number"
+                step="0.0001"
+                min="0.0001"
+                max="1.0"
+                value={minMarginSol}
+                onChange={(e) => setMinMarginSol(e.target.value)}
+                placeholder="Ex: 0.001"
+                className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
+              />
+              <p className="text-[10px] text-white/40 leading-relaxed font-body">
+                💡 <strong>Seuil d'exécution :</strong> Si votre solde wallet est supérieur à ce montant (ex: 0.001 SOL), les ordres SELL et BUY sont autorisés même avec un faible solde (ex: 0.0023 SOL).
+              </p>
+            </div>
+
+            {/* Frais Prioritaires / Priority Fee (Jito / RPC) */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 font-headline uppercase">
+                Frais Prioritaires / Gas Fee (SOL)
+              </label>
+              <Input
+                type="number"
+                step="0.0001"
+                min="0.0001"
+                max="0.1"
+                value={priorityFee}
+                onChange={(e) => setPriorityFee(e.target.value)}
+                placeholder="Ex: 0.001"
+                className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
+              />
+              <p className="text-[10px] text-white/40 leading-relaxed font-body">
+                ⚡ <strong>Vitesse d'inclusion :</strong> Frais alloués aux validateurs Solana/Jito pour garantir un passage prioritaire des ordres sans rejet en période de forte volatilité.
+              </p>
+            </div>
+
+            {/* Slippage Maximal */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 font-headline uppercase">
+                Slippage Maximal (%)
+              </label>
+              <Input
+                type="number"
+                step="1"
+                min="1"
+                max="100"
+                value={slippage}
+                onChange={(e) => setSlippage(e.target.value)}
+                placeholder="Ex: 15"
+                className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
+              />
+              <p className="text-[10px] text-white/40 leading-relaxed font-body">
+                📊 <strong>Tolérance d'écart :</strong> Écart de prix maximal accepté entre l'envoi de l'ordre et son exécution on-chain. Recommandé : 15% pour Pump.fun / Raydium.
+              </p>
+            </div>
+          </div>
+        </Card>
 
         <Card className="bg-[#14101a] border-white/10 rounded-2xl p-6 space-y-5">
           <h3 className="text-base font-bold font-headline text-purple-400 flex items-center gap-2">

@@ -82,7 +82,8 @@ export default function Header() {
   // Settings State (persisted locally)
   const [rpcUrl, setRpcUrl] = useState('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');
   const [slippage, setSlippage] = useState('15');
-  const [priorityFee, setPriorityFee] = useState('0.005');
+  const [priorityFee, setPriorityFee] = useState('0.001');
+  const [minMarginSol, setMinMarginSol] = useState('0.001');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
   const [customPubKeyInput, setCustomPubKeyInput] = useState('');
@@ -111,11 +112,13 @@ export default function Header() {
       const storedRpc = localStorage.getItem('settings_rpc_url');
       const storedSlippage = localStorage.getItem('settings_slippage');
       const storedFee = localStorage.getItem('settings_priority_fee');
+      const storedMargin = localStorage.getItem('settings_min_margin_sol');
       const storedWallet = localStorage.getItem('connected_web3_wallet');
 
       if (storedRpc) setRpcUrl(storedRpc);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
+      if (storedMargin) setMinMarginSol(storedMargin);
       if (storedWallet) {
         try { setConnectedWallet(JSON.parse(storedWallet)); } catch (e) {}
       }
@@ -245,6 +248,7 @@ export default function Header() {
     localStorage.setItem('settings_rpc_url', rpcUrl);
     localStorage.setItem('settings_slippage', slippage);
     localStorage.setItem('settings_priority_fee', priorityFee);
+    localStorage.setItem('settings_min_margin_sol', minMarginSol);
     setIsSettingsOpen(false);
     alert('Paramètres sauvegardés avec succès.');
   };
@@ -660,10 +664,10 @@ export default function Header() {
                 />
               </div>
 
-              {/* Slippage & Gas settings */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Slippage & Gas & Margin settings */}
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Slippage Tolerance (%)</label>
+                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Slippage (%)</label>
                   <input
                     type="number"
                     required
@@ -675,13 +679,24 @@ export default function Header() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Frais Prioritaires (SOL)</label>
+                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Frais Priorité (SOL)</label>
                   <input
                     type="number"
-                    step="0.001"
+                    step="0.0001"
                     required
                     value={priorityFee}
                     onChange={(e) => setPriorityFee(e.target.value)}
+                    className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Marge Min (SOL)</label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    required
+                    value={minMarginSol}
+                    onChange={(e) => setMinMarginSol(e.target.value)}
                     className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
                   />
                 </div>
