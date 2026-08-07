@@ -51,6 +51,10 @@ export default function WithdrawPage() {
   useEffect(() => {
     if (!isMounted || tradingMode !== 'REAL') return;
     refreshLiveBalance();
+
+    const handleWalletUpdated = () => refreshLiveBalance();
+    window.addEventListener('web3_wallet_updated', handleWalletUpdated);
+    return () => window.removeEventListener('web3_wallet_updated', handleWalletUpdated);
   }, [tradingMode, isMounted]);
 
   const handleFillConnectedWeb3Address = async () => {

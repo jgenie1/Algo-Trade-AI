@@ -94,59 +94,67 @@ export default function ManualOrderForm({
       : getRealMarketBasePrice(selectedPair);
 
     if (tradingMode === 'REAL') {
-      if (!selectedPair.startsWith('SOL:')) {
-        alert("Veuillez sélectionner un jeton Solana valide ou renseigner un CA.");
+      if (selectedPair.startsWith('SOL:')) {
+        const parts = selectedPair.split(':');
+        const mintAddress = parts[1];
+        if (!mintAddress || mintAddress.startsWith('ukhh')) {
+          alert("Adresse de contrat Solana invalide.");
+          return;
+        }
+        if (orderAmount <= 0) {
+          alert("Le montant doit être supérieur à 0.");
+          return;
+        }
+        if (solanaBalance === null || orderAmount > solanaBalance) {
+          alert(`Solde SOL insuffisant. Requis: ${orderAmount} SOL, Disponible: ${solanaBalance?.toFixed(3)} SOL`);
+          return;
+        }
+
+        const tokenSymbol = parts[2] || 'TOKEN';
+        addBotLog("manual", "Manuel", `Envoi d'un ordre d'achat réel de ${orderAmount} SOL pour $${tokenSymbol}...`, 'info');
+        
+        executeRealPumpTrade({
+          action: 'buy',
+          mint: mintAddress,
+          amount: orderAmount,
+          denominatedInSol: true,
+          slippage: 15,
+          priorityFee: 0.005
+        }).then((res) => {
+          if (res && res.success && res.txHash) {
+            addBotLog("manual", "Manuel", `[ACHAT MANUEL RÉEL RÉUSSI] Transaction confirmée ! Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
+            
+            const newRealPos = {
+              id: 'pos_' + Math.random().toString(36).substring(2, 9),
+              pair: selectedPair,
+              type: 'BUY',
+              entryPrice: currentPrice,
+              currentPrice: currentPrice,
+              amount: orderAmount,
+              leverage: 1,
+              timestamp: Date.now(),
+              txHash: res.txHash,
+              mode: 'REAL' as const
+            };
+            
+            setActivePositions(prev => [...prev, newRealPos]);
+            window.dispatchEvent(new Event('web3_wallet_updated'));
+          } else {
+            addBotLog("manual", "Manuel", `[ÉCHEC ACHAT MANUEL RÉEL] ${res.error || 'Erreur réseau/RPC Solana.'}`, 'error');
+          }
+        });
         return;
       }
-      const parts = selectedPair.split(':');
-      const mintAddress = parts[1];
-      if (!mintAddress || mintAddress.startsWith('ukhh')) {
-        alert("Adresse de contrat Solana invalide.");
-        return;
-      }
+
+      // Ordres manuels multi-actifs (Crypto, Forex, Matières Premières) en Mode Réel sur Marge Synthétique
       if (orderAmount <= 0) {
         alert("Le montant doit être supérieur à 0.");
         return;
       }
-      if (solanaBalance === null || orderAmount > solanaBalance) {
-        alert(`Solde SOL insuffisant. Requis: ${orderAmount} SOL, Disponible: ${solanaBalance?.toFixed(3)} SOL`);
+      if (solanaBalance !== null && orderAmount > solanaBalance) {
+        alert(`Solde de marge SOL insuffisant. Requis: ${orderAmount} SOL, Disponible: ${solanaBalance.toFixed(3)} SOL.`);
         return;
       }
-
-      const tokenSymbol = parts[2] || 'TOKEN';
-      addBotLog("manual", "Manuel", `Envoi d'un ordre d'achat réel de ${orderAmount} SOL pour $${tokenSymbol}...`, 'info');
-      
-      executeRealPumpTrade({
-        action: 'buy',
-        mint: mintAddress,
-        amount: orderAmount,
-        denominatedInSol: true,
-        slippage: 15,
-        priorityFee: 0.005
-      }).then((res) => {
-        if (res && res.success && res.txHash) {
-          addBotLog("manual", "Manuel", `[ACHAT MANUEL RÉEL RÉUSSI] Transaction confirmée ! Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
-          
-          const newRealPos = {
-            id: 'pos_' + Math.random().toString(36).substring(2, 9),
-            pair: selectedPair,
-            type: 'BUY',
-            entryPrice: currentPrice,
-            currentPrice: currentPrice,
-            amount: orderAmount,
-            leverage: 1,
-            timestamp: Date.now(),
-            txHash: res.txHash,
-            mode: 'REAL' as const
-          };
-          
-          setActivePositions(prev => [...prev, newRealPos]);
-        } else {
-          addBotLog("manual", "Manuel", `[ÉCHEC ACHAT MANUEL RÉEL] ${res.error || 'Erreur réseau/RPC Solana.'}`, 'error');
-          alert(`Échec de l'achat réel : ${res.error}`);
-        }
-      });
-      return;
     }
 
     if (orderAmount <= 0) {

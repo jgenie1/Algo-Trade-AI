@@ -73,6 +73,10 @@ export default function DepositPage() {
 
     // 3. Get live balance from connected wallet or keypair
     refreshLiveBalance();
+
+    const handleWalletUpdated = () => refreshLiveBalance();
+    window.addEventListener('web3_wallet_updated', handleWalletUpdated);
+    return () => window.removeEventListener('web3_wallet_updated', handleWalletUpdated);
   }, [tradingMode, isMounted]);
 
   const handleCopyAddress = () => {
