@@ -23,7 +23,7 @@ import {
 import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap, WalletToken, fetchWalletTokenBalances } from '@/services/dexSwapService';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
-import { cn, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatUsdToHtg, formatSmartNumber } from '@/lib/utils';
 
 interface DEXSwapModalProps {
   isOpen: boolean;
@@ -330,10 +330,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
               <div className="flex justify-between text-xs text-white/50 font-headline font-bold">
                 <span>Payer avec</span>
                 <span className="text-[#c2ff0c] font-mono">
-                  Solde : {getTokenBalance(fromToken).toLocaleString('fr-FR', {
-                    minimumFractionDigits: fromToken.symbol === 'SOL' ? 3 : 2,
-                    maximumFractionDigits: fromToken.symbol === 'SOL' ? 4 : 2
-                  })} {fromToken.symbol}
+                  Solde : {formatSmartNumber(getTokenBalance(fromToken), fromToken.symbol)}
                 </span>
               </div>
               <div className="flex items-center gap-3">

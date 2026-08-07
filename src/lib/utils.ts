@@ -115,16 +115,46 @@ export function formatUsdToHtg(usdAmount: number | null | undefined, customUsdHt
 }
 
 /**
- * Formate un PnL/Profit avec adaptation automatique des décimales (2 à 4+ chiffres après la virgule).
- * Pour le SOL ou les petites valeurs < 0.1, affiche automatiquement 4 décimales.
+ * Formate un montant de manière intelligente avec 2, 3 ou 4+ chiffres après la virgule selon la valeur.
+ * Élimine les décimales superflues et s'adapte à la précision requise.
+ */
+export function formatSmartNumber(value: number | undefined | null, symbol?: string): string {
+  const val = typeof value === 'number' && !isNaN(value) ? value : 0;
+  if (val === 0) return symbol ? `0,00 ${symbol}` : '0,00';
+
+  const absVal = Math.abs(val);
+  let formatted = '';
+
+  if (absVal >= 100) {
+    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } else if (absVal >= 1) {
+    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  } else if (absVal >= 0.001) {
+    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 4 });
+  } else {
+    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+  }
+
+  return symbol ? `${formatted} ${symbol}` : formatted;
+}
+
+/**
+ * Formate un PnL/Profit avec adaptation automatique intelligente des décimales (2, 3 ou 4+ chiffres).
  */
 export function formatSmartPnl(value: number | undefined | null, isSol: boolean = false): string {
   const val = typeof value === 'number' && !isNaN(value) ? value : 0;
-  if (val === 0) return '0.00';
+  if (val === 0) return '0,00';
   const absVal = Math.abs(val);
-  if (isSol || absVal < 0.1) {
-    if (absVal < 0.0001) return val.toFixed(6);
-    return val.toFixed(4);
+  
+  if (isSol || absVal < 1) {
+    return val.toLocaleString('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: absVal < 0.001 ? 6 : (absVal < 0.1 ? 4 : 3)
+    });
   }
-  return val.toFixed(2);
+  
+  return val.toLocaleString('fr-FR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4
+  });
 }
