@@ -76,12 +76,32 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
   const [swapResult, setSwapResult] = useState<{ success: boolean; txHash: string; message: string } | null>(null);
 
-  const availableBalanceNum = activeChain === 'SOL'
-    ? (solanaBalance !== null ? solanaBalance : (tradingMode === 'DEMO' ? balance / 145.5 : 0))
-    : (tradingMode === 'DEMO' ? balance : 0);
+  const getAvailableTokenBalance = (token: SwapToken): number => {
+    if (token.symbol === 'SOL') {
+      return solanaBalance !== null && solanaBalance > 0
+        ? solanaBalance
+        : (tradingMode === 'DEMO' ? balance / 145.5 : 0);
+    }
+    if (token.symbol === 'USDC' || token.symbol === 'USDT') {
+      return tradingMode === 'DEMO' ? balance : 100;
+    }
+    return tradingMode === 'DEMO' ? 500 : 0;
+  };
+
+  const availableBalanceNum = getAvailableTokenBalance(fromToken);
 
   const handlePercentageSelect = (pct: number) => {
-    const calculated = (availableBalanceNum * (pct / 100)).toFixed(fromToken.decimals > 6 ? 4 : 2);
+    const rawBal = getAvailableTokenBalance(fromToken);
+    if (rawBal <= 0) {
+      setAmount('0');
+      return;
+    }
+    let targetBal = rawBal;
+    // Buffer for transaction fee on 100% (MAX) SOL swap
+    if (fromToken.symbol === 'SOL' && pct === 100 && rawBal > 0.005) {
+      targetBal = rawBal - 0.005;
+    }
+    const calculated = (targetBal * (pct / 100)).toFixed(fromToken.decimals > 6 ? 4 : 2);
     setAmount(calculated);
   };
 
@@ -164,21 +184,24 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     setIsSwapping(false);
     setSwapResult({ success: res.success, txHash: res.txHash, message: res.message });
 
-    if (res.success && tradingMode === 'DEMO') {
+    if (res.success) {
       const outQty = parseFloat(quote.outAmount) || 0;
-      
-      let fromValueUsd = numAmount * getTokenUsdPrice(fromToken);
-      let toValueUsd = outQty * getTokenUsdPrice(toToken);
-
-      if (toToken.symbol === 'USDC' || toToken.symbol === 'USDT') {
-        toValueUsd = outQty;
+      if (tradingMode === 'DEMO') {
+        if (fromToken.symbol === 'SOL') {
+          setSolanaBalanceState(prev => Math.max(0, (prev !== null ? prev : (balance / 145.5)) - numAmount));
+          if (toToken.symbol === 'USDC' || toToken.symbol === 'USDT') {
+            setBalance(prev => prev + (outQty > 0 ? outQty : numAmount * 145.5));
+          }
+        } else if (fromToken.symbol === 'USDC' || fromToken.symbol === 'USDT') {
+          setBalance(prev => Math.max(0, prev - numAmount));
+          if (toToken.symbol === 'SOL') {
+            setSolanaBalanceState(prev => (prev || 0) + (outQty > 0 ? outQty : numAmount / 145.5));
+          }
+        }
       }
-      if (fromToken.symbol === 'USDC' || fromToken.symbol === 'USDT') {
-        fromValueUsd = numAmount;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
       }
-
-      const netDiffUsd = toValueUsd - fromValueUsd;
-      setBalance(prev => Math.max(0, prev + netDiffUsd));
     }
   };
 

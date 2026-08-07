@@ -100,7 +100,13 @@ export default function AIStrategyGeneratorForm() {
     };
 
     setBots(prev => [...prev, newBot]);
-    setBalance(bal => Math.max(0, bal - compiledStrategy.capital));
+    if (tradingMode === 'DEMO') {
+      setBalance(bal => Math.max(0, bal - compiledStrategy.capital));
+    } else {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
+    }
 
     setBotLogs(prev => [
       {

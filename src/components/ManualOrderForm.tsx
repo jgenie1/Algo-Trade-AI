@@ -182,7 +182,13 @@ export default function ManualOrderForm({
       if (prev.some(x => x.id === newPos.id)) return prev;
       return [...prev, newPos];
     });
-    setBalance(bal => bal - marginRequired);
+    if (tradingMode === 'DEMO') {
+      setBalance(bal => bal - marginRequired);
+    } else {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
+    }
     
     setStopLoss('');
     setTakeProfit('');

@@ -119,7 +119,9 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
           localStorage.setItem('trade_reserve_vault_sol', updated.toString());
           return updated;
         });
-        setFetchedSolBalance(prev => prev !== null ? Math.max(0, prev - amountToLock) : null);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
       } else {
         const newBal = Math.max(0, balance - amountToLock);
         setBalance(newBal);

@@ -16,6 +16,7 @@ import { dispatchAlert } from '@/services/notificationService';
 
 export default function PanicKillSwitch() {
   const { 
+    tradingMode,
     balance,
     setBalance,
     activePositions, 
@@ -58,8 +59,12 @@ export default function PanicKillSwitch() {
       };
     });
 
-    if (totalReturnedCapital > 0) {
+    if (tradingMode === 'DEMO' && totalReturnedCapital > 0) {
       setBalance(prev => Math.max(0, prev + totalReturnedCapital));
+    } else if (tradingMode === 'REAL') {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
     }
 
     setClosedPositions([...positionsToClose, ...closedPositions]);

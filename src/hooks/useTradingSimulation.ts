@@ -1649,7 +1649,9 @@ export function useTradingSimulation() {
     const targetBot = bots.find(b => b.id === botId);
     if (targetBot) {
       if ((targetBot.mode || 'DEMO') === 'REAL') {
-        setSolanaBalance(bal => bal !== null ? bal + targetBot.capital : null);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
       } else {
         setBalance(bal => bal + targetBot.capital);
       }

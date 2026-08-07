@@ -113,7 +113,9 @@ export default function TradingBotsManager({
 
     if (confirm(`Voulez-vous encaisser et transférer +${profitToClaim.toFixed(2)} ${currency} de gains générés par "${targetBot.strategy}" vers votre solde / Wallet Phantom ?`)) {
       if (isRealMode) {
-        setSolanaBalance(prev => (prev !== null ? prev + profitToClaim : profitToClaim));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
         const skimSol = profitToClaim * 0.10;
         if (setReserveVaultSol) {
           setReserveVaultSol(prev => (Number(prev) || 0) + skimSol);
@@ -177,7 +179,9 @@ export default function TradingBotsManager({
 
     if (confirm(`Voulez-vous encaisser TOUS les gains des bots (+${totalProfitToClaim.toFixed(2)} ${currency}) vers votre solde / Wallet Phantom ?`)) {
       if (tradingMode === 'REAL') {
-        setSolanaBalance(prev => (prev !== null ? prev + totalProfitToClaim : totalProfitToClaim));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
         const skimSol = totalProfitToClaim * 0.10;
         if (setReserveVaultSol) {
           setReserveVaultSol(prev => (Number(prev) || 0) + skimSol);
@@ -299,7 +303,9 @@ export default function TradingBotsManager({
     setBotCustomRules('');
 
     if (tradingMode === 'REAL') {
-      setSolanaBalance(bal => bal !== null ? bal - botCapital : null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
       addBotLog(newBot.id, newBot.strategy, `Sniper Bot Solana démarré en réel avec ${newBot.capital} SOL de capital allocation.`, 'info');
     } else {
       setBalance(bal => bal - botCapital);
