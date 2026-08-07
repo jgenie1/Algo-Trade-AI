@@ -1,8 +1,8 @@
 "use client";
 
 import React from 'react';
-import { Activity, Eye } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Activity, Eye, TrendingUp, TrendingDown } from 'lucide-react';
+import { cn, formatSmartPnl } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { 
   Table, 
@@ -30,16 +30,47 @@ export default function ActivePositionsTable({
   const { tradingMode, activePositions, isLoading } = useAppState();
 
   const filteredPositions = activePositions.filter(p => (p.mode || 'DEMO') === tradingMode);
+  const isSolMode = tradingMode === 'REAL';
+
+  // Calcul du PnL Total En Direct cumulé
+  const totalLiveProfit = filteredPositions.reduce((acc, p) => {
+    const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
+    const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
+    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+    const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
+    const priceDiff = current - entry;
+    const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+    const liveProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
+    return acc + (isNaN(liveProfit) ? 0 : liveProfit);
+  }, 0);
+
+  const isTotalProfit = totalLiveProfit >= 0;
 
   return (
     <Card className="bg-[#150f21] border-white/15 rounded-2xl shadow-2xl">
       <CardHeader className="pb-3 border-b border-white/10">
-        <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center justify-between">
+        <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2.5">
-            <Activity className="h-5 w-5 text-emerald-400" />
+            <Activity className="h-5 w-5 text-emerald-400 animate-pulse" />
             <span>{tradingMode === 'DEMO' ? "Positions Ouvertes Démo" : "Positions Ouvertes Réelles (SOL)"} ({filteredPositions.length})</span>
           </div>
-          <span className="text-[10px] text-white/40 font-body normal-case hidden sm:inline-block">💡 Cliquez sur une position pour voir la fiche détaillée</span>
+
+          {/* Badge PnL Total En Direct */}
+          {filteredPositions.length > 0 && (
+            <div className={cn(
+              "px-3 py-1.5 rounded-xl border text-xs font-mono font-extrabold flex items-center gap-2 shadow-inner transition-all",
+              isTotalProfit 
+                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+                : "bg-rose-500/15 text-rose-300 border-rose-500/40"
+            )}>
+              <span className="relative flex h-2 w-2">
+                <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isTotalProfit ? "bg-emerald-400" : "bg-rose-400")}></span>
+                <span className={cn("relative inline-flex rounded-full h-2 w-2", isTotalProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
+              </span>
+              <span>PnL Direct Total : {isTotalProfit ? '+' : ''}{formatSmartPnl(totalLiveProfit, isSolMode)} {isSolMode ? 'SOL' : '$'}</span>
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
 
@@ -55,7 +86,7 @@ export default function ActivePositionsTable({
           </div>
         ) : (
           <div className="space-y-3">
-            {/* VUE MOBILE (Cartes Tactiles Compactes) */}
+            {/* VUE MOBILE (Cartes Tactiles Compactes avec PnL En Direct) */}
             <div className="block md:hidden space-y-3">
               {filteredPositions.map((p, idx) => {
                 const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
@@ -90,11 +121,19 @@ export default function ActivePositionsTable({
                           </span>
                         )}
                       </div>
+
+                      {/* Affichage du PnL En Direct avec Pulsation */}
                       <div className="text-right">
-                        <span className={cn("text-base font-extrabold font-mono block", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                          {isProfit ? '+' : ''}{profit.toFixed(2)} {tradingMode === 'DEMO' ? '$' : 'SOL'}
-                        </span>
-                        <span className={cn("text-xs font-mono font-bold block", isProfit ? "text-emerald-400" : "text-rose-400")}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isProfit ? "bg-emerald-400" : "bg-rose-400")}></span>
+                            <span className={cn("relative inline-flex rounded-full h-2 w-2", isProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
+                          </span>
+                          <span className={cn("text-base font-extrabold font-mono", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
+                            {isProfit ? '+' : ''}{formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
+                          </span>
+                        </div>
+                        <span className={cn("text-xs font-mono font-bold block text-right", isProfit ? "text-emerald-400" : "text-rose-400")}>
                           ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
                         </span>
                       </div>
@@ -103,7 +142,7 @@ export default function ActivePositionsTable({
                     {/* Dynamic price precision formatting */}
                     <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 bg-black/40 p-3 rounded-xl border border-white/10">
                       <div>Entrée: <span className="text-white font-extrabold">{entry.toFixed(entry > 50 ? 2 : 4)}</span></div>
-                      <div>Prix: <span className="text-white font-extrabold">{current.toFixed(current > 50 ? 2 : 4)}</span></div>
+                      <div>Prix Direct: <span className="text-white font-extrabold">{current.toFixed(current > 50 ? 2 : 4)}</span></div>
                     </div>
 
                     <div className="flex gap-2 pt-1">
@@ -132,7 +171,7 @@ export default function ActivePositionsTable({
               })}
             </div>
 
-            {/* VUE DESKTOP (Table Clustered) */}
+            {/* VUE DESKTOP (Table Clustered avec PnL En Direct) */}
             <div className="hidden md:block rounded-xl border border-white/15 bg-[#181226] overflow-x-auto w-full max-w-full shadow-2xl">
               <Table>
                 <TableHeader className="bg-white/5 border-b border-white/15">
@@ -142,8 +181,8 @@ export default function ActivePositionsTable({
                     <TableHead className="py-3.5 px-4 text-white font-extrabold text-xs uppercase font-headline">Levier</TableHead>
                     <TableHead className="py-3.5 px-4 text-white font-extrabold text-xs uppercase font-headline">Taille</TableHead>
                     <TableHead className="py-3.5 px-4 text-white font-extrabold text-xs uppercase font-headline">Prix Entrée</TableHead>
-                    <TableHead className="py-3.5 px-4 text-white font-extrabold text-xs uppercase font-headline">Prix Actuel</TableHead>
-                    <TableHead className="py-3.5 px-4 text-right text-white font-extrabold text-xs uppercase font-headline">PnL ({tradingMode === 'DEMO' ? 'USD' : 'SOL'})</TableHead>
+                    <TableHead className="py-3.5 px-4 text-white font-extrabold text-xs uppercase font-headline">Prix Direct</TableHead>
+                    <TableHead className="py-3.5 px-4 text-right text-white font-extrabold text-xs uppercase font-headline">PnL En Direct ({isSolMode ? 'SOL' : 'USD'})</TableHead>
                     <TableHead className="py-3.5 px-4 text-center text-white font-extrabold text-xs uppercase font-headline">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -183,11 +222,22 @@ export default function ActivePositionsTable({
                           </Badge>
                         </TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{lev}x</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(2)} {tradingMode === 'DEMO' ? '$' : 'SOL'}</TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(2)} {isSolMode ? 'SOL' : '$'}</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{entry.toFixed(entry > 50 ? 2 : 4)}</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{current.toFixed(current > 50 ? 2 : 4)}</TableCell>
-                        <TableCell className={cn("py-3.5 px-4 text-right font-mono font-extrabold text-sm", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                          {isProfit ? '+' : ''}{profit.toFixed(2)} ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-[#c2ff0c] font-extrabold">{current.toFixed(current > 50 ? 2 : 4)}</TableCell>
+                        <TableCell className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="relative flex h-2 w-2 shrink-0">
+                              <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isProfit ? "bg-emerald-400" : "bg-rose-400")}></span>
+                              <span className={cn("relative inline-flex rounded-full h-2 w-2", isProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
+                            </span>
+                            <span className={cn("font-mono font-extrabold text-sm", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
+                              {isProfit ? '+' : ''}{formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
+                            </span>
+                          </div>
+                          <span className={cn("text-xs font-mono font-bold block opacity-90", isProfit ? "text-emerald-400" : "text-rose-400")}>
+                            ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
+                          </span>
                         </TableCell>
                         <TableCell className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
