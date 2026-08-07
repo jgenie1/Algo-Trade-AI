@@ -100,14 +100,22 @@ export function processBotIteration(
       const slPct = bot.stopLossPct || 3.0;
       const tpPct = bot.takeProfitPct || 8.0;
 
-      // SÉCURITÉ FINANCIÈRE ABSOLUE : Un trade ne peut JAMAIS perdre plus de 4% du capital alloué au bot !
-      const singleTradeMaxLossUsd = -0.04 * allocatedCapital;
-      const isSL = tradePnlPct <= -slPct || tradeProfit <= singleTradeMaxLossUsd;
-      const isTP = tradePnlPct >= tpPct;
+      // Montant exact engagé dans la position du trade
+      const tradePosAmount = existingPos.amount || tradedAmount;
+
+      // STOP LOSS CALCULÉ STRICTEMENT SUR LE MONTANT DU TRADE (évite de perdre le capital alloué du bot)
+      const maxAllowedTradeLoss = - Math.abs(tradePosAmount * (slPct / 100));
+      const maxAllowedTradeProfit = Math.abs(tradePosAmount * (tpPct / 100));
+
+      const isSL = tradePnlPct <= -slPct || tradeProfit <= maxAllowedTradeLoss;
+      const isTP = tradePnlPct >= tpPct || tradeProfit >= maxAllowedTradeProfit;
       
       // Trailing Profit Lock : Si le trade a atteint +2.5% de profit et retombe de 1.2%, verrouiller les gains immédiatement
       const isTrailingLock = currentHighestPnl >= 2.5 && tradePnlPct <= (currentHighestPnl - 1.2);
-      const isMaxLoss = tradeProfit <= -allocatedCapital;
+
+      // Limite d'arrêt globale du bot si les pertes cumulées atteignent le budget alloué au bot
+      const botCumulativeNet = (bot.netProfit ?? bot.pnl ?? 0) + tradeProfit;
+      const isMaxLoss = botCumulativeNet <= -allocatedCapital;
 
       if (isSL || isTP || isTrailingLock || isMaxLoss) {
         // FERMETURE DU TRADE AU PRIX DU MARCHÉ POUR PROTÉGER LE CAPITAL

@@ -110,9 +110,14 @@ export default function PositionDetailsModal({
             </span>
           </div>
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
-            <span className="text-[10px] text-white/40 block uppercase font-headline">Stop Loss (SL)</span>
-            <span className="text-sm font-bold text-rose-400 font-body">
-              {position.sl ? `${position.sl.toFixed(position.entryPrice > 100 ? 2 : 5)}` : 'Aucun'}
+            <span className="text-[10px] text-white/40 block uppercase font-headline">Stop Loss (SL Trade)</span>
+            <span className="text-sm font-bold text-rose-400 font-body block">
+              {position.sl 
+                ? (position.sl < 100 ? `-${position.sl}%` : `${position.sl.toFixed(position.entryPrice > 100 ? 2 : 5)}`)
+                : '-3,00% (Sécurité)'}
+            </span>
+            <span className="text-[9px] text-rose-300/80 font-mono block mt-0.5">
+              Risque max: -{formatSmartPnl(position.amount * ((position.sl && position.sl < 100 ? position.sl : 3) / 100), isSol)} {isSol ? 'SOL' : '$'}
             </span>
           </div>
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
