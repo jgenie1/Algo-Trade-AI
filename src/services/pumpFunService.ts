@@ -77,107 +77,7 @@ function getHeaders(): Record<string, string> {
   return headers;
 }
 
-let mockCoinsCache: PumpCoin[] = [];
 
-function getMockCoins(): PumpCoin[] {
-  const now = Date.now();
-  if (mockCoinsCache.length === 0) {
-    const names = ["Trump Elon Doge", "Vibe Engine", "Pepe Cosmic", "Solana Quantum", "Ai Moon", "Mars Rover", "Laser Cat", "Chill Guy", "Deep Seek AI", "Gemini Ultra", "Meme Machine"];
-    const symbols = ["TED", "VIBE", "COSMIC", "QUANT", "AIM", "ROVER", "LASER", "CHILL", "DSEEK", "GEMINI", "MACHINE"];
-    const descriptions = [
-      "The ultimate cross-over meme on Solana. Send it!",
-      "Decentralized vibe engine power. Stay chill and trade.",
-      "A frog looking at stars in a cosmic universe.",
-      "Quantum computer predicting meme prices on Solana.",
-      "AI model that lives on the blockchain and pumps.",
-      "Exploration of mars via memes and communities.",
-      "Pew pew pew. Cats with lasers on their eyes.",
-      "Just a chill guy on the blockchain.",
-      "Deep thinking meme coin that discovers new trends.",
-      "Highly intelligent coin backed by AI models.",
-      "A continuous generation of memes and utility."
-    ];
-
-    for (let i = 0; i < 12; i++) {
-      const mint = 'mnt_' + Math.random().toString(36).substring(2, 12);
-      const solReserves = i === 0 
-        ? 30000000000 + Math.random() * 3000000000  // ~30-33 SOL (PRECOCE)
-        : i === 1
-          ? 34000000000 + Math.random() * 10000000000 // ~34-44 SOL (MOMENTUM)
-          : 68500000000 + Math.random() * 15000000000; // ~68-83 SOL (RAYDIUM Proche)
-
-      const replies = i === 1 ? 12 + Math.floor(Math.random() * 15) : Math.floor(Math.random() * 10);
-      const complete = solReserves >= 85000000000;
-
-      mockCoinsCache.push({
-        mint,
-        initialized: true,
-        name: names[i % names.length],
-        symbol: symbols[i % symbols.length],
-        description: descriptions[i % descriptions.length] + " Socials: t.me/test_coin, twitter.com/test_coin",
-        image_uri: `https://picsum.photos/seed/${symbols[i % symbols.length]}/200`,
-        metadata_uri: ``,
-        bonding_curve: 'curve_' + Math.random().toString(36).substring(2, 10),
-        associated_bonding_curve: 'assoc_' + Math.random().toString(36).substring(2, 10),
-        creator: 'crt_' + Math.random().toString(36).substring(2, 10),
-        created_timestamp: now - (i * 60000),
-        complete,
-        virtual_sol_reserves: solReserves,
-        virtual_token_reserves: 1073000000000000 - (solReserves * 10),
-        total_supply: 1000000000000000,
-        market_cap: (solReserves / 1e9) * 1.5,
-        reply_count: replies
-      });
-    }
-  } else {
-    // Periodically update reserves / replies of some coins to simulate activity
-    mockCoinsCache = mockCoinsCache.map(c => {
-      if (Math.random() < 0.25) {
-        const increment = Math.floor(Math.random() * 1200000000); // Up to 1.2 SOL increments
-        const newReserves = Math.min(85000000000, c.virtual_sol_reserves + increment);
-        return {
-          ...c,
-          virtual_sol_reserves: newReserves,
-          virtual_token_reserves: 1073000000000000 - (newReserves * 10),
-          reply_count: c.reply_count + (Math.random() < 0.3 ? 1 : 0),
-          market_cap: (newReserves / 1e9) * 1.5,
-          complete: newReserves >= 85000000000
-        };
-      }
-      return c;
-    });
-
-    if (Math.random() < 0.15) {
-      // Add a new coin to mock stream
-      const names = ["Trump Elon Doge", "Vibe Engine", "Pepe Cosmic", "Solana Quantum", "Ai Moon", "Mars Rover", "Laser Cat", "Chill Guy", "Deep Seek AI", "Gemini Ultra", "Meme Machine"];
-      const symbols = ["TED", "VIBE", "COSMIC", "QUANT", "AIM", "ROVER", "LASER", "CHILL", "DSEEK", "GEMINI", "MACHINE"];
-      const idx = Math.floor(Math.random() * names.length);
-      const mint = 'mnt_' + Math.random().toString(36).substring(2, 12);
-      const solReserves = 30000000000 + Math.random() * 3000000000;
-      const newCoin: PumpCoin = {
-        mint,
-        initialized: true,
-        name: names[idx] + " " + Math.floor(Math.random() * 100),
-        symbol: symbols[idx] + Math.floor(Math.random() * 10),
-        description: "Simulated newly listed token! Join the hype on t.me/test_coin, twitter.com/test_coin",
-        image_uri: `https://picsum.photos/seed/${symbols[idx]}/200`,
-        metadata_uri: ``,
-        bonding_curve: 'curve_' + Math.random().toString(36).substring(2, 10),
-        associated_bonding_curve: 'assoc_' + Math.random().toString(36).substring(2, 10),
-        creator: 'crt_' + Math.random().toString(36).substring(2, 10),
-        created_timestamp: now,
-        complete: false,
-        virtual_sol_reserves: solReserves,
-        virtual_token_reserves: 1073000000000000 - (solReserves * 10),
-        total_supply: 1000000000000000,
-        market_cap: (solReserves / 1e9) * 1.5,
-        reply_count: Math.floor(Math.random() * 3)
-      };
-      mockCoinsCache = [newCoin, ...mockCoinsCache.slice(0, 19)];
-    }
-  }
-  return mockCoinsCache;
-}
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 4000): Promise<Response> {
   const controller = new AbortController();
@@ -198,18 +98,16 @@ export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
     const res = await fetchWithTimeout(url, {
       headers: getHeaders(),
       next: { revalidate: 0 }
-    }, 3500);
-
-    if (!res.ok) {
+    }, 3500);    if (!res.ok) {
       throw new Error(`Pump.fun HTTP error: ${res.status}`);
     }
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
       return data;
     }
-    return getMockCoins(); // fallback: demo-only mock coins
+    return await fetchRealPumpCoins();
   } catch (error) {
-    return getMockCoins(); // fallback: demo-only mock coins
+    return await fetchRealPumpCoins();
   }
 }
 
@@ -267,13 +165,7 @@ export async function fetchRealPumpCoins(): Promise<PumpCoin[]> {
   throw new Error('API Pump.fun inaccessible. Vérifiez votre connexion Internet ou réessayez dans quelques secondes.');
 }
 
-
-
 export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
-  if (mint.startsWith('mnt_')) {
-    const coins = getMockCoins();
-    return coins.find(c => c.mint === mint) || null;
-  }
 
   // 1. Try Pump.fun API
   try {
