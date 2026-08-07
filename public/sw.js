@@ -1,7 +1,7 @@
 // Service Worker PWA pour Algo-Trade-AI
-// v4 - Fix: Ne jamais cacher les pages HTML (navigations) pour garantir que le dernier build soit toujours servi
-const CACHE_NAME = 'algotrade-pwa-v4';
-const DYNAMIC_CACHE = 'algotrade-dynamic-v4';
+// v5 - Fix: Utiliser fetch(event.request) directement sans init invalide pour les requêtes de navigation
+const CACHE_NAME = 'algotrade-pwa-v5';
+const DYNAMIC_CACHE = 'algotrade-dynamic-v5';
 
 // On ne cache QUE le manifest — jamais les pages HTML
 const STATIC_ASSETS = [
@@ -13,20 +13,20 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker v4] Caching static assets (NO HTML)');
+      console.log('[Service Worker v5] Caching static assets (NO HTML)');
       return cache.addAll(STATIC_ASSETS);
     })
   );
 });
 
-// Activation : purge TOUS les anciens caches (v1, v2, v3, etc.)
+// Activation : purge TOUS les anciens caches (v1, v2, v3, v4, etc.)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME && key !== DYNAMIC_CACHE) {
-            console.log('[Service Worker v4] Removing old cache:', key);
+            console.log('[Service Worker v5] Removing old cache:', key);
             return caches.delete(key);
           }
         })
@@ -50,8 +50,9 @@ self.addEventListener('fetch', (event) => {
 
   if (isNavigation) {
     event.respondWith(
-      fetch(event.request, { cache: 'no-store' })
-        .catch(() => {
+      fetch(event.request)
+        .catch((err) => {
+          console.error('[SW v5] Fetch navigation failed:', err);
           // En cas d'offline complet : serve une page d'erreur minimaliste
           return new Response(
             `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Algo-Trade-AI - Hors ligne</title>

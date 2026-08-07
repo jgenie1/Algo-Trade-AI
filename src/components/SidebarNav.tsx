@@ -102,7 +102,7 @@ export default function SidebarNav() {
   };
 
   return (
-    <div className="flex flex-col h-full justify-between px-2 group-data-[collapsible=icon]:px-1">
+    <div className="flex flex-col min-h-full justify-between px-2 group-data-[collapsible=icon]:px-1">
       <div className="space-y-5 group-data-[collapsible=icon]:space-y-3">
         <div>
           <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider px-3 mb-2 block group-data-[collapsible=icon]:hidden">

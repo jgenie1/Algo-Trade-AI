@@ -31,6 +31,19 @@ const binanceIntervalMap: { [key: string]: string } = {
 
 const candleCache: { [key: string]: { candles: Candle[]; timestamp: number } } = {};
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 4000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort('Requête expirée (Timeout)'), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 /**
  * SOURCE EN DIRECT 100% RÉELLE :
  * 1. Binance API officielle (sans restriction CORS) pour la crypto (BTC, ETH, SOL, BNB, XRP, ADA, DOGE, LINK, AVAX).
@@ -52,14 +65,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
   if (binanceSymbol) {
     try {
       const interval = binanceIntervalMap[timeframe] || '15m';
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-      const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=30`, {
-        cache: 'no-store',
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+      const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=30`, { cache: 'no-store' }, 4000);
 
       if (res.ok) {
         const rawKlines = await res.json();
@@ -70,7 +76,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
             high: parseFloat(k[2]),
             low: parseFloat(k[3]),
             close: parseFloat(k[4]),
-            volume: parseFloat(k[5])
+            volume: parseFloat(k[5] || '0')
           }));
 
           candleCache[cacheKey] = { candles, timestamp: Date.now() };
@@ -84,14 +90,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
 
   // --- SOURCE 2 : EXCHANGERATE API & COINBASE API (FOREX ET MÉTAUX EN DIRECT) ---
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { 
-      cache: 'no-store',
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+    const res = await fetchWithTimeout('https://api.exchangerate-api.com/v4/latest/USD', { cache: 'no-store' }, 4000);
 
     if (res.ok) {
       const data = await res.json();
@@ -104,14 +103,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
 
   // --- SOURCE 3 : COINBASE API (FALLBACK ULTIME GRATUIT ET FIABLE TOUT SERVEUR) ---
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    const res = await fetch('https://api.coinbase.com/v2/exchange-rates?currency=USD', {
-      cache: 'no-store',
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+    const res = await fetchWithTimeout('https://api.coinbase.com/v2/exchange-rates?currency=USD', { cache: 'no-store' }, 4000);
 
     if (res.ok) {
       const json = await res.json();
