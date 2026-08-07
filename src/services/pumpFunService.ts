@@ -932,9 +932,16 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   if (curveProgressPct >= 85) liquidityScore += 1;
   liquidityScore = Math.min(10, liquidityScore);
 
-  // Volume & Momentum
+  // Volume & Momentum ($1 000 000 $ minimum exige anti-scam)
   const estimatedVolume24h = Math.round(marketCapUsd * (0.8 + (coin.reply_count / 20)));
-  let volumeScore = Math.min(10, Math.max(3, Math.floor(estimatedVolume24h / 5000) + 4));
+  const MIN_REQUIRED_24H_VOLUME_USD = 1000000; // $1,000,000 USD minimum
+  const isVolumeSufficient = estimatedVolume24h >= MIN_REQUIRED_24H_VOLUME_USD;
+
+  let volumeScore = Math.min(10, Math.max(1, Math.floor(estimatedVolume24h / 100000) + 2));
+  if (!isVolumeSufficient) {
+    volumeScore = Math.min(volumeScore, 3);
+  }
+
   let momentumScore = Math.min(10, Math.max(3, Math.floor(curveProgressPct / 10) + (coin.reply_count > 8 ? 2 : 0)));
 
   // Dev & Security evaluation
@@ -942,6 +949,9 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   let securityScore = 9; // Pump.fun bonding curves have no mint/freeze authority by design
   
   const risks: string[] = [];
+  if (!isVolumeSufficient) {
+    risks.push(`Volume 24h insuffisant ($${estimatedVolume24h.toLocaleString()} USD < 1 000 000 $ exigé anti-scam)`);
+  }
   if (isSystemCreator) risks.push("Adresse de créateur suspecte / système");
   if (solReserves < 15) risks.push("Faible réserve initiale (< 15 SOL)");
   if (!hasTwitter && !hasTelegram) risks.push("Absence de canaux sociaux officiels (Twitter/Telegram)");
@@ -950,16 +960,20 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
 
   // Alerts
   const alertsTriggered: string[] = [];
+  if (isVolumeSufficient) alertsTriggered.push("Volume 24h supérieur à 1 000 000 $ (Filtre anti-scam validé)");
   if (marketCapUsd < 150000) alertsTriggered.push("Market Cap inférieur à 150 000 $ (Niveau précoce sniper)");
   if (coin.reply_count >= 10) alertsTriggered.push("Croissance rapide des holders/replies (+30% récent)");
   if (curveProgressPct >= 78) alertsTriggered.push("Bonding curve proche de la complétion (Raydium imminent)");
   if (smartMoneyScore >= 7) alertsTriggered.push("Au moins 3 wallets Smart Money identifiés en achat");
 
-  // Decision & Recommendations
+  // Decision & Recommendations (Le volume 24h >= 1M $ est OBLIGATOIRE pour autoriser un achat)
   const globalScoreAvg = (smartMoneyScore + holderScore + liquidityScore + volumeScore + momentumScore + socialScore + memeScore + devScore + securityScore) / 9;
   
   let recommendation: PumpCoinAnalysisReport['recommendation'] = 'SURVEILLER';
-  if (globalScoreAvg >= 7.8 && risks.length <= 1) {
+  if (!isVolumeSufficient) {
+    // Blocage strict anti-scam : tout jeton sous 1 000 000 $ de volume 24h est interdit à l'achat
+    recommendation = risks.length >= 3 ? 'IGNORE' : 'SURVEILLER';
+  } else if (globalScoreAvg >= 7.8 && risks.length <= 1) {
     recommendation = 'ACHAT EXCEPTIONNEL';
   } else if (globalScoreAvg >= 6.8 && risks.length <= 2) {
     recommendation = 'ACHAT FORT';
