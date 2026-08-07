@@ -20,7 +20,8 @@ import {
   CheckCircle2, 
   ShieldCheck 
 } from 'lucide-react';
-import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap } from '@/services/dexSwapService';
+import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap, WalletToken, fetchWalletTokenBalances } from '@/services/dexSwapService';
+import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
 import { cn, formatUsdToHtg } from '@/lib/utils';
 
@@ -33,21 +34,52 @@ interface DEXSwapModalProps {
 }
 
 export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initialToToken, solanaBalance: propSolanaBalance }: DEXSwapModalProps) {
-  const { balance, setBalance, tradingMode } = useAppState();
+  const { balance, setBalance, tradingMode, activePositions } = useAppState();
   
   const [solanaBalanceState, setSolanaBalanceState] = useState<number | null>(propSolanaBalance ?? null);
+  const [walletTokens, setWalletTokens] = useState<WalletToken[]>([]);
 
+  // Synchronisation dynamique des soldes Solana et des jetons réels
   useEffect(() => {
-    if (propSolanaBalance !== undefined && propSolanaBalance !== null) {
-      setSolanaBalanceState(propSolanaBalance);
-    } else if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('trade_claimed_sol_balance');
-      if (stored) {
-        const parsed = parseFloat(stored);
-        if (!isNaN(parsed)) setSolanaBalanceState(parsed);
+    if (!isOpen) return;
+
+    const syncBalances = async () => {
+      if (propSolanaBalance !== undefined && propSolanaBalance !== null) {
+        setSolanaBalanceState(propSolanaBalance);
+      } else {
+        const res = await getRealSolanaBalance();
+        if (res && res.success && res.balance !== undefined) {
+          setSolanaBalanceState(res.balance);
+        }
       }
-    }
-  }, [propSolanaBalance, isOpen]);
+
+      const storedWallet = typeof window !== 'undefined' ? localStorage.getItem('connected_web3_wallet') : null;
+      let walletAddr: string | null = null;
+      let chain: 'Solana' | 'BSC' | 'Ethereum' | null = 'Solana';
+
+      if (storedWallet) {
+        try {
+          const parsed = JSON.parse(storedWallet);
+          walletAddr = parsed.address || null;
+          chain = parsed.chain || 'Solana';
+        } catch (e) {}
+      }
+
+      const tokens = await fetchWalletTokenBalances(
+        walletAddr,
+        chain,
+        solanaBalanceState,
+        activePositions,
+        tradingMode,
+        balance
+      );
+      setWalletTokens(tokens);
+    };
+
+    syncBalances();
+    const interval = setInterval(syncBalances, 6000);
+    return () => clearInterval(interval);
+  }, [isOpen, propSolanaBalance, tradingMode, balance, activePositions]);
 
   const solanaBalance = solanaBalanceState;
   
@@ -76,33 +108,46 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
   const [swapResult, setSwapResult] = useState<{ success: boolean; txHash: string; message: string } | null>(null);
 
-  const getAvailableTokenBalance = (token: SwapToken): number => {
+  const getTokenBalance = (token: SwapToken): number => {
+    const found = walletTokens.find(t => t.symbol === token.symbol);
+    if (found && typeof found.balance === 'number' && !isNaN(found.balance) && found.balance > 0) {
+      return found.balance;
+    }
+
     if (token.symbol === 'SOL') {
-      return solanaBalance !== null && solanaBalance > 0
-        ? solanaBalance
-        : (tradingMode === 'DEMO' ? balance / 145.5 : 0);
+      if (solanaBalanceState !== null && solanaBalanceState > 0) {
+        return solanaBalanceState;
+      }
+      return tradingMode === 'DEMO' ? parseFloat((balance / 145.5).toFixed(4)) : 0;
     }
+
     if (token.symbol === 'USDC' || token.symbol === 'USDT') {
-      return tradingMode === 'DEMO' ? balance : 100;
+      return tradingMode === 'DEMO' ? balance : 0;
     }
+
     return tradingMode === 'DEMO' ? 500 : 0;
   };
 
-  const availableBalanceNum = getAvailableTokenBalance(fromToken);
-
   const handlePercentageSelect = (pct: number) => {
-    const rawBal = getAvailableTokenBalance(fromToken);
+    const rawBal = getTokenBalance(fromToken);
     if (rawBal <= 0) {
       setAmount('0');
       return;
     }
     let targetBal = rawBal;
-    // Buffer for transaction fee on 100% (MAX) SOL swap
+    // Marge de gaz pour le swap 100% MAX sur le SOL
     if (fromToken.symbol === 'SOL' && pct === 100 && rawBal > 0.005) {
       targetBal = rawBal - 0.005;
     }
-    const calculated = (targetBal * (pct / 100)).toFixed(fromToken.decimals > 6 ? 4 : 2);
-    setAmount(calculated);
+    const ratio = pct / 100;
+    const calcVal = targetBal * ratio;
+    
+    let decimals = 2;
+    if (fromToken.symbol === 'SOL' || fromToken.symbol === 'ETH') decimals = 4;
+    else if (calcVal < 1) decimals = 4;
+    else if (fromToken.symbol === 'BONK') decimals = 0;
+
+    setAmount(calcVal.toFixed(decimals));
   };
 
   // Synchroniser les tokens d'entrée si fournis lors de l'ouverture
@@ -284,10 +329,11 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
             <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-2">
               <div className="flex justify-between text-xs text-white/50 font-headline font-bold">
                 <span>Payer avec</span>
-                <span>
-                  Solde : {activeChain === 'SOL'
-                    ? `${solanaBalance !== null ? solanaBalance.toFixed(3) : (balance / 145.5).toFixed(2)} SOL`
-                    : `$${balance.toLocaleString('en-US', {maximumFractionDigits: 2})}`}
+                <span className="text-[#c2ff0c] font-mono">
+                  Solde : {getTokenBalance(fromToken).toLocaleString('fr-FR', {
+                    minimumFractionDigits: fromToken.symbol === 'SOL' ? 3 : 2,
+                    maximumFractionDigits: fromToken.symbol === 'SOL' ? 4 : 2
+                  })} {fromToken.symbol}
                 </span>
               </div>
               <div className="flex items-center gap-3">
