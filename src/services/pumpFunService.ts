@@ -179,18 +179,26 @@ function getMockCoins(): PumpCoin[] {
   return mockCoinsCache;
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 4000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort('Requête expirée (Timeout)'), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
   try {
     const url = `${PUMPFUN_API_URL}/coins?offset=0&limit=12&sort=created_timestamp&order=DESC`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: getHeaders(),
-      next: { revalidate: 0 },
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+      next: { revalidate: 0 }
+    }, 3500);
 
     if (!res.ok) {
       throw new Error(`Pump.fun HTTP error: ${res.status}`);
@@ -213,14 +221,7 @@ export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
 export async function fetchRealPumpCoins(): Promise<PumpCoin[]> {
   // 1. Primary: Call internal server-side proxy route (/api/pump-coins) to bypass browser CORS & Cloudflare
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-    const proxyRes = await fetch('/api/pump-coins', {
-      cache: 'no-store',
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+    const proxyRes = await fetchWithTimeout('/api/pump-coins', { cache: 'no-store' }, 4000);
 
     if (proxyRes.ok) {
       const result = await proxyRes.json();
@@ -241,15 +242,10 @@ export async function fetchRealPumpCoins(): Promise<PumpCoin[]> {
 
   for (const url of endpoints) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         headers: getHeaders(),
-        next: { revalidate: 0 },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+        next: { revalidate: 0 }
+      }, 4000);
 
       if (!res.ok) continue;
 
@@ -282,15 +278,10 @@ export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
   // 1. Try Pump.fun API
   try {
     const url = `${PUMPFUN_API_URL}/coins/${mint}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: getHeaders(),
-      next: { revalidate: 0 },
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+      next: { revalidate: 0 }
+    }, 3500);
 
     if (res.ok) {
       const data = await res.json();
@@ -300,11 +291,7 @@ export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
 
   // 2. Fallback to DexScreener live API for exact on-chain Solana tokens
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-    const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { cache: 'no-store', signal: controller.signal });
-    clearTimeout(timeoutId);
+    const dexRes = await fetchWithTimeout(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { cache: 'no-store' }, 3500);
 
     if (dexRes.ok) {
       const dexData = await dexRes.json();
@@ -540,7 +527,15 @@ export async function executeRealPumpTrade(params: {
       const tx = VersionedTransaction.deserialize(new Uint8Array(transactionData));
 
       // Request user signature in Phantom extension modal
-      const signedTx = await winSolana.signTransaction(tx);
+      let signedTx: any;
+      try {
+        signedTx = await winSolana.signTransaction(tx);
+      } catch (signErr: any) {
+        if (signErr?.message?.toLowerCase().includes('rejected') || signErr?.code === 4001 || signErr?.name === 'UserRejectedRequestError') {
+          throw new Error('Transaction annulée : Vous avez refusé la signature dans le portefeuille Phantom.');
+        }
+        throw signErr;
+      }
       const signature = await connection.sendRawTransaction(signedTx.serialize(), {
         skipPreflight: true,
         preflightCommitment: 'confirmed'

@@ -51,18 +51,27 @@ export async function fetchSwapQuote(
     };
   }
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 3500): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort('Requête expirée (Timeout)'), timeoutMs);
   try {
-    // Si c'est sur Solana, on tente d'utiliser l'API publique Jupiter Quote avec Timeout & AbortController
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+  try {
+    // Si c'est sur Solana, on tente d'utiliser l'API publique Jupiter Quote avec Timeout
     if (fromToken.chain === 'SOL' && toToken.chain === 'SOL') {
       const amountLamports = Math.floor(amount * Math.pow(10, fromToken.decimals));
       const url = `https://quote-api.jup.ag/v6/quote?inputMint=${fromToken.address}&outputMint=${toToken.address}&amount=${amountLamports}&slippageBps=${Math.round(slippagePct * 100)}`;
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 sec timeout maximum
 
       try {
-        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
-        clearTimeout(timeoutId);
+        const res = await fetchWithTimeout(url, { cache: 'no-store' }, 3500);
 
         if (res.ok) {
           const data = await res.json();
@@ -82,7 +91,6 @@ export async function fetchSwapQuote(
           }
         }
       } catch (fetchErr) {
-        clearTimeout(timeoutId);
         // Silent fallback - ne perturbe pas l'application
       }
     }
