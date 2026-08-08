@@ -32,6 +32,23 @@ export interface SwapQuote {
   executionPrice: number;
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 3500): Promise<Response | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort('Requête expirée (Timeout)'), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return res;
+  } catch (err) {
+    console.warn(`[dexSwapService] Network fetch gracefully intercepted for ${url}:`, err);
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 /**
  * Simule ou récupère une cotation (Quote) Jupiter / Uniswap
  */
@@ -52,19 +69,6 @@ export async function fetchSwapQuote(
     };
   }
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 3500): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort('Requête expirée (Timeout)'), timeoutMs);
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
   try {
     // Si c'est sur Solana, on tente d'utiliser l'API publique Jupiter Quote avec Timeout
     if (fromToken.chain === 'SOL' && toToken.chain === 'SOL') {
@@ -74,7 +78,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
       try {
         const res = await fetchWithTimeout(url, { cache: 'no-store' }, 3500);
 
-        if (res.ok) {
+        if (res && res.ok) {
           const data = await res.json();
           if (data && data.outAmount) {
             const outAmountRaw = parseInt(data.outAmount || '0');
