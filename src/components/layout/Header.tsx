@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
-import { cn } from '@/lib/utils';
+import { cn, getUsdHtgRate, fetchLiveUsdHtgRate } from '@/lib/utils';
 import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
 import PWAInstallBanner from '@/components/layout/PWAInstallBanner';
 import { getStoredLanguage, setStoredLanguage, Language } from '@/services/languageService';
@@ -71,6 +71,7 @@ export default function Header() {
   } = useAppState();
 
   const [isMounted, setIsMounted] = useState(false);
+  const [liveHtgRate, setLiveHtgRate] = useState<number>(getUsdHtgRate());
 
   // Connected Web3 Wallet State
   const [connectedWallet, setConnectedWallet] = useState<{
@@ -108,6 +109,10 @@ export default function Header() {
 
   useEffect(() => {
     setIsMounted(true);
+    fetchLiveUsdHtgRate().then(rate => {
+      if (rate && rate > 0) setLiveHtgRate(rate);
+    });
+
     if (typeof window !== 'undefined') {
       const storedRpc = localStorage.getItem('settings_rpc_url');
       const storedSlippage = localStorage.getItem('settings_slippage');
@@ -130,15 +135,13 @@ export default function Header() {
     try {
       const win = window as any;
 
-      // Priority: window.phantom.solana first (Phantom's safe namespace).
-      // window.solana can be overridden by MetaMask Snaps — always check window.phantom?.solana first.
       const solanaObj =
-        win.phantom?.solana ??         // Phantom's own namespace (most reliable)
-        win.solflare ??                 // Solflare
-        win.backpack ??                 // Backpack
-        win.okxwallet?.solana ??        // OKX Wallet
-        (win.solana?.isPhantom ? win.solana : null) ?? // window.solana only if it's really Phantom
-        win.solana;                     // last resort
+        win.phantom?.solana ??
+        win.solflare ??
+        win.backpack ??
+        win.okxwallet?.solana ??
+        (win.solana?.isPhantom ? win.solana : null) ??
+        win.solana;
 
       if (!solanaObj) {
         alert(
@@ -150,52 +153,26 @@ export default function Header() {
         return;
       }
 
-      // Step 1: if already connected, read publicKey directly (no popup needed)
-      // Step 2: otherwise call connect() with NO options — { onlyIfTrusted } is deprecated and causes errors
       let pubKey: string | undefined;
 
       if (solanaObj.isConnected && solanaObj.publicKey) {
-        // Already authorized — just read the key
         pubKey = solanaObj.publicKey.toString();
       } else {
-        let resp: any;
-        try {
-          resp = await solanaObj.connect();
-        } catch (connectErr: any) {
-          const code = connectErr?.code ?? connectErr?.error?.code;
-          const msg = (connectErr?.message ?? '').toLowerCase();
-          if (code === 4001 || msg.includes('user rejected') || msg.includes('cancelled') || msg.includes('denied')) {
-            return; // User closed/rejected popup — silent ignore
-          }
-          throw connectErr;
-        }
-        if (resp?.publicKey) {
-          pubKey = resp.publicKey.toString();
-        } else if (solanaObj.publicKey) {
-          pubKey = solanaObj.publicKey.toString();
-        }
+        const resp = await solanaObj.connect();
+        pubKey = (resp?.publicKey || solanaObj.publicKey)?.toString();
       }
 
-      if (!pubKey) {
-        alert("Connexion réussie mais clé publique introuvable. Vérifiez que votre compte Phantom est actif puis réessayez.");
+      if (pubKey) {
+        const providerName = solanaObj.isPhantom ? "Phantom Solana" : solanaObj.isSolflare ? "Solflare" : "Portefeuille Solana";
+        const w = { name: providerName, address: pubKey, chain: "Solana" as const };
+        localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
+        setConnectedWallet(w);
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
+    } catch (err: any) {
+      if (err?.code === 4001 || err?.message?.includes("User rejected")) {
         return;
       }
-
-      const providerName = solanaObj.isPhantom
-        ? "Phantom Solana"
-        : solanaObj.isSolflare
-        ? "Solflare Solana"
-        : solanaObj.isBackpack
-        ? "Backpack Solana"
-        : "Solana Web3 Wallet";
-
-      const w = { name: providerName, address: pubKey, chain: "Solana" as const };
-      localStorage.setItem('connected_web3_wallet', JSON.stringify(w));
-      setConnectedWallet(w);
-      if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
-
-    } catch (err: any) {
-      console.error('[Wallet] Phantom connection error:', err);
       alert(
         "Erreur de connexion Phantom : " + (err?.message ?? "Erreur inconnue") + "\n\n" +
         "Conseils :\n" +
@@ -320,10 +297,10 @@ export default function Header() {
 
   return (
     <header 
-      className="flex h-16 items-center justify-between gap-2 max-w-full bg-[#100d16]/80 backdrop-blur-xl border border-white/10 rounded-2xl px-2.5 sm:px-4 w-full mb-6 shrink-0 shadow-xl shadow-black/40 overflow-x-auto no-scrollbar" 
+      className="flex h-16 items-center justify-between gap-3 max-w-full bg-[#120e1a]/85 backdrop-blur-2xl border border-white/10 rounded-2xl px-3 sm:px-5 w-full mb-6 shrink-0 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_15px_rgba(194,255,12,0.04)] overflow-x-auto no-scrollbar transition-all duration-300" 
       suppressHydrationWarning
     >
-      {/* Left Zone: Navigation Toggle / Search / Live Status */}
+      {/* Left Zone: Navigation Toggle / Search / Live Status & USD-HTG Market Rate */}
       <div className="flex items-center gap-2.5 shrink-0">
         {/* Explicit Sidebar Show/Hide Toggle Button */}
         <Button
@@ -344,7 +321,7 @@ export default function Header() {
         </Button>
         
         {/* Search Bar */}
-        <div className="relative w-32 md:w-44 lg:w-56 hidden sm:block shrink-0">
+        <div className="relative w-32 md:w-44 lg:w-52 hidden sm:block shrink-0">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           <input 
             type="text" 
@@ -355,6 +332,18 @@ export default function Header() {
           <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono font-medium bg-white/10 border border-white/15 rounded text-white/50 pointer-events-none hidden md:inline">
             ⌘K
           </kbd>
+        </div>
+
+        {/* Live USD -> HTG Market Rate Pill */}
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/40 border border-purple-500/30 text-purple-200 text-xs shadow-inner shrink-0">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+          </span>
+          <span className="text-[10px] uppercase font-bold text-white/50 font-headline">USD/HTG:</span>
+          <span className="font-mono font-extrabold text-[#c2ff0c] text-xs">
+            {liveHtgRate.toFixed(2)} HTG
+          </span>
         </div>
 
         {/* Live AI Mode Status Badge */}
@@ -393,7 +382,7 @@ export default function Header() {
         {/* DEX Swap Quick Trigger Button */}
         <Button
           onClick={() => setIsSwapOpen(true)}
-          className="h-10 px-3 bg-gradient-to-r from-purple-950/60 to-indigo-950/60 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/35 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0"
+          className="h-10 px-3.5 bg-gradient-to-r from-purple-950/70 to-indigo-950/70 hover:from-purple-900/90 hover:to-indigo-900/90 border border-purple-500/40 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0"
         >
           <ArrowDownUp className="h-4 w-4 text-[#c2ff0c]" />
           <span className="hidden md:inline font-headline uppercase tracking-wide">Swap DEX</span>

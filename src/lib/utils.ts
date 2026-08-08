@@ -10,7 +10,7 @@ export const SOL_USD_RATE = 145.0;
 // IMPORTANT: This value must be STABLE between SSR and first client render.
 // It is only updated via setClientUsdHtgRate() after React hydration completes.
 // This prevents the "Hydration failed" error caused by localStorage reads during SSR.
-let cachedUsdHtgRate = 132.0;
+let cachedUsdHtgRate = 130.77;
 let _isClientRateLoaded = false;
 
 export function getRealMarketBasePrice(pair: string): number {
@@ -69,24 +69,31 @@ export function initClientUsdHtgRate(): void {
   }
 }
 
-// Fetch live daily USD -> HTG exchange rate from official open exchange rates API
+// Fetch live daily USD -> HTG exchange rate from official open exchange rates API with secondary fallback
 export async function fetchLiveUsdHtgRate(): Promise<number> {
-  try {
-    const res = await fetch('https://open.er-api.com/v6/latest/USD', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.rates && data.rates.HTG) {
-        const liveRate = parseFloat(data.rates.HTG.toFixed(2));
-        cachedUsdHtgRate = liveRate;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('settings_usd_htg_rate', liveRate.toString());
-          localStorage.setItem('settings_usd_htg_updated_at', Date.now().toString());
+  const apis = [
+    'https://open.er-api.com/v6/latest/USD',
+    'https://api.exchangerate-api.com/v4/latest/USD'
+  ];
+
+  for (const url of apis) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.rates && data.rates.HTG) {
+          const liveRate = parseFloat(data.rates.HTG.toFixed(2));
+          cachedUsdHtgRate = liveRate;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('settings_usd_htg_rate', liveRate.toString());
+            localStorage.setItem('settings_usd_htg_updated_at', Date.now().toString());
+          }
+          return liveRate;
         }
-        return liveRate;
       }
+    } catch (e) {
+      console.warn(`API Taux HTG (${url}) indisponible:`, e);
     }
-  } catch (e) {
-    console.warn("API Taux du Jour HTG indisponible, utilisation du taux en cache:", e);
   }
   return getUsdHtgRate();
 }
