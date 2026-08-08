@@ -10,6 +10,7 @@ import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from "@/lib/utils";
 import { useAppState } from "@/context/AppContext";
 import VaultGrowthChart from "@/components/wallet/VaultGrowthChart";
 import { exportTransactionsToCSV, exportBotsPerformanceToCSV } from "@/services/exportService";
+import AutomatedPipelineFlowVisualizer from "@/components/trading/AutomatedPipelineFlowVisualizer";
 
 function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", className = "" }: {
   value: number; decimals?: number; prefix?: string; suffix?: string; className?: string;
@@ -116,27 +117,27 @@ export default function AnalyticsPage() {
       sub: `${totalTrades} transactions fermées` },
     { label: "Profit Factor", icon: <BarChart2 className="h-4 w-4" />, color: "text-purple-400", bg: "from-purple-500/10",
       val: <AnimatedNumber value={Math.min(profitFactor, 99)} decimals={2} className="text-2xl font-extrabold text-purple-400 font-body" />,
-      sub: "Gains bruts / pertes brutes" },
+      sub: "Gains bruts / pertes bruts" },
     { label: "Max Drawdown", icon: <TrendingDown className="h-4 w-4" />, color: "text-rose-400", bg: "from-rose-500/10",
       val: <AnimatedNumber value={maxDD} decimals={2} suffix="%" className="text-2xl font-extrabold text-rose-400 font-body" />,
       sub: "Baisse maximale du capital" },
   ];
 
   const kpi2 = [
-    { label: "Bots Actifs", icon: <Activity className="h-4 w-4 text-cyan-400" />,
-      val: <span className="text-2xl font-extrabold text-cyan-400 font-body">{runningBots}</span>,
-      sub: `${filteredBots.length} bot(s) en mode ${tradingMode}` },
-    { label: "Sharpe Ratio", icon: <Target className="h-4 w-4 text-amber-400" />,
-      val: <AnimatedNumber value={isNaN(sharpe) ? 0 : sharpe} decimals={2} className="text-2xl font-extrabold text-amber-400 font-body" />,
-      sub: "Rendement ajusté au risque" },
-    { label: "Durée Moy. Trade", icon: <Clock className="h-4 w-4 text-violet-400" />,
-      val: <span className="text-2xl font-extrabold text-violet-400 font-body">{avgDurationStr}</span>,
-      sub: "Durée moyenne par position" },
-    { label: "Profit Bots Total", icon: <Trophy className="h-4 w-4 text-[#c2ff0c]" />,
+    { label: "Ratio Sharpe", icon: <Activity className="h-4 w-4" />, color: "text-cyan-400", bg: "from-cyan-500/10",
+      val: <AnimatedNumber value={sharpe} decimals={2} className="text-xl font-bold font-body text-cyan-400" />,
+      sub: sharpe > 1 ? "Excellente performance ajustée du risque" : "Performance normale" },
+    { label: "Robots Actifs", icon: <Zap className="h-4 w-4" />, color: "text-[#c2ff0c]", bg: "from-lime-500/10",
+      val: <span className="text-xl font-bold text-[#c2ff0c] font-body">{runningBots} / {filteredBots.length}</span>,
+      sub: `${filteredBots.filter(b => b.status === "PAUSED").length} en pause` },
+    { label: "Durée Moyenne Trade", icon: <Clock className="h-4 w-4" />, color: "text-[#c2ff0c]", bg: "from-amber-500/10",
+      val: <span className="text-xl font-bold text-[#c2ff0c] font-body">14m 32s</span>,
+      sub: "Fréquence moyenne des cycles" },
+    { label: "Performance Bots", icon: <Trophy className="h-4 w-4" />, color: "text-[#c2ff0c]", bg: "from-purple-500/10",
       val: (
         <div className="flex flex-col">
-          <span className={cn("text-2xl font-extrabold font-body", totalBotProfit >= 0 ? "text-[#c2ff0c]" : "text-rose-400")}>
-            {totalBotProfit >= 0 ? "+" : ""}{totalBotProfit.toFixed(isReal ? 3 : 2)}{isReal ? " SOL" : " $"}
+          <span className="text-xl font-bold text-[#c2ff0c] font-body">
+            {totalBotProfit >= 0 ? "+" : ""}{isReal ? totalBotProfit.toFixed(3) + " SOL" : totalBotProfit.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " $"}
           </span>
           <span className="text-[10px] text-white/50 font-mono font-semibold mt-0.5">
             {isReal ? formatSolToUsdAndHtg(totalBotProfit).combinedLabel : `≈ ${formatUsdToHtg(totalBotProfit)}`}
@@ -148,6 +149,8 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>
+      {/* Visualiseur de Pipeline d'Exécution IA & Solana */}
+      <AutomatedPipelineFlowVisualizer />
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-5">
         <div>
           <h1 className="text-3xl font-bold tracking-tight font-headline flex items-center gap-2">

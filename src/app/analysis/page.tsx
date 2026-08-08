@@ -15,6 +15,7 @@ import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { currencyPairs as allCurrencyPairs, timeframes as allTimeframes } from '@/hooks/useTradingSimulation';
+import AutomatedPipelineFlowVisualizer from '@/components/trading/AutomatedPipelineFlowVisualizer';
 
 const TVWidget = dynamic(
   () => import('@/components/trading/TradingViewWidget').then((mod) => mod.default),
@@ -159,6 +160,8 @@ export default function ForexAnalysisPage() {
 
   return (
     <div className="space-y-6 pb-12" suppressHydrationWarning>
+      {/* Visualiseur de Pipeline d'Exécution IA & Solana */}
+      <AutomatedPipelineFlowVisualizer />
       {/* Top Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
