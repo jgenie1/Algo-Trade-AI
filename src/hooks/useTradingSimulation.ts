@@ -15,6 +15,7 @@ import {
   checkSolanaNetworkHealth, 
   getMultipleSolanaBalances, 
   disperseSolToSubWallets,
+  sweepSubWalletProfitToMaster,
   analyzePumpCoinWithSniperPrompt 
 } from '@/services/pumpFunService';
 import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
@@ -1461,6 +1462,33 @@ export function useTradingSimulation() {
             const updated = vault + vaultSkimSol;
             if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault_sol', updated.toString());
             return updated;
+          });
+        }
+      }
+
+      // Auto-sweep profits from sub-wallets to Master Wallet on Solana Mainnet
+      if (profit > 0 && p.botId) {
+        const botObj = botsRef.current.find(b => b.id === p.botId);
+        const subIndex = (botObj?.subWallet || 1) - 1;
+        const subWalletKey = subWalletsRef.current[subIndex]?.privateKey;
+        const masterPubKey = (typeof window !== 'undefined' ? localStorage.getItem('connected_web3_wallet') : null) 
+          ? JSON.parse(localStorage.getItem('connected_web3_wallet')!).address 
+          : (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '');
+
+        if (subWalletKey && masterPubKey && masterPubKey.length >= 32) {
+          const netProfitSol = profit * 0.90; // 90% net profit to master wallet
+          sweepSubWalletProfitToMaster({
+            subWalletPrivateKey: subWalletKey,
+            masterPublicKey: masterPubKey,
+            netProfitSol
+          }).then(sweepRes => {
+            if (sweepRes && sweepRes.success && sweepRes.txHash) {
+              addBotLog(p.botId!, botObj?.strategy || 'Bot', `[PROFIT SWEEP SOLANA RÉUSSI - GAIN CRÉDITÉ MASTER WALLET] ${netProfitSol.toFixed(4)} SOL transférés vers ${masterPubKey.slice(0, 8)}... Tx: ${sweepRes.txHash.slice(0, 16)}...`, 'trade');
+            } else if (sweepRes && sweepRes.error) {
+              console.warn("[SOLANA PROFIT SWEEP WARNING]", sweepRes.error);
+            }
+          }).catch(err => {
+            console.warn("[SOLANA PROFIT SWEEP ERROR]", err);
           });
         }
       }

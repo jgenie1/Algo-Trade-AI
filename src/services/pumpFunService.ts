@@ -1076,3 +1076,115 @@ RECOMMANDATION FINALE : [ ${recommendation} ]
     formattedReportText
   };
 }
+
+/**
+ * Effectue un virement réel de SOL natif sur Solana Mainnet depuis une clé privée d'origine vers une adresse publique destinataire.
+ */
+export async function transferSolOnChain(params: {
+  fromPrivateKey: string;
+  toPublicKey: string;
+  amountSol: number;
+  priorityFeeSol?: number;
+}): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  try {
+    const { fromPrivateKey, toPublicKey, amountSol, priorityFeeSol = 0.0005 } = params;
+
+    if (amountSol <= 0) {
+      throw new Error("Le montant du virement doit être supérieur à 0 SOL.");
+    }
+
+    const toTrimmed = (toPublicKey || '').trim();
+    if (!toTrimmed || toTrimmed.length < 32 || toTrimmed.length > 44 || /[^1-9A-HJ-NP-Za-km-z]/.test(toTrimmed)) {
+      throw new Error(`Adresse publique destinataire invalide : "${toTrimmed}".`);
+    }
+
+    const { Keypair, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+    const { default: bs58 } = await import('bs58');
+    const connection = await getWorkingConnection();
+
+    // Décoder le signeur d'origine (Base58 ou JSON Array ou Base64)
+    let signer: any;
+    const trimmedKey = fromPrivateKey.trim();
+    if (trimmedKey.startsWith('[') && trimmedKey.endsWith(']')) {
+      signer = Keypair.fromSecretKey(new Uint8Array(JSON.parse(trimmedKey)));
+    } else if (trimmedKey.length > 80 && !/[^0-9a-zA-Z+/=]/.test(trimmedKey) && trimmedKey.includes('=')) {
+      signer = Keypair.fromSecretKey(new Uint8Array(Buffer.from(trimmedKey, 'base64')));
+    } else {
+      signer = Keypair.fromSecretKey(bs58.decode(trimmedKey));
+    }
+
+    const recipientPubkey = new PublicKey(toTrimmed);
+    const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
+
+    // Vérifier le solde de la clé d'origine
+    const senderBalanceLamports = await connection.getBalance(signer.publicKey);
+    if (senderBalanceLamports < lamports + 5000) {
+      const solBalance = senderBalanceLamports / LAMPORTS_PER_SOL;
+      throw new Error(`Solde d'origine insuffisant pour le virement. Solde disponible: ${solBalance.toFixed(4)} SOL (Requis: ${amountSol.toFixed(4)} SOL + frais).`);
+    }
+
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: signer.publicKey,
+        toPubkey: recipientPubkey,
+        lamports
+      })
+    );
+
+    const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+    transaction.recentBlockhash = latestBlockhash.blockhash;
+    transaction.feePayer = signer.publicKey;
+
+    transaction.sign(signer);
+
+    const rawTx = transaction.serialize();
+    const signature = await connection.sendRawTransaction(rawTx, {
+      skipPreflight: true,
+      preflightCommitment: 'confirmed'
+    });
+
+    try {
+      await connection.confirmTransaction({
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+      }, 'confirmed');
+      console.log(`[VIREMENT SOL CONFIRMÉ] ${amountSol} SOL transférés de ${signer.publicKey.toBase58()} ➔ ${toTrimmed}. Hash: ${signature}`);
+    } catch (confErr) {
+      console.warn(`[VIREMENT SOL ATTENTE] Signature transmise sur Solana: ${signature}`);
+    }
+
+    return {
+      success: true,
+      txHash: signature
+    };
+  } catch (err: any) {
+    console.error("[ÉCHEC VIREMENT SOLANA ON-CHAIN]", err);
+    return {
+      success: false,
+      error: err.message || err
+    };
+  }
+}
+
+/**
+ * Effectue le balayage automatique des bénéfices (Profit Sweep) depuis un sous-portefeuille bot vers le Master Wallet principal sur Solana.
+ */
+export async function sweepSubWalletProfitToMaster(params: {
+  subWalletPrivateKey: string;
+  masterPublicKey: string;
+  netProfitSol: number;
+}): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  const { subWalletPrivateKey, masterPublicKey, netProfitSol } = params;
+
+  if (netProfitSol <= 0.0001) {
+    return { success: false, error: "Profit minimal non atteint pour le balayage." };
+  }
+
+  return transferSolOnChain({
+    fromPrivateKey: subWalletPrivateKey,
+    toPublicKey: masterPublicKey,
+    amountSol: netProfitSol
+  });
+}
+
