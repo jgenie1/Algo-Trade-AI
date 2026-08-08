@@ -8,9 +8,9 @@ import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import TransactionHistoryTable from '@/components/TransactionHistoryTable';
-import DepositGuidesCard from '@/components/DepositGuidesCard';
-import ReserveVaultCard from '@/components/ReserveVaultCard';
+import TransactionHistoryTable from '@/components/trading/TransactionHistoryTable';
+import DepositGuidesCard from '@/components/wallet/DepositGuidesCard';
+import ReserveVaultCard from '@/components/wallet/ReserveVaultCard';
 
 const SOL_EXPLORER = 'https://solscan.io/account/';
 const MANUAL_SOL_KEY = 'manual_solana_deposit_address';

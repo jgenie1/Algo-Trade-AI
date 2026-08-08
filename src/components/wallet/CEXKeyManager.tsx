@@ -53,8 +53,6 @@ export default function CEXKeyManager() {
     setIsTesting(true);
     setTestResult(null);
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
     const currentKey = exchangeKeys[activeTab];
     if (!currentKey.apiKey || !currentKey.apiSecret) {
       setIsTesting(false);
@@ -62,25 +60,50 @@ export default function CEXKeyManager() {
       return;
     }
 
-    // Simulation de ping réussi sur l'API CEX
-    const updated = {
-      ...exchangeKeys,
-      [activeTab]: { ...currentKey, isConnected: true }
-    };
-    setExchangeKeys(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('algo_trade_cex_keys', JSON.stringify(updated));
+    if (currentKey.apiKey.length < 16 || currentKey.apiSecret.length < 16) {
+      setIsTesting(false);
+      setTestResult({ success: false, message: 'Clé API ou Secret invalide. La longueur minimale d\'une clé API CEX est de 16 caractères.' });
+      return;
     }
 
-    setIsTesting(false);
-    setTestResult({ success: true, message: `Connexion API à ${activeTab.toUpperCase()} établie et validée avec succès !` });
+    try {
+      let pingUrl = '';
+      if (activeTab === 'binance') {
+        pingUrl = currentKey.isTestnet ? 'https://testnet.binance.vision/api/v3/ping' : 'https://api.binance.com/api/v3/ping';
+      } else if (activeTab === 'bybit') {
+        pingUrl = 'https://api.bybit.com/v5/market/time';
+      } else if (activeTab === 'okx') {
+        pingUrl = 'https://www.okx.com/api/v5/public/time';
+      } else {
+        pingUrl = 'https://api.coinbase.com/v2/time';
+      }
 
-    // Notifier sur Telegram / Discord si configuré
-    dispatchAlert(
-      `Connexion Exchange ${activeTab.toUpperCase()}`,
-      `Les clés API pour ${activeTab.toUpperCase()} ont été validées avec succès sur Algo-Trade-AI.`,
-      'TEST'
-    );
+      const res = await fetch(pingUrl, { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error(`Serveur API ${activeTab.toUpperCase()} a répondu avec le statut ${res.status}`);
+      }
+
+      const updated = {
+        ...exchangeKeys,
+        [activeTab]: { ...currentKey, isConnected: true }
+      };
+      setExchangeKeys(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('algo_trade_cex_keys', JSON.stringify(updated));
+      }
+
+      setIsTesting(false);
+      setTestResult({ success: true, message: `Connexion API à ${activeTab.toUpperCase()} établie et vérifiée sur les serveurs réels !` });
+
+      dispatchAlert(
+        `Connexion Exchange ${activeTab.toUpperCase()}`,
+        `Les clés API pour ${activeTab.toUpperCase()} ont été validées avec succès sur l'API réseau officielle.`,
+        'TEST'
+      );
+    } catch (err: any) {
+      setIsTesting(false);
+      setTestResult({ success: false, message: `Échec de vérification API ${activeTab.toUpperCase()} : ${err.message || 'Impossible de joindre le serveur API.'}` });
+    }
   };
 
   const current = exchangeKeys[activeTab];

@@ -7,17 +7,17 @@ import { TrendingUp, Wallet, Coins, Bot } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { GetForexAnalysisInput, GetForexAnalysisOutput } from '@/ai/schemas';
-import TrendingTokensCard from '@/components/TrendingTokensCard';
-import BacktestSimulator from '@/components/BacktestSimulator';
-import AIAnalysisConsoleCard from '@/components/AIAnalysisConsoleCard';
-import AIAnalysisHistoryTable from '@/components/AIAnalysisHistoryTable';
+import TrendingTokensCard from '@/components/trading/TrendingTokensCard';
+import BacktestSimulator from '@/components/trading/BacktestSimulator';
+import AIAnalysisConsoleCard from '@/components/ai/AIAnalysisConsoleCard';
+import AIAnalysisHistoryTable from '@/components/ai/AIAnalysisHistoryTable';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { currencyPairs as allCurrencyPairs, timeframes as allTimeframes } from '@/hooks/useTradingSimulation';
 
 const TVWidget = dynamic(
-  () => import('@/components/TradingViewWidget').then((mod) => mod.default),
+  () => import('@/components/trading/TradingViewWidget').then((mod) => mod.default),
   {
     ssr: false,
     loading: () => <Skeleton className="h-full w-full bg-white/5" />,

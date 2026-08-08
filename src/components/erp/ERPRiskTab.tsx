@@ -17,7 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { cn, formatUsdToHtg } from '@/lib/utils';
-import PanicKillSwitch from '@/components/PanicKillSwitch';
+import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
 
 interface ERPRiskTabProps {
   totalAumUsd: number;

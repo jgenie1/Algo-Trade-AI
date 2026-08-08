@@ -21,7 +21,7 @@ import {
   SelectItem 
 } from '@/components/ui/select';
 import { currencyPairs, timeframes } from '@/hooks/useTradingSimulation';
-import TradingViewWidget from '@/components/TradingViewWidget';
+import TradingViewWidget from '@/components/trading/TradingViewWidget';
 
 interface MarketRadarAndChartProps {
   selectedPair: string;

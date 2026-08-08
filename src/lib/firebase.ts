@@ -3,13 +3,13 @@ import { getFirestore, setLogLevel, doc, setDoc, getDoc } from 'firebase/firesto
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDR7gRGxRFzRCXP0SB8Z0tPxVNOiJPDGP0",
-  authDomain: "algotradeai-846f4.firebaseapp.com",
-  projectId: "algotradeai-846f4",
-  storageBucket: "algotradeai-846f4.firebasestorage.app",
-  messagingSenderId: "138844128783",
-  appId: "1:138844128783:web:1a829e2143a87f149d857a",
-  measurementId: "G-X7HWCDYYBQ"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDR7gRGxRFzRCXP0SB8Z0tPxVNOiJPDGP0",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "algotradeai-846f4.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "algotradeai-846f4",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "algotradeai-846f4.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "138844128783",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:138844128783:web:1a829e2143a87f149d857a",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-X7HWCDYYBQ"
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -27,14 +27,14 @@ export interface AppState {
   balance: number;
   reserveVault?: number;
   reserveVaultSol?: number;
-  positions: any[];
-  closedPositions: any[];
-  bots: any[];
-  transactions?: any[];
-  botLearnings?: any[];
-  botLogs?: any[];
-  cexKeys?: any;
-  notificationSettings?: any;
+  positions: Record<string, unknown>[];
+  closedPositions: Record<string, unknown>[];
+  bots: Record<string, unknown>[];
+  transactions?: Record<string, unknown>[];
+  botLearnings?: Record<string, unknown>[];
+  botLogs?: Record<string, unknown>[];
+  cexKeys?: Record<string, unknown> | null;
+  notificationSettings?: Record<string, unknown> | null;
 }
 
 export const defaultState: AppState = {

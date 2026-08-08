@@ -8,10 +8,10 @@ import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFun
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import ERPOverviewTab from '@/components/ERPOverviewTab';
-import ERPLedgerTab from '@/components/ERPLedgerTab';
-import ERPRiskTab from '@/components/ERPRiskTab';
-import ERPLicenseTab from '@/components/ERPLicenseTab';
+import ERPOverviewTab from '@/components/erp/ERPOverviewTab';
+import ERPLedgerTab from '@/components/erp/ERPLedgerTab';
+import ERPRiskTab from '@/components/erp/ERPRiskTab';
+import ERPLicenseTab from '@/components/erp/ERPLicenseTab';
 
 const ORGANIZATIONS = [
   { id: 'alpha', name: 'Hedge Fund Desk Alpha', type: 'SOLANA MAINNET & HIGH-FREQ', balanceLimit: '500,000 $' },

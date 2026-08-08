@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Bot, ShieldCheck, Target, Flame, RefreshCw } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import PerformanceStrategyCard from '@/components/PerformanceStrategyCard';
+import PerformanceStrategyCard from '@/components/layout/PerformanceStrategyCard';
 
 export default function PerformancePage() {
   const { tradingMode, setTradingMode, bots, closedPositions } = useAppState();

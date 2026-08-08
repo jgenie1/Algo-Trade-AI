@@ -121,18 +121,36 @@ export function getCrossChainRoutes(
 }
 
 /**
- * Exécute un transfert de fonds cross-chain (Simulé ou Web3 réel)
+ * Exécute un transfert de fonds cross-chain (Web3 réel ou mode démo)
  */
 export async function executeCrossChainTransfer(
   fromChain: SupportedChain,
   toChain: SupportedChain,
   amount: number,
-  tokenSymbol: string = 'USDT'
+  tokenSymbol: string = 'USDT',
+  isRealMode: boolean = false
 ): Promise<TransferResult> {
   const routes = getCrossChainRoutes(fromChain, toChain, amount, tokenSymbol);
   const bestRoute = routes.find(r => r.recommended) || routes[0];
 
-  // Simulation d'exécution de transaction cross-chain
+  if (isRealMode) {
+    const hasSolanaWallet = typeof window !== 'undefined' && (window as any).solana && (window as any).solana.isConnected;
+    const hasEthereumWallet = typeof window !== 'undefined' && (window as any).ethereum;
+
+    if (!hasSolanaWallet && !hasEthereumWallet) {
+      return {
+        success: false,
+        fromChain,
+        toChain,
+        amountTransferred: 0,
+        feeUsd: 0,
+        message: `Échec du transfert réel : Aucun portefeuille Web3 (Phantom/MetaMask) n'est connecté pour signer la transaction de bridge de ${SUPPORTED_CHAINS[fromChain].name} vers ${SUPPORTED_CHAINS[toChain].name}.`,
+        timestamp: Date.now()
+      };
+    }
+  }
+
+  // Simulation d'exécution de transaction cross-chain en mode Démo
   await new Promise(resolve => setTimeout(resolve, 1500));
 
   const randomTxHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');

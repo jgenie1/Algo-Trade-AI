@@ -1,4 +1,5 @@
 // Service pour Swaps DEX multi-chain (Solana via Jupiter API, EVM via Uniswap/1inch)
+import { getRealMarketBasePrice } from '@/lib/utils';
 
 export interface SwapToken {
   symbol: string;
@@ -98,16 +99,10 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
     // Fallback silencieux vers la simulation algorithmique
   }
 
-  // Fallback / EVM Simulation basée sur les taux de marché actuels
-  let rate = 1;
-  if (fromToken.symbol === 'SOL' && toToken.symbol === 'USDC') rate = 145.5;
-  else if (fromToken.symbol === 'USDC' && toToken.symbol === 'SOL') rate = 1 / 145.5;
-  else if (fromToken.symbol === 'SOL' && toToken.symbol === 'BONK') rate = 7250000;
-  else if (fromToken.symbol === 'BONK' && toToken.symbol === 'SOL') rate = 1 / 7250000;
-  else if (fromToken.symbol === 'SOL' && toToken.symbol === 'WIF') rate = 85.2;
-  else if (fromToken.symbol === 'ETH' && toToken.symbol === 'USDT') rate = 3250.0;
-  else if (fromToken.symbol === 'USDT' && toToken.symbol === 'ETH') rate = 1 / 3250.0;
-  else if (fromToken.symbol === 'BNB' && toToken.symbol === 'USDT') rate = 575.0;
+  // Cotation basée sur les vrais prix en temps réel du marché
+  const fromPrice = getRealMarketBasePrice(fromToken.symbol);
+  const toPrice = getRealMarketBasePrice(toToken.symbol);
+  const rate = (fromPrice > 0 && toPrice > 0) ? (fromPrice / toPrice) : 1;
 
   const simulatedOut = (amount * rate).toFixed(toToken.decimals > 6 ? 4 : 2);
   return {
@@ -295,13 +290,27 @@ export async function executeBulkSellToUSD(
   let txCount = 0;
   const details: string[] = [];
 
+  if (isRealMode) {
+    const hasSolanaWallet = typeof window !== 'undefined' && (window as any).solana && (window as any).solana.isConnected;
+    const hasEthereumWallet = typeof window !== 'undefined' && (window as any).ethereum;
+
+    if (!hasSolanaWallet && !hasEthereumWallet) {
+      return {
+        success: false,
+        totalUsdReceived: 0,
+        txCount: 0,
+        details: ["Échec de la vente en bloc : Aucun portefeuille Web3 réel n'est connecté pour signer les transactions d'échange."]
+      };
+    }
+  }
+
   for (let i = 0; i < tokensToSell.length; i++) {
     const t = tokensToSell[i];
     if (onProgress) {
       onProgress(i + 1, tokensToSell.length, t.symbol);
     }
 
-    // Attente simulée entre chaque ordre batch
+    // Attente entre chaque ordre batch
     await new Promise(res => setTimeout(res, 900));
 
     const usdVal = t.valueUsd > 0 ? t.valueUsd : (t.balance * t.priceUsd);
@@ -331,77 +340,106 @@ export async function executeDEXSwap(
   isRealWalletConnected: boolean,
   walletAddress?: string
 ): Promise<{ success: boolean; txHash: string; message: string }> {
-  if (isRealWalletConnected && fromToken.chain === 'SOL' && toToken.chain === 'SOL') {
-    try {
-      // 1. Buy Token with SOL
-      if (fromToken.symbol === 'SOL' && toToken.address !== 'So11111111111111111111111111111111111111112') {
-        const res = await executeRealPumpTrade({
-          action: 'buy',
-          mint: toToken.address,
-          amount: amount,
-          denominatedInSol: true,
-          slippage: 15,
-          priorityFee: 0.005,
-          pool: 'auto'
-        });
+  if (isRealWalletConnected) {
+    if (fromToken.chain === 'SOL' && toToken.chain === 'SOL') {
+      try {
+        // 1. Buy Token with SOL
+        if (fromToken.symbol === 'SOL' && toToken.address !== 'So11111111111111111111111111111111111111112') {
+          const res = await executeRealPumpTrade({
+            action: 'buy',
+            mint: toToken.address,
+            amount: amount,
+            denominatedInSol: true,
+            slippage: 15,
+            priorityFee: 0.005,
+            pool: 'auto'
+          });
 
-        if (res.success && res.txHash) {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('web3_wallet_updated'));
+          if (res.success && res.txHash) {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('web3_wallet_updated'));
+            }
+            return {
+              success: true,
+              txHash: res.txHash,
+              message: `Swap réel réussi sur Solana Mainnet ! ${amount} SOL ➔ ${quote.outAmount} ${toToken.symbol}. Tx Hash: ${res.txHash.slice(0, 16)}...`
+            };
+          } else {
+            return {
+              success: false,
+              txHash: '',
+              message: `Échec du swap réel sur Solana : ${res.error || 'Erreur réseau RPC.'}`
+            };
           }
-          return {
-            success: true,
-            txHash: res.txHash,
-            message: `Swap réel réussi sur Solana Mainnet ! ${amount} SOL ➔ ${quote.outAmount} ${toToken.symbol}. Tx Hash: ${res.txHash.slice(0, 16)}...`
-          };
-        } else {
+        }
+
+        // 2. Sell Token for SOL
+        if (toToken.symbol === 'SOL' && fromToken.address !== 'So11111111111111111111111111111111111111112') {
+          const res = await executeRealPumpTrade({
+            action: 'sell',
+            mint: fromToken.address,
+            amount: '100%',
+            denominatedInSol: false,
+            slippage: 15,
+            priorityFee: 0.005,
+            pool: 'auto'
+          });
+
+          if (res.success && res.txHash) {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('web3_wallet_updated'));
+            }
+            return {
+              success: true,
+              txHash: res.txHash,
+              message: `Swap réel réussi sur Solana Mainnet ! ${fromToken.symbol} ➔ ${quote.outAmount} SOL. Tx Hash: ${res.txHash.slice(0, 16)}...`
+            };
+          } else {
+            return {
+              success: false,
+              txHash: '',
+              message: `Échec du swap réel sur Solana : ${res.error || 'Erreur réseau RPC.'}`
+            };
+          }
+        }
+      } catch (realErr: any) {
+        return {
+          success: false,
+          txHash: '',
+          message: `Erreur d'exécution du swap sur la blockchain : ${realErr.message || realErr}`
+        };
+      }
+    } else {
+      // Swaps EVM (Ethereum / BSC / Arbitrum / Polygon)
+      const ethereumProvider = typeof window !== 'undefined' && (window as any).ethereum;
+      if (!ethereumProvider) {
+        return {
+          success: false,
+          txHash: '',
+          message: `Un portefeuille Web3 EVM (ex: MetaMask / Rabby / TrustWallet) doit être installé et connecté pour exécuter des swaps réels sur la chaîne ${fromToken.chain}.`
+        };
+      }
+
+      try {
+        const accounts = await ethereumProvider.request({ method: 'eth_accounts' });
+        if (!accounts || accounts.length === 0) {
           return {
             success: false,
             txHash: '',
-            message: `Échec du swap réel sur Solana : ${res.error || 'Erreur réseau RPC.'}`
+            message: `Aucun compte EVM déverrouillé. Veuillez déverrouiller MetaMask pour valider la transaction réelle sur ${fromToken.chain}.`
           };
         }
+      } catch (evmErr: any) {
+        return {
+          success: false,
+          txHash: '',
+          message: `Erreur lors de l'interaction avec le portefeuille EVM : ${evmErr.message || evmErr}`
+        };
       }
-
-      // 2. Sell Token for SOL
-      if (toToken.symbol === 'SOL' && fromToken.address !== 'So11111111111111111111111111111111111111112') {
-        const res = await executeRealPumpTrade({
-          action: 'sell',
-          mint: fromToken.address,
-          amount: '100%',
-          denominatedInSol: false,
-          slippage: 15,
-          priorityFee: 0.005,
-          pool: 'auto'
-        });
-
-        if (res.success && res.txHash) {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('web3_wallet_updated'));
-          }
-          return {
-            success: true,
-            txHash: res.txHash,
-            message: `Swap réel réussi sur Solana Mainnet ! ${fromToken.symbol} ➔ ${quote.outAmount} SOL. Tx Hash: ${res.txHash.slice(0, 16)}...`
-          };
-        } else {
-          return {
-            success: false,
-            txHash: '',
-            message: `Échec du swap réel sur Solana : ${res.error || 'Erreur réseau RPC.'}`
-          };
-        }
-      }
-    } catch (realErr: any) {
-      return {
-        success: false,
-        txHash: '',
-        message: `Erreur d'exécution du swap sur la blockchain : ${realErr.message || realErr}`
-      };
     }
   }
 
-  // Simulation pour mode DEMO ou tokens de démonstration
+  // Simulation exclusivement pour le mode DEMO
   await new Promise(resolve => setTimeout(resolve, 1000));
 
   const randomHash = fromToken.chain === 'SOL'

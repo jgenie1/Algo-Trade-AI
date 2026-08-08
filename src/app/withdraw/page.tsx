@@ -7,9 +7,9 @@ import { getRealSolanaBalance, withdrawSolana, fetchLiveWalletBalance } from '@/
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import TransactionHistoryTable from '@/components/TransactionHistoryTable';
-import WithdrawFormCard from '@/components/WithdrawFormCard';
-import ReserveVaultCard from '@/components/ReserveVaultCard';
+import TransactionHistoryTable from '@/components/trading/TransactionHistoryTable';
+import WithdrawFormCard from '@/components/wallet/WithdrawFormCard';
+import ReserveVaultCard from '@/components/wallet/ReserveVaultCard';
 
 const SOLANA_NETWORK_FEE = 0.00005;
 const PRIORITY_FEE_ESTIMATE = 0.001;

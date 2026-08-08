@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import Header from '@/components/Header';
-import SidebarNav from '@/components/SidebarNav';
+import Header from '@/components/layout/Header';
+import SidebarNav from '@/components/layout/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
 
-import MobileBottomNav from '@/components/MobileBottomNav';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (

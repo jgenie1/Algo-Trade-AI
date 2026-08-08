@@ -29,10 +29,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
-import PanicKillSwitch from '@/components/PanicKillSwitch';
-import PWAInstallBanner from '@/components/PWAInstallBanner';
+import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
+import PWAInstallBanner from '@/components/layout/PWAInstallBanner';
 import { getStoredLanguage, setStoredLanguage, Language } from '@/services/languageService';
-import DEXSwapModal from '@/components/DEXSwapModal';
+import DEXSwapModal from '@/components/wallet/DEXSwapModal';
 import {
   Popover,
   PopoverContent,

@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import CEXKeyManager from '@/components/CEXKeyManager';
-import SettingsNotificationsCard from '@/components/SettingsNotificationsCard';
+import CEXKeyManager from '@/components/wallet/CEXKeyManager';
+import SettingsNotificationsCard from '@/components/layout/SettingsNotificationsCard';
 import { getNotificationSettings, saveNotificationSettings, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, dispatchAlert } from '@/services/notificationService';
 
 export default function SettingsPage() {

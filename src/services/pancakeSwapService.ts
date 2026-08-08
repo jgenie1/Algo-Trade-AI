@@ -95,7 +95,14 @@ export async function getBscProfitVaultStatus(): Promise<BscProfitVaultStatus> {
 /**
  * Dépose des bénéfices accumulés dans le coffre BSC BEP-20 (USDT / BNB).
  */
-export async function depositProfitToBscVault(amountUsdt: number): Promise<{ success: boolean; txHash: string; newBalance: number }> {
+export async function depositProfitToBscVault(amountUsdt: number, isRealMode: boolean = false): Promise<{ success: boolean; txHash: string; newBalance: number }> {
+  if (isRealMode) {
+    const hasEthereumWallet = typeof window !== 'undefined' && (window as any).ethereum;
+    if (!hasEthereumWallet) {
+      throw new Error("Un portefeuille Web3 EVM (ex: MetaMask) connecté au réseau BSC est requis pour déposer des fonds réels dans le coffre BSC.");
+    }
+  }
+
   await new Promise(resolve => setTimeout(resolve, 100));
 
   let currentVault = inMemoryBscVaultUsdt;
@@ -121,7 +128,14 @@ export async function depositProfitToBscVault(amountUsdt: number): Promise<{ suc
 /**
  * Retire des bénéfices du coffre BSC BEP-20.
  */
-export async function withdrawProfitFromBscVault(amountUsdt: number): Promise<{ success: boolean; txHash: string; newBalance: number }> {
+export async function withdrawProfitFromBscVault(amountUsdt: number, isRealMode: boolean = false): Promise<{ success: boolean; txHash: string; newBalance: number }> {
+  if (isRealMode) {
+    const hasEthereumWallet = typeof window !== 'undefined' && (window as any).ethereum;
+    if (!hasEthereumWallet) {
+      throw new Error("Un portefeuille Web3 EVM (ex: MetaMask) connecté au réseau BSC est requis pour retirer des fonds réels du coffre BSC.");
+    }
+  }
+
   await new Promise(resolve => setTimeout(resolve, 100));
 
   let currentVault = inMemoryBscVaultUsdt;

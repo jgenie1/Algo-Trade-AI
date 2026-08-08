@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from "@/lib/utils";
 import { useAppState } from "@/context/AppContext";
-import VaultGrowthChart from "@/components/VaultGrowthChart";
+import VaultGrowthChart from "@/components/wallet/VaultGrowthChart";
 import { exportTransactionsToCSV, exportBotsPerformanceToCSV } from "@/services/exportService";
 
 function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", className = "" }: {

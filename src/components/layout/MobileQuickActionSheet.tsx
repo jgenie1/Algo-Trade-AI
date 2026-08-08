@@ -24,8 +24,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAppState } from '@/context/AppContext';
-import DEXSwapModal from '@/components/DEXSwapModal';
-import PanicKillSwitch from '@/components/PanicKillSwitch';
+import DEXSwapModal from '@/components/wallet/DEXSwapModal';
+import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
 
 export default function MobileQuickActionSheet() {
   const { reserveVault, reserveVaultSol, tradingMode, setBalance, setReserveVault, setReserveVaultSol, setTransactions } = useAppState();

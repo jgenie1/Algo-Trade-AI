@@ -107,7 +107,7 @@ export async function GET() {
               virtual_token_reserves: tokenReserves,
               total_supply: 1000000000000000,
               market_cap: p.fdv ? p.fdv / 145 : (solReserves / 1e9) * 1.5,
-              reply_count: Math.floor(Math.random() * 15) + 5
+              reply_count: p.txns?.h24?.buys ? Math.min(100, Math.max(5, Math.floor(p.txns.h24.buys / 4))) : 12
             };
           });
 

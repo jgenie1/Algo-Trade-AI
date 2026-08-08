@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 
-import PositionRiskCalculator from '@/components/PositionRiskCalculator';
+import PositionRiskCalculator from '@/components/trading/PositionRiskCalculator';
 import { currencyPairs as allCurrencyPairs } from '@/hooks/useTradingSimulation';
 const currencyPairs = allCurrencyPairs.filter(c => c.value !== 'ALL');
 

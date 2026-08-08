@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk, Source_Code_Pro } from 'next/font/google';
 import './globals.css';
-import AppLayout from '@/components/AppLayout';
+import AppLayout from '@/components/layout/AppLayout';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 import { AppContextProvider } from '@/context/AppContext';
-import SWRegister from '@/components/SWRegister';
+import SWRegister from '@/components/layout/SWRegister';
 
 const inter = Inter({
   subsets: ['latin'],

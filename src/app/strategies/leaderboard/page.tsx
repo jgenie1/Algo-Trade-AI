@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Trophy, Sparkles, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import LeaderboardTable from '@/components/LeaderboardTable';
+import LeaderboardTable from '@/components/trading/LeaderboardTable';
 import {
   LeaderboardEntry,
   DEMO_LEADERBOARD_ENTRIES,
