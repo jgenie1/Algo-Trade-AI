@@ -298,20 +298,28 @@ export default function Header() {
   });
 
   const activeNotificationsCount = notifications.length;
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedAvatar = localStorage.getItem('profile_avatar_url');
+      if (storedAvatar) setProfileAvatarUrl(storedAvatar);
+    }
+  }, []);
 
   return (
     <header 
-      className="flex h-16 items-center justify-between gap-3 max-w-full bg-[#120e1a]/85 backdrop-blur-2xl border border-white/10 rounded-2xl px-3 sm:px-5 w-full mb-6 shrink-0 shadow-[0_10px_30px_rgba(0,0,0,0.6),0_0_15px_rgba(194,255,12,0.04)] overflow-x-auto no-scrollbar transition-all duration-300" 
+      className="flex h-16 items-center justify-between gap-3 max-w-full bg-[#0b0814]/90 backdrop-blur-2xl border border-white/12 rounded-2xl px-3 sm:px-5 w-full mb-6 shrink-0 shadow-[0_15px_40px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(194,255,12,0.06)] overflow-x-auto no-scrollbar transition-all duration-300" 
       suppressHydrationWarning
     >
-      {/* Left Zone: Navigation Toggle / Search / Live Status & USD-HTG Market Rate */}
+      {/* Left Zone: Brand Identity / Sidebar Toggle / Search / Live USD-HTG Market Rate */}
       <div className="flex items-center gap-2.5 shrink-0">
         {/* Explicit Sidebar Show/Hide Toggle Button */}
         <Button
           type="button"
           onClick={toggleSidebar}
           className={cn(
-            "h-10 px-3 font-headline font-bold text-xs rounded-xl flex items-center gap-2 transition-all shrink-0 shadow-sm border",
+            "h-10 px-3 font-headline font-bold text-xs rounded-xl flex items-center gap-2 transition-all shrink-0 shadow-sm border cursor-pointer",
             state === "expanded"
               ? "bg-white/5 hover:bg-white/10 border-white/10 text-white/80 hover:text-white"
               : "bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 border-[#c2ff0c]/50 text-[#c2ff0c] shadow-[0_0_15px_rgba(194,255,12,0.3)] animate-pulse"
@@ -320,49 +328,73 @@ export default function Header() {
         >
           <PanelLeft className="h-4 w-4 text-[#c2ff0c]" />
           <span className="hidden sm:inline font-headline text-[11px] uppercase tracking-wider font-extrabold">
-            {state === "expanded" ? "Masquer" : "Afficher Menu"}
+            {state === "expanded" ? "Masquer" : "Menu"}
           </span>
         </Button>
         
-        {/* Search Bar */}
-        <div className="relative w-32 md:w-44 lg:w-52 hidden sm:block shrink-0">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-          <input 
-            type="text" 
-            placeholder="Rechercher..." 
-            className="w-full h-10 pl-10 pr-10 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-[#c2ff0c]/50 transition-all duration-200"
-            disabled
-          />
-          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono font-medium bg-white/10 border border-white/15 rounded text-white/50 pointer-events-none hidden md:inline">
-            ⌘K
-          </kbd>
+        {/* Brand Cyber Identity (Dribbble Showcase) */}
+        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/5 shrink-0">
+          <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
+            <Sparkles className="h-3.5 w-3.5" />
+          </div>
+          <div className="flex flex-col text-left leading-none">
+            <span className="font-headline font-black text-xs text-white tracking-wider flex items-center gap-1">
+              ALGOTRADE <span className="text-[#c2ff0c]">AI</span>
+            </span>
+            <span className="text-[8px] font-mono text-purple-300 uppercase tracking-widest font-extrabold mt-0.5">
+              PRO TERMINAL
+            </span>
+          </div>
         </div>
 
         {/* Live USD -> HTG Market Rate Pill */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/40 border border-purple-500/30 text-purple-200 text-xs shadow-inner shrink-0">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-950/40 via-purple-900/20 to-purple-950/40 border border-purple-500/30 text-purple-200 text-xs shadow-inner shrink-0 hover:border-[#c2ff0c]/40 transition-colors">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
           </span>
-          <span className="text-[10px] uppercase font-bold text-white/50 font-headline">USD/HTG:</span>
+          <span className="text-[10px] uppercase font-bold text-white/50 font-headline">USD ➔ HTG:</span>
           <span className="font-mono font-extrabold text-[#c2ff0c] text-xs">
             {liveHtgRate.toFixed(2)} HTG
           </span>
         </div>
-
-        {/* Live AI Mode Status Badge */}
-        <div className="hidden 2xl:flex items-center gap-2 px-3 py-2 rounded-xl bg-[#c2ff0c]/10 border border-[#c2ff0c]/25 text-[#c2ff0c] text-xs font-semibold shrink-0">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#c2ff0c] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#c2ff0c]"></span>
-          </span>
-          <Sparkles className="h-3.5 w-3.5 text-[#c2ff0c]" />
-          <span className="font-headline text-[11px] uppercase tracking-wider font-extrabold">Mode IA Actif</span>
-        </div>
       </div>
 
-      {/* Center / Trading & Security Controls Zone */}
+      {/* Center / Mode Switcher & Security Controls Zone */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Segmented Mode Switcher (DEMO vs REAL) */}
+        <div className="flex items-center p-1 bg-black/50 border border-white/10 rounded-xl shrink-0">
+          <button
+            type="button"
+            onClick={() => setTradingMode('DEMO')}
+            className={cn(
+              "px-3 py-1 text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer",
+              tradingMode === 'DEMO' 
+                ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]" 
+                : "text-white/40 hover:text-white"
+            )}
+          >
+            DEMO (Virtual)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!connectedWallet) {
+                alert("⚠️ Attention : Aucun portefeuille Web3 (Phantom/MetaMask) connecté. Connectez votre wallet pour exécuter des trades réels.");
+              }
+              setTradingMode('REAL');
+            }}
+            className={cn(
+              "px-3 py-1 text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer",
+              tradingMode === 'REAL' 
+                ? "bg-purple-600/40 text-purple-200 border border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.35)]" 
+                : "text-white/40 hover:text-white"
+            )}
+          >
+            ⚡ REAL (On-Chain)
+          </button>
+        </div>
+
         {/* Panic Kill Switch 1-Clic */}
         <PanicKillSwitch />
 
@@ -386,7 +418,7 @@ export default function Header() {
         {/* DEX Swap Quick Trigger Button */}
         <Button
           onClick={() => setIsSwapOpen(true)}
-          className="h-10 px-3.5 bg-gradient-to-r from-purple-950/70 to-indigo-950/70 hover:from-purple-900/90 hover:to-indigo-900/90 border border-purple-500/40 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0"
+          className="h-10 px-3.5 bg-gradient-to-r from-purple-950/70 to-indigo-950/70 hover:from-purple-900/90 hover:to-indigo-900/90 border border-purple-500/40 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0 cursor-pointer"
         >
           <ArrowDownUp className="h-4 w-4 text-[#c2ff0c]" />
           <span className="hidden md:inline font-headline uppercase tracking-wide">Swap DEX</span>
@@ -403,7 +435,7 @@ export default function Header() {
           <DialogTrigger asChild>
             {connectedWallet ? (
               <Button
-                className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-emerald-500/40 text-white font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-emerald-500/40 text-white font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] cursor-pointer"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -418,7 +450,7 @@ export default function Header() {
               </Button>
             ) : (
               <Button
-                className="h-10 px-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_15px_rgba(147,51,234,0.35)] hover:shadow-[0_0_25px_rgba(147,51,234,0.6)] flex items-center gap-2 border border-purple-400/30 transition-all transform hover:-translate-y-0.5"
+                className="h-10 px-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:shadow-[0_0_28px_rgba(147,51,234,0.65)] flex items-center gap-2 border border-purple-400/40 transition-all transform hover:-translate-y-0.5 cursor-pointer"
               >
                 <Wallet className="h-4 w-4 text-[#c2ff0c] animate-pulse" />
                 <span className="hidden sm:inline">Web3</span>
@@ -448,14 +480,22 @@ export default function Header() {
               <div className="space-y-4 pt-1 font-body">
                 <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-white/60 font-headline">Portefeuille Actif</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded font-mono">
-                      Connecté • {connectedWallet.chain}
+                    <span className="text-xs font-bold text-emerald-400 font-headline uppercase">Statut : Portefeuille Connecté</span>
+                    <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                      {connectedWallet.chain}
                     </span>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-white">{connectedWallet.name}</p>
-                    <p className="text-xs font-mono text-emerald-400 break-all mt-1">{connectedWallet.address}</p>
+                  
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-white/50 uppercase font-headline">Adresse Publique</p>
+                    <p className="font-mono text-xs text-white break-all bg-black/40 p-2 rounded-lg border border-white/5">
+                      {connectedWallet.address}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-white/50 uppercase font-headline">Fournisseur Web3</p>
+                    <p className="text-xs font-bold text-purple-300">{connectedWallet.name}</p>
                   </div>
                 </div>
 
@@ -465,37 +505,38 @@ export default function Header() {
                     setConnectedWallet(null);
                     if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
                   }}
-                  className="w-full h-10 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-headline font-bold text-xs rounded-xl"
+                  variant="outline"
+                  className="w-full h-11 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border-rose-500/30 font-headline text-xs font-bold rounded-xl cursor-pointer"
                 >
-                  Déconnecter le Portefeuille
+                  Déconnecter Portefeuille Web3
                 </Button>
               </div>
             ) : (
-              <div className="space-y-2.5 pt-2 font-body">
+              <div className="space-y-3 pt-1 font-body">
                 <button
                   onClick={connectPhantomSolana}
-                  className="w-full p-3.5 bg-white/5 hover:bg-purple-900/20 border border-white/10 hover:border-purple-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
+                  className="w-full p-3.5 bg-white/5 hover:bg-purple-900/30 border border-white/10 hover:border-purple-500/50 rounded-xl flex items-center justify-between transition-all duration-200 group cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-purple-900/50 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs shadow-md">
+                    <div className="w-9 h-9 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center font-bold text-purple-300 text-xs shadow-md">
                       SOL
                     </div>
                     <div className="text-left">
-                      <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">Phantom / Solflare</p>
-                      <p className="text-[10px] text-white/40 font-mono">Réseau Solana Mainnet (Direct Provider)</p>
+                      <p className="text-xs font-bold text-white group-hover:text-[#c2ff0c]">Phantom / Solflare / Backpack</p>
+                      <p className="text-[10px] text-white/40 font-mono">Solana Mainnet (window.phantom.solana)</p>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-purple-500/10 text-purple-300 group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
+                  <span className="text-[10px] bg-[#c2ff0c]/10 text-[#c2ff0c] group-hover:bg-[#c2ff0c] group-hover:text-black font-bold px-2.5 py-1 rounded-lg transition-all">
                     Connecter
                   </span>
                 </button>
 
                 <button
                   onClick={connectMetaMaskEVM}
-                  className="w-full p-3.5 bg-white/5 hover:bg-amber-900/20 border border-white/10 hover:border-amber-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
+                  className="w-full p-3.5 bg-white/5 hover:bg-amber-900/20 border border-white/10 hover:border-amber-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-900/50 border border-amber-500/30 flex items-center justify-center font-bold text-amber-300 text-xs shadow-md">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center font-bold text-amber-300 text-xs shadow-md">
                       BSC
                     </div>
                     <div className="text-left">
@@ -510,7 +551,7 @@ export default function Header() {
 
                 <button
                   onClick={connectWalletConnect}
-                  className="w-full p-3.5 bg-white/5 hover:bg-blue-900/20 border border-white/10 hover:border-blue-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group"
+                  className="w-full p-3.5 bg-white/5 hover:bg-blue-900/20 border border-white/10 hover:border-blue-500/40 rounded-xl flex items-center justify-between transition-all duration-200 group cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-blue-900/50 border border-blue-500/30 flex items-center justify-center font-bold text-blue-300 text-xs shadow-md">
@@ -544,7 +585,7 @@ export default function Header() {
                     <Button
                       type="button"
                       onClick={handleConnectCustomPubKey}
-                      className="h-10 px-3.5 bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black font-headline text-xs font-extrabold rounded-xl shrink-0"
+                      className="h-10 px-3.5 bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black font-headline text-xs font-extrabold rounded-xl shrink-0 cursor-pointer"
                     >
                       Connecter
                     </Button>
@@ -581,7 +622,7 @@ export default function Header() {
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 relative shrink-0"
+              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 relative shrink-0 cursor-pointer"
             >
               <Bell className="h-4 w-4" />
               {activeNotificationsCount > 0 && (
@@ -627,7 +668,7 @@ export default function Header() {
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 shrink-0"
+              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 shrink-0 cursor-pointer"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -712,13 +753,13 @@ export default function Header() {
                   type="button"
                   variant="ghost"
                   onClick={() => setIsSettingsOpen(false)}
-                  className="flex-1 bg-white/5 text-white/60 hover:text-white"
+                  className="flex-1 bg-white/5 text-white/60 hover:text-white cursor-pointer"
                 >
                   Annuler
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90 font-bold"
+                  className="flex-1 bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90 font-bold cursor-pointer"
                 >
                   Sauvegarder
                 </Button>
@@ -732,8 +773,8 @@ export default function Header() {
           <DropdownMenuTrigger asChild>
             <div className="flex items-center gap-3 p-1.5 pr-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors duration-200 cursor-pointer select-none">
               <Avatar className="h-8 w-8 rounded-lg border border-white/15">
-                <AvatarImage src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100" />
-                <AvatarFallback className="bg-white/10 text-white text-xs">DO</AvatarFallback>
+                <AvatarImage src={profileAvatarUrl} />
+                <AvatarFallback className="bg-white/10 text-white text-xs font-bold">DO</AvatarFallback>
               </Avatar>
               <div className="text-left hidden lg:block">
                 <p className="text-xs font-semibold text-white leading-tight">David Owner</p>
