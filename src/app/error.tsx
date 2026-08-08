@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
-import { RefreshCw, AlertTriangle, Home } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Home, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ErrorPage({
@@ -14,6 +14,40 @@ export default function ErrorPage({
   useEffect(() => {
     console.error("Next.js Application Error caught by ErrorBoundary:", error);
   }, [error]);
+
+  const handleSafeReset = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        ['trade_positions', 'trade_closed', 'trade_bots', 'trade_transactions', 'trade_learnings', 'trade_logs'].forEach(k => {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            try {
+              if (!Array.isArray(JSON.parse(raw))) localStorage.removeItem(k);
+            } catch (e) {
+              localStorage.removeItem(k);
+            }
+          }
+        });
+      } catch (e) {}
+
+      try {
+        reset();
+      } catch (e) {}
+
+      window.location.href = '/';
+    }
+  };
+
+  const handleHardReset = () => {
+    if (typeof window !== 'undefined') {
+      if (confirm("Réinitialiser les données locales et rouvrir le terminal ?")) {
+        try {
+          ['trade_positions', 'trade_closed', 'trade_bots', 'trade_transactions', 'trade_logs'].forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
+        window.location.href = '/';
+      }
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-white text-center">
@@ -28,22 +62,29 @@ export default function ErrorPage({
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 pt-2">
+        <div className="flex flex-col gap-2.5 pt-2">
           <button
-            onClick={() => reset()}
+            onClick={handleSafeReset}
             className="w-full h-11 bg-[#c2ff0c] text-black font-extrabold text-xs uppercase rounded-xl font-headline flex items-center justify-center gap-2 hover:bg-[#c2ff0c]/90 border-none transition-all cursor-pointer"
           >
             <RefreshCw className="h-4 w-4" />
             Recharger l'Interface
+          </button>
+          <button
+            onClick={handleHardReset}
+            className="w-full h-10 bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs uppercase rounded-xl font-headline flex items-center justify-center gap-2 border border-white/10 cursor-pointer"
+          >
+            <RotateCcw className="h-4 w-4 text-amber-400" />
+            Réinitialiser Données et Ouvrir
           </button>
           <Link
             href="/"
             onClick={() => {
               if (typeof window !== 'undefined') window.location.href = '/';
             }}
-            className="w-full h-11 bg-white/5 hover:bg-white/10 text-white font-bold text-xs uppercase rounded-xl font-headline flex items-center justify-center gap-2 border border-white/10 cursor-pointer"
+            className="w-full h-10 bg-transparent hover:bg-white/5 text-white/40 font-bold text-[11px] uppercase rounded-xl font-headline flex items-center justify-center gap-2 cursor-pointer"
           >
-            <Home className="h-4 w-4" />
+            <Home className="h-3.5 w-3.5" />
             Retour à l'Accueil
           </Link>
         </div>
@@ -51,3 +92,4 @@ export default function ErrorPage({
     </div>
   );
 }
+

@@ -71,6 +71,15 @@ export default function Header() {
   } = useAppState();
 
   const [isMounted, setIsMounted] = useState(false);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedAvatar = localStorage.getItem('profile_avatar_url');
+      if (storedAvatar) setProfileAvatarUrl(storedAvatar);
+    }
+  }, []);
+
   const [liveHtgRate, setLiveHtgRate] = useState<number>(getUsdHtgRate());
 
   // Connected Web3 Wallet State
@@ -256,7 +265,7 @@ export default function Header() {
   const notifications: { id: string; type: 'info' | 'success' | 'warning'; text: string; time: string }[] = [];
 
   // 1. Check running bots
-  (bots || []).forEach(b => {
+  (Array.isArray(bots) ? bots : []).forEach(b => {
     if (!b) return;
     if (b.status === 'RUNNING') {
       const pairStr = b.pair || '';
@@ -271,7 +280,7 @@ export default function Header() {
   });
 
   // 2. Check recent transactions
-  (transactions || []).slice(0, 3).forEach(tx => {
+  (Array.isArray(transactions) ? transactions : []).slice(0, 3).forEach(tx => {
     if (!tx) return;
     const txTime = tx.timestamp ? new Date(tx.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'Récemment';
     notifications.push({
@@ -283,7 +292,7 @@ export default function Header() {
   });
 
   // 3. Check closed positions
-  (closedPositions || []).slice(0, 3).forEach(pos => {
+  (Array.isArray(closedPositions) ? closedPositions : []).slice(0, 3).forEach(pos => {
     if (!pos) return;
     const pairStr = pos.pair || '';
     const profitVal = Number(pos.profit) || 0;
@@ -298,14 +307,6 @@ export default function Header() {
   });
 
   const activeNotificationsCount = notifications.length;
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedAvatar = localStorage.getItem('profile_avatar_url');
-      if (storedAvatar) setProfileAvatarUrl(storedAvatar);
-    }
-  }, []);
 
   return (
     <header 

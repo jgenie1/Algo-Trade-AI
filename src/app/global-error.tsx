@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 
 export default function GlobalError({
   error,
@@ -9,27 +9,85 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error("AlgoTradeAI Global Error caught:", error);
+  }, [error]);
+
+  const handleSafeReload = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        // Sanitize corrupted localStorage items if invalid JSON or non-array values exist
+        const keysToSanitize = [
+          'trade_positions',
+          'trade_closed',
+          'trade_bots',
+          'trade_transactions',
+          'trade_learnings',
+          'trade_logs'
+        ];
+        keysToSanitize.forEach((key) => {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (!Array.isArray(parsed)) {
+                localStorage.removeItem(key);
+              }
+            } catch (e) {
+              localStorage.removeItem(key);
+            }
+          }
+        });
+      } catch (e) {}
+
+      try {
+        reset();
+      } catch (e) {}
+
+      window.location.href = '/';
+    }
+  };
+
+  const handleHardReset = () => {
+    if (typeof window !== 'undefined') {
+      if (confirm("Réinitialiser les données locales et rouvrir l'application ? (Vos paramètres seront conservés)")) {
+        try {
+          ['trade_positions', 'trade_closed', 'trade_bots', 'trade_transactions', 'trade_logs'].forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
+        window.location.href = '/';
+      }
+    }
+  };
+
   return (
     <html lang="fr" className="dark">
       <body style={{ backgroundColor: '#09070c', color: '#ffffff', fontFamily: 'system-ui, sans-serif', margin: 0, padding: 0 }}>
         <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center' }}>
-          <div style={{ backgroundColor: '#140f1d', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '32px', maxWidth: '450px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+          <div style={{ backgroundColor: '#140f1d', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '24px', padding: '32px', maxWidth: '460px', width: '100%', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}>
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>⚡</div>
             <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#ffffff' }}>AlgoTradeAI - Rechargement</h2>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.5', margin: '0 0 24px 0' }}>
-              Le terminal s'est réinitialisé. Cliquez ci-dessous pour ouvrir l'application.
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: '1.5', margin: '0 0 24px 0' }}>
+              Le terminal s'est réinitialisé en toute sécurité. Cliquez ci-dessous pour ouvrir l'application et restaurer vos flux.
             </p>
-            <button
-              onClick={() => {
-                if (typeof window !== 'undefined') window.location.href = '/';
-              }}
-              style={{ width: '100%', height: '44px', backgroundColor: '#c2ff0c', color: '#000000', fontWeight: 'bold', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', textTransform: 'uppercase' }}
-            >
-              Recharger l'Application
-            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={handleSafeReload}
+                style={{ width: '100%', height: '44px', backgroundColor: '#c2ff0c', color: '#000000', fontWeight: 'bold', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+              >
+                Ouvrir l'Application
+              </button>
+              <button
+                onClick={handleHardReset}
+                style={{ width: '100%', height: '40px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', cursor: 'pointer', fontSize: '11px', textTransform: 'uppercase' }}
+              >
+                Réinitialiser les Données et Ouvrir
+              </button>
+            </div>
           </div>
         </div>
       </body>
     </html>
   );
 }
+

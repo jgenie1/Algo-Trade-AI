@@ -42,8 +42,11 @@ export default function AnalyticsPage() {
   const { tradingMode, setTradingMode, activePositions, closedPositions, bots, transactions, balance } = useAppState();
   const [isMounted, setIsMounted] = useState(false);
   const isReal = tradingMode === "REAL";
-  const filteredActive = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode);
-  const filteredClosed = (closedPositions || []).filter(p => (p.mode || 'DEMO') === tradingMode);
+  const safeActivePositions = Array.isArray(activePositions) ? activePositions : [];
+  const safeClosedPositions = Array.isArray(closedPositions) ? closedPositions : [];
+  
+  const filteredActive = safeActivePositions.filter(p => p && (p.mode || 'DEMO') === tradingMode);
+  const filteredClosed = safeClosedPositions.filter(p => p && (p.mode || 'DEMO') === tradingMode);
 
   const winningTrades = filteredClosed.filter(p => p.profit > 0).length;
   const losingTrades = filteredClosed.filter(p => p.profit <= 0).length;

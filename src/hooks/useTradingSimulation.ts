@@ -491,7 +491,7 @@ export function useTradingSimulation() {
     let totalManualPnL = 0;
     let lockedManualMargin = 0;
 
-    const manualPositions = (activePositions || []).filter(p => p && !p.botId && (p.mode || 'DEMO') === tradingMode);
+    const manualPositions = (Array.isArray(activePositions) ? activePositions : []).filter(p => p && !p.botId && (p.mode || 'DEMO') === tradingMode);
     manualPositions.forEach(p => {
       const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
       const current = livePrices[p.pair] || entry;
@@ -510,7 +510,7 @@ export function useTradingSimulation() {
     });
 
     let activeBotsCapitalAndPnL = 0;
-    (bots || []).filter(b => b && (b.mode || 'DEMO') === tradingMode).forEach(b => {
+    (Array.isArray(bots) ? bots : []).filter(b => b && (b.mode || 'DEMO') === tradingMode).forEach(b => {
       if (!b || b.status !== 'RUNNING') return;
       const cap = tradingMode === 'REAL' ? 0 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0);
       const botPnL = typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : (typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : 0);

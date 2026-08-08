@@ -24,8 +24,8 @@ export default function MobileBottomNav() {
   }, []);
 
   const vaultAmt = tradingMode === 'REAL' ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
-  const activePositionsCount = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode).length;
-  const activeBotsCount = (bots || []).filter(b => b.status === 'RUNNING').length;
+  const activePositionsCount = (Array.isArray(activePositions) ? activePositions : []).filter(p => p && (p.mode || 'DEMO') === tradingMode).length;
+  const activeBotsCount = (Array.isArray(bots) ? bots : []).filter(b => b && b.status === 'RUNNING').length;
 
   const leftNavItems = [
     { href: '/', label: 'Terminal', icon: Home, badge: activePositionsCount > 0 ? activePositionsCount.toString() : undefined },

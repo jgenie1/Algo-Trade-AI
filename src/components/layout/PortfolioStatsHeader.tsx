@@ -38,20 +38,23 @@ export default function PortfolioStatsHeader({
   const { reserveVaultSol, bots } = useAppState();
   const isDemo = tradingMode === 'DEMO';
 
-  const demoPositionsCount = activePositions.filter(
-    (p) => (p.mode || 'DEMO') === 'DEMO'
+  const safeActivePositions = Array.isArray(activePositions) ? activePositions : [];
+  const safeBots = Array.isArray(bots) ? bots : [];
+
+  const demoPositionsCount = safeActivePositions.filter(
+    (p) => p && (p.mode || 'DEMO') === 'DEMO'
   ).length;
 
-  const realPositions = activePositions.filter(
-    (p) => (p.mode || 'DEMO') === 'REAL'
+  const realPositions = safeActivePositions.filter(
+    (p) => p && (p.mode || 'DEMO') === 'REAL'
   );
 
   const realAllocatedSol = realPositions.reduce(
-    (sum, p) => sum + (p.amount || 0), 0
+    (sum, p) => sum + (p?.amount || 0), 0
   );
 
-  const realBots = (bots || []).filter(
-    (b) => (b.mode || 'DEMO') === 'REAL' && b.status === 'RUNNING'
+  const realBots = safeBots.filter(
+    (b) => b && (b.mode || 'DEMO') === 'REAL' && b.status === 'RUNNING'
   );
 
   const realBotsPnL = realBots.reduce((sum, b) => {

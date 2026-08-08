@@ -76,7 +76,8 @@ export default function MarketRadarAndChart({
     const rsi = price > 0 ? (dir === 'up' ? 62 : dir === 'down' ? 38 : 50) : 50;
     const rsiStatus = rsi < 35 ? 'SURVENDU (Achat)' : rsi > 65 ? 'SURACHETÉ (Vente)' : 'NEUTRE';
 
-    const botActiveOnPair = bots.some(b => b.status === 'RUNNING' && (b.pair === 'ALL' || b.pair === cp.value));
+    const safeBots = Array.isArray(bots) ? bots : [];
+    const botActiveOnPair = safeBots.some(b => b && b.status === 'RUNNING' && (b.pair === 'ALL' || b.pair === cp.value));
 
     return {
       ...cp,
@@ -336,7 +337,7 @@ export default function MarketRadarAndChart({
             </div>
 
             <div className="flex-1 overflow-y-auto bg-black/30 border border-white/5 rounded-xl p-3 space-y-2 font-mono text-[11px] max-h-[480px]">
-              {botLogs.length === 0 ? (
+              {(!Array.isArray(botLogs) || botLogs.length === 0) ? (
                 <div className="text-center text-white/30 py-12 font-body text-xs">
                   Aucun log de scan disponible pour l'instant. Démarrez un bot en autogestion pour voir le flux en direct.
                 </div>

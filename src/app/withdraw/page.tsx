@@ -140,7 +140,7 @@ export default function WithdrawPage() {
     }
   };
 
-  const currentTxs = (transactions || []).filter(tx =>
+  const currentTxs = (Array.isArray(transactions) ? transactions : []).filter(tx =>
     tradingMode === 'REAL' ? tx.currency === 'SOL' : tx.currency === 'USD'
   );
 

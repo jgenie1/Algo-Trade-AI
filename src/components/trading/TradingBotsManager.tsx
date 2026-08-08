@@ -314,10 +314,15 @@ export default function TradingBotsManager({
     }
   };
 
-  const filteredBots = bots.filter(b => (b.mode || 'DEMO') === tradingMode);
+  const safeBots = Array.isArray(bots) ? bots : [];
+  const safeClosedPositions = Array.isArray(closedPositions) ? closedPositions : [];
+  const safeBotLogs = Array.isArray(botLogs) ? botLogs : [];
+  const safeBotLearnings = Array.isArray(botLearnings) ? botLearnings : [];
+
+  const filteredBots = safeBots.filter(b => b && (b.mode || 'DEMO') === tradingMode);
   const totalClaimableProfits = filteredBots.reduce((sum, b) => sum + ((b.netProfit || b.pnl || 0) > 0 ? (b.netProfit || b.pnl || 0) : 0), 0);
 
-  const filteredClosed = closedPositions.filter(h => (h.mode || 'DEMO') === tradingMode);
+  const filteredClosed = safeClosedPositions.filter(h => h && (h.mode || 'DEMO') === tradingMode);
 
   const totalGains = filteredClosed.reduce((sum, h) => {
     const val = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : (typeof h.pnl === 'number' && !isNaN(h.pnl) ? h.pnl : 0);
@@ -693,9 +698,9 @@ export default function TradingBotsManager({
             <div className="flex justify-between items-center">
               <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center gap-2">
                 <span className="text-purple-400">🧠</span>
-                <span>Moteur d'Apprentissage & Feedback IA ({botLearnings.length})</span>
+                <span>Moteur d'Apprentissage & Feedback IA ({safeBotLearnings.length})</span>
               </CardTitle>
-              {botLearnings.length > 0 && (
+              {safeBotLearnings.length > 0 && (
                 <Button
                   variant="link"
                   onClick={() => setBotLearnings([])}
@@ -709,13 +714,13 @@ export default function TradingBotsManager({
 
           <CardContent className="p-0 flex-1">
             <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-              {botLearnings.length === 0 ? (
+              {safeBotLearnings.length === 0 ? (
                 <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">
                   <span className="text-2xl mb-1">🧠</span>
                   <span>Le bot n'a rencontré aucun échec pour l'instant. Il apprendra automatiquement de ses pertes futures.</span>
                 </div>
               ) : (
-                botLearnings.map((l, idx) => (
+                safeBotLearnings.map((l, idx) => (
                   <div key={l.id ? `${l.id}_${idx}` : `lrn_${idx}`} className="bg-purple-950/20 border border-purple-500/25 hover:border-purple-500/40 rounded-xl p-3.5 flex justify-between items-center gap-3 transition-all">
                     <div className="space-y-1">
                       <div className="text-xs text-purple-300 font-headline uppercase font-extrabold flex items-center gap-2">
@@ -747,17 +752,17 @@ export default function TradingBotsManager({
                 <span>Journal d'Activité des Bots</span>
               </div>
               <Badge className="bg-violet-500/25 text-violet-200 text-xs font-bold border-none uppercase font-headline">
-                {botLogs.length} Événements
+                {safeBotLogs.length} Événements
               </Badge>
             </CardTitle>
           </CardHeader>
 
           <CardContent className="p-0 flex-1">
             <div className="h-[300px] overflow-y-auto border border-white/15 rounded-xl bg-black/50 p-3.5 font-mono text-xs space-y-2">
-              {botLogs.length === 0 ? (
+              {safeBotLogs.length === 0 ? (
                 <div className="text-center text-slate-300 py-16 font-body text-sm font-medium">Aucune activité enregistrée.</div>
               ) : (
-                botLogs.map((log, idx) => (
+                safeBotLogs.map((log, idx) => (
                   <div key={log.id ? `${log.id}_${idx}` : `log_${idx}`} className="flex items-start gap-2 border-b border-white/10 pb-2 last:border-b-0 last:pb-0">
                     <span className="text-slate-300 font-bold shrink-0">
                       {new Date(log.timestamp).toLocaleTimeString('fr-FR')}

@@ -39,7 +39,8 @@ export default function PanicKillSwitch() {
     // 1. Fermer toutes les positions ouvertes et récréditer le solde (marge + pnl)
     const now = Date.now();
     let totalReturnedCapital = 0;
-    const positionsToClose = activePositions.map(pos => {
+    const safePositions = Array.isArray(activePositions) ? activePositions : [];
+    const positionsToClose = safePositions.map(pos => {
       const margin = typeof pos.amount === 'number' && !isNaN(pos.amount) ? pos.amount : 0;
       const entry = typeof pos.entryPrice === 'number' && !isNaN(pos.entryPrice) && pos.entryPrice > 0 ? pos.entryPrice : 145.50;
       const current = pos.currentPrice || entry;
@@ -71,7 +72,8 @@ export default function PanicKillSwitch() {
     setActivePositions([]);
 
     // 2. Mettre en pause tous les bots actifs
-    const stoppedBots = bots.map(b => ({
+    const safeBots = Array.isArray(bots) ? bots : [];
+    const stoppedBots = safeBots.map(b => ({
       ...b,
       status: 'PAUSED' as const
     }));
@@ -130,8 +132,8 @@ export default function PanicKillSwitch() {
               <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-300 space-y-1">
                 <p className="font-bold">⚠️ Récapitulatif de l'action d'urgence :</p>
                 <ul className="list-disc pl-4 space-y-1 text-[11px] text-white/70">
-                  <li>Fermeture instantanée de {activePositions.length} position(s) ouverte(s).</li>
-                  <li>Mise en pause de {bots.filter(b => b.status === 'RUNNING').length} bot(s) en cours d'exécution.</li>
+                  <li>Fermeture instantanée de {(Array.isArray(activePositions) ? activePositions : []).length} position(s) ouverte(s).</li>
+                  <li>Mise en pause de {(Array.isArray(bots) ? bots : []).filter(b => b.status === 'RUNNING').length} bot(s) en cours d'exécution.</li>
                   <li>Envoi d'une alerte prioritaire sur votre Telegram / Discord.</li>
                 </ul>
               </div>

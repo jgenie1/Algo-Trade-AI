@@ -93,15 +93,15 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       const logs = localStorage.getItem('trade_logs');
 
       if (mode === 'REAL' || mode === 'DEMO') setTradingMode(mode);
-      if (bal) setBalance(parseFloat(bal));
-      if (vault) setReserveVault(parseFloat(vault));
-      if (vaultSol) setReserveVaultSol(parseFloat(vaultSol));
-      if (pos) { try { setActivePositions(sanitizePositions(JSON.parse(pos))); } catch(e) {} }
-      if (closed) { try { setClosedPositions(sanitizeClosed(JSON.parse(closed))); } catch(e) {} }
-      if (runningBots) { try { setBots(sanitizeBots(JSON.parse(runningBots))); } catch(e) {} }
-      if (txs) { try { setTransactions(JSON.parse(txs)); } catch(e) {} }
-      if (learnings) { try { setBotLearnings(JSON.parse(learnings)); } catch(e) {} }
-      if (logs) { try { setBotLogs(JSON.parse(logs)); } catch(e) {} }
+      if (bal && !isNaN(parseFloat(bal))) setBalance(parseFloat(bal));
+      if (vault && !isNaN(parseFloat(vault))) setReserveVault(parseFloat(vault));
+      if (vaultSol && !isNaN(parseFloat(vaultSol))) setReserveVaultSol(parseFloat(vaultSol));
+      if (pos) { try { const p = JSON.parse(pos); setActivePositions(sanitizePositions(Array.isArray(p) ? p : [])); } catch(e) { setActivePositions([]); } }
+      if (closed) { try { const c = JSON.parse(closed); setClosedPositions(sanitizeClosed(Array.isArray(c) ? c : [])); } catch(e) { setClosedPositions([]); } }
+      if (runningBots) { try { const b = JSON.parse(runningBots); setBots(sanitizeBots(Array.isArray(b) ? b : [])); } catch(e) { setBots([]); } }
+      if (txs) { try { const t = JSON.parse(txs); setTransactions(Array.isArray(t) ? t : []); } catch(e) { setTransactions([]); } }
+      if (learnings) { try { const l = JSON.parse(learnings); setBotLearnings(Array.isArray(l) ? l : []); } catch(e) { setBotLearnings([]); } }
+      if (logs) { try { const lg = JSON.parse(logs); setBotLogs(Array.isArray(lg) ? lg : []); } catch(e) { setBotLogs([]); } }
     };
 
     const sanitizePositions = (arr: any[]) => {
@@ -140,6 +140,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     const sanitizeBots = (arr: any[]) => {
       if (!Array.isArray(arr)) return [];
       return arr.map((b: any) => {
+        if (!b) return null;
         const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000;
         const cleanCap = (rawCap > 100000 || rawCap <= 0) ? 1000 : parseFloat(rawCap.toFixed(2));
         const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
@@ -154,7 +155,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           pnl: cleanProfit,
           mode: b.mode ? b.mode : (b.strategy === 'Pump.fun Sniper Bot' && cleanCap < 100 ? 'REAL' : 'DEMO')
         };
-      });
+      }).filter(Boolean);
     };
 
     const sanitizeClosed = (arr: any[]) => {
@@ -232,31 +233,34 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
               localStorage.setItem('trade_reserve_vault_sol', val.toString());
             }
             if (data.positions !== undefined) {
-              const sanitized = sanitizePositions(data.positions);
+              const sanitized = sanitizePositions(Array.isArray(data.positions) ? data.positions : []);
               setActivePositions(sanitized);
               localStorage.setItem('trade_positions', JSON.stringify(sanitized));
             }
             if (data.closedPositions !== undefined) {
-              const sanitized = sanitizeClosed(data.closedPositions);
+              const sanitized = sanitizeClosed(Array.isArray(data.closedPositions) ? data.closedPositions : []);
               setClosedPositions(sanitized);
               localStorage.setItem('trade_closed', JSON.stringify(sanitized));
             }
             if (data.bots !== undefined) {
-              const sanitized = sanitizeBots(data.bots);
+              const sanitized = sanitizeBots(Array.isArray(data.bots) ? data.bots : []);
               setBots(sanitized);
               localStorage.setItem('trade_bots', JSON.stringify(sanitized));
             }
             if (data.transactions !== undefined) {
-              setTransactions(data.transactions);
-              localStorage.setItem('trade_transactions', JSON.stringify(data.transactions));
+              const txArr = Array.isArray(data.transactions) ? data.transactions : [];
+              setTransactions(txArr);
+              localStorage.setItem('trade_transactions', JSON.stringify(txArr));
             }
             if (data.botLearnings !== undefined) {
-              setBotLearnings(data.botLearnings);
-              localStorage.setItem('trade_learnings', JSON.stringify(data.botLearnings));
+              const lrnArr = Array.isArray(data.botLearnings) ? data.botLearnings : [];
+              setBotLearnings(lrnArr);
+              localStorage.setItem('trade_learnings', JSON.stringify(lrnArr));
             }
             if (data.botLogs !== undefined) {
-              setBotLogs(data.botLogs);
-              localStorage.setItem('trade_logs', JSON.stringify(data.botLogs));
+              const logArr = Array.isArray(data.botLogs) ? data.botLogs : [];
+              setBotLogs(logArr);
+              localStorage.setItem('trade_logs', JSON.stringify(logArr));
             }
             if (data.cexKeys !== undefined) {
               localStorage.setItem('algo_trade_cex_keys', JSON.stringify(data.cexKeys));
@@ -304,8 +308,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const balanceRef = useRef(balance);
 
   useEffect(() => {
-    botsRef.current = bots;
-    activePositionsRef.current = activePositions;
+    botsRef.current = Array.isArray(bots) ? bots : [];
+    activePositionsRef.current = Array.isArray(activePositions) ? activePositions : [];
     balanceRef.current = balance;
   });
 
@@ -313,7 +317,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!isInitialized.current) return;
 
-    const hasRunningBot = bots.some(b => b && b.status === 'RUNNING');
+    const hasRunningBot = Array.isArray(bots) && bots.some(b => b && b.status === 'RUNNING');
     if (!hasRunningBot) return;
 
     const interval = setInterval(() => {
@@ -333,7 +337,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [bots.some(b => b && b.status === 'RUNNING')]);
+  }, [Array.isArray(bots) && bots.some(b => b && b.status === 'RUNNING')]);
 
   // 3. Save to Firestore whenever states change
   useEffect(() => {
@@ -382,9 +386,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const resetDemoData = () => {
     setBalance(10000);
     setReserveVault(0);
-    setActivePositions(prev => (prev || []).filter((p: any) => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
-    setClosedPositions(prev => (prev || []).filter((c: any) => (c.mode || (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
-    setBots(prev => (prev || []).filter((b: any) => (b.mode || (b.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setActivePositions(prev => (Array.isArray(prev) ? prev : []).filter((p: any) => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setClosedPositions(prev => (Array.isArray(prev) ? prev : []).filter((c: any) => c && (c.mode || (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setBots(prev => (Array.isArray(prev) ? prev : []).filter((b: any) => b && (b.mode || (b.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
     setBotLogs([]);
     // Note: botLearnings ARE INTENTIONALLY PRESERVED for Real mode usage!
   };
