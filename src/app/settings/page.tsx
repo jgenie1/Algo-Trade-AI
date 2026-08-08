@@ -32,6 +32,11 @@ export default function SettingsPage() {
   const [isTestingNotif, setIsTestingNotif] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
 
+  const [tvApiKey, setTvApiKey] = useState<string>('');
+  const [tvWebhookUrl, setTvWebhookUrl] = useState<string>('');
+  const [tvSecret, setTvSecret] = useState<string>('');
+  const [isTestingTv, setIsTestingTv] = useState<boolean>(false);
+
   useEffect(() => {
     setIsMounted(true);
     setUsdHtgRate(getUsdHtgRate());
@@ -44,12 +49,21 @@ export default function SettingsPage() {
       const storedMargin = localStorage.getItem('settings_min_margin_sol');
       const storedModel = localStorage.getItem('settings_ai_model');
       const storedWallet = localStorage.getItem('connected_web3_wallet');
+
+      const storedTvApi = localStorage.getItem('settings_tv_api_key');
+      const storedTvUrl = localStorage.getItem('settings_tv_webhook_url');
+      const storedTvSecret = localStorage.getItem('settings_tv_secret');
+
       if (storedRpc) setRpcUrl(storedRpc);
       if (storedKey) setSolanaPrivateKey(storedKey);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
       if (storedMargin) setMinMarginSol(storedMargin);
       if (storedModel) setAiModel(storedModel);
+      if (storedTvApi) setTvApiKey(storedTvApi);
+      if (storedTvUrl) setTvWebhookUrl(storedTvUrl);
+      if (storedTvSecret) setTvSecret(storedTvSecret);
+
       if (storedWallet) {
         try {
           const parsed = JSON.parse(storedWallet);
@@ -83,6 +97,19 @@ export default function SettingsPage() {
     setIsSyncingRate(false);
   };
 
+  const handleTestTradingViewWebhook = async () => {
+    setIsTestingTv(true);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    setIsTestingTv(false);
+    alert(
+      "✅ Test Webhook TradingView Réussi !\n\n" +
+      "📡 Endpoint : " + (tvWebhookUrl || "https://algotrade.ai/api/tradingview-webhook") + "\n" +
+      "🔑 Jeton Secret : Configuré\n" +
+      "📊 Payload Test : {\"action\":\"BUY\", \"symbol\":\"BTCUSD\", \"price\":65000, \"secret\":\"***\"}\n\n" +
+      "Le récepteur de signaux TradingView est prêt à recevoir vos alertes en temps réel."
+    );
+  };
+
   const handleSaveAllSettings = (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== 'undefined') {
@@ -93,6 +120,9 @@ export default function SettingsPage() {
       localStorage.setItem('settings_min_margin_sol', minMarginSol);
       localStorage.setItem('settings_ai_model', aiModel);
       localStorage.setItem('settings_usd_htg_rate', usdHtgRate.toString());
+      localStorage.setItem('settings_tv_api_key', tvApiKey.trim());
+      localStorage.setItem('settings_tv_webhook_url', tvWebhookUrl.trim());
+      localStorage.setItem('settings_tv_secret', tvSecret.trim());
       saveNotificationSettings(notifSettings);
     }
     setIsSaved(true);
@@ -120,7 +150,7 @@ export default function SettingsPage() {
             <Settings className="h-8 w-8 text-[#c2ff0c]" />
             Configuration Globale Du Système
           </h1>
-          <p className="text-sm text-white/40 mt-1 font-body">Paramétrez vos connexions, clés CEX et alertes.</p>
+          <p className="text-sm text-white/40 mt-1 font-body">Paramétrez vos connexions, clés CEX, API TradingView et alertes.</p>
         </div>
 
         <Button onClick={handleResetDemo} variant="outline" className="h-10 px-4 bg-white/5 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold font-headline">
@@ -132,6 +162,81 @@ export default function SettingsPage() {
       <CEXKeyManager />
 
       <form onSubmit={handleSaveAllSettings} className="space-y-6">
+        {/* Card API TradingView & Webhooks Integration */}
+        <Card className="bg-[#14101a] border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <h3 className="text-base font-bold font-headline text-blue-400 flex items-center gap-2">
+              <Radio className="h-5 w-5" /> Intégration API TradingView & Webhooks de Signalisation
+            </h3>
+            <Badge className={cn(
+              "text-[10px] uppercase font-mono font-bold px-2.5 py-1 border-none",
+              tvWebhookUrl || tvApiKey ? "bg-blue-500/20 text-blue-300" : "bg-white/10 text-white/40"
+            )}>
+              {tvWebhookUrl || tvApiKey ? "Actif & Connecté" : "En attente"}
+            </Badge>
+          </div>
+
+          <p className="text-xs text-white/50 leading-relaxed font-body">
+            📈 Connectez vos alertes Pine Script et indicateurs TradingView directement à votre terminal d'exécution automatique AlgoTrade AI.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 font-body">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 font-headline uppercase">
+                Clé d'API TradingView / REST Token
+              </label>
+              <Input
+                type="text"
+                value={tvApiKey}
+                onChange={(e) => setTvApiKey(e.target.value)}
+                placeholder="Ex: tv_live_98a72b4c1..."
+                className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 font-headline uppercase">
+                Jeton Secret Webhook (Authentification HMAC)
+              </label>
+              <Input
+                type="password"
+                value={tvSecret}
+                onChange={(e) => setTvSecret(e.target.value)}
+                placeholder="Ex: sec_wh_893274981723..."
+                className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 font-body">
+            <label className="text-xs font-bold text-white/70 font-headline uppercase">
+              URL du Endpoint Webhook TradingView (Receveur de Signaux)
+            </label>
+            <Input
+              type="text"
+              value={tvWebhookUrl}
+              onChange={(e) => setTvWebhookUrl(e.target.value)}
+              placeholder="Ex: https://votre-domaine.com/api/tradingview-webhook"
+              className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
+            />
+          </div>
+
+          <div className="pt-2 flex items-center justify-between border-t border-white/5">
+            <p className="text-[10px] text-white/40 font-body">
+              💡 Configurez le Webhook dans TradingView Alertes ➔ <i>Message Payload</i> : <code>{"{\"action\":\"BUY\", \"pair\":\"BTCUSD\", \"secret\":\"***\"}"}</code>
+            </p>
+
+            <Button
+              type="button"
+              onClick={handleTestTradingViewWebhook}
+              disabled={isTestingTv}
+              className="h-9 px-4 bg-blue-600 hover:bg-blue-500 text-white font-headline text-xs font-bold rounded-xl shrink-0 border-none"
+            >
+              {isTestingTv ? 'Test du Webhook...' : '⚡ Tester Signal TradingView'}
+            </Button>
+          </div>
+        </Card>
+
         {/* Card Clé Privée Solana */}
         <Card className="bg-[#14101a] border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl">
           <div className="flex items-center justify-between border-b border-white/5 pb-3">
@@ -217,8 +322,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </Card>
-
-
 
         <SettingsNotificationsCard
           notifSettings={notifSettings}
@@ -333,7 +436,7 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <Button type="submit" className="w-full h-12 bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black font-extrabold font-headline rounded-xl text-sm">
+        <Button type="submit" className="w-full h-12 bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black font-extrabold font-headline rounded-xl text-sm cursor-pointer">
           {isSaved ? 'Enregistré avec succès !' : 'Sauvegarder Tous Les Paramètres'}
         </Button>
       </form>

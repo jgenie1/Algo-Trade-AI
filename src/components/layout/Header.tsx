@@ -85,6 +85,7 @@ export default function Header() {
   const [slippage, setSlippage] = useState('15');
   const [priorityFee, setPriorityFee] = useState('0.001');
   const [minMarginSol, setMinMarginSol] = useState('0.001');
+  const [tvWebhookUrl, setTvWebhookUrl] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
   const [customPubKeyInput, setCustomPubKeyInput] = useState('');
@@ -119,11 +120,13 @@ export default function Header() {
       const storedFee = localStorage.getItem('settings_priority_fee');
       const storedMargin = localStorage.getItem('settings_min_margin_sol');
       const storedWallet = localStorage.getItem('connected_web3_wallet');
+      const storedTvUrl = localStorage.getItem('settings_tv_webhook_url');
 
       if (storedRpc) setRpcUrl(storedRpc);
       if (storedSlippage) setSlippage(storedSlippage);
       if (storedFee) setPriorityFee(storedFee);
       if (storedMargin) setMinMarginSol(storedMargin);
+      if (storedTvUrl) setTvWebhookUrl(storedTvUrl);
       if (storedWallet) {
         try { setConnectedWallet(JSON.parse(storedWallet)); } catch (e) {}
       }
@@ -226,6 +229,7 @@ export default function Header() {
     localStorage.setItem('settings_slippage', slippage);
     localStorage.setItem('settings_priority_fee', priorityFee);
     localStorage.setItem('settings_min_margin_sol', minMarginSol);
+    if (tvWebhookUrl) localStorage.setItem('settings_tv_webhook_url', tvWebhookUrl.trim());
     setIsSettingsOpen(false);
     alert('Paramètres sauvegardés avec succès.');
   };
@@ -689,6 +693,18 @@ export default function Header() {
                     className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
                   />
                 </div>
+              </div>
+
+              {/* TradingView Webhook URL Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-[#c2ff0c] font-headline">URL Webhook TradingView (Receveur de Signaux)</label>
+                <input
+                  type="text"
+                  value={tvWebhookUrl}
+                  onChange={(e) => setTvWebhookUrl(e.target.value)}
+                  placeholder="https://votre-domaine.com/api/tradingview-webhook"
+                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
+                />
               </div>
 
               <div className="border-t border-white/5 pt-4 flex gap-3">

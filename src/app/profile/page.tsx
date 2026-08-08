@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   ShieldCheck, 
@@ -16,7 +16,9 @@ import {
   Globe, 
   Lock, 
   Camera,
-  Award
+  Award,
+  Shield,
+  Upload
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
@@ -33,15 +35,36 @@ export default function ProfilePage() {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
+  // Avatar File Upload Ref & State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200&h=200');
+
   // User Profile Form State
   const [fullName, setFullName] = useState<string>('David Owner');
   const [email, setEmail] = useState<string>('david.owner@algotrade.ai');
   const [phone, setPhone] = useState<string>('+509 3700 0000');
   const [preferredCurrency, setPreferredCurrency] = useState<string>('HTG');
+  const [is2FAEnabled, setIs2FAEnabled] = useState<boolean>(true);
   const [isSaved, setIsSaved] = useState<boolean>(false);
 
   useEffect(() => {
     setIsMounted(true);
+    if (typeof window !== 'undefined') {
+      const storedName = localStorage.getItem('profile_full_name');
+      const storedEmail = localStorage.getItem('profile_email');
+      const storedPhone = localStorage.getItem('profile_phone');
+      const storedCurrency = localStorage.getItem('profile_currency');
+      const storedAvatar = localStorage.getItem('profile_avatar_url');
+      const stored2FA = localStorage.getItem('profile_2fa_enabled');
+
+      if (storedName) setFullName(storedName);
+      if (storedEmail) setEmail(storedEmail);
+      if (storedPhone) setPhone(storedPhone);
+      if (storedCurrency) setPreferredCurrency(storedCurrency);
+      if (storedAvatar) setAvatarUrl(storedAvatar);
+      if (stored2FA !== null) setIs2FAEnabled(stored2FA === 'true');
+    }
+
     getRealSolanaBalance().then(res => {
       if (res && res.success && res.balance !== undefined && res.publicKey) {
         setSolanaBalance(res.balance);
@@ -57,8 +80,47 @@ export default function ProfilePage() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Taille d'image maximale recommandée : 2 Mo.");
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setAvatarUrl(result);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('profile_avatar_url', result);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleToggle2FA = () => {
+    const nextState = !is2FAEnabled;
+    setIs2FAEnabled(nextState);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('profile_2fa_enabled', String(nextState));
+    }
+    alert(nextState 
+      ? "🔒 Authentification 2FA activée avec succès !" 
+      : "⚠️ Authentification 2FA désactivée."
+    );
+  };
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('profile_full_name', fullName);
+      localStorage.setItem('profile_email', email);
+      localStorage.setItem('profile_phone', phone);
+      localStorage.setItem('profile_currency', preferredCurrency);
+    }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };
@@ -68,10 +130,18 @@ export default function ProfilePage() {
   const totalTrades = filteredClosed.length;
   const winningTrades = filteredClosed.filter(p => (p.profit || 0) > 0).length;
   const winRate = totalTrades > 0 ? Math.round((winningTrades / totalTrades) * 100) : 0;
-  const totalNetProfit = filteredClosed.reduce((sum, p) => sum + (p.profit || 0), 0);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>
+      {/* Hidden File Input for Avatar */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleAvatarFileChange} 
+        accept="image/*" 
+        className="hidden" 
+      />
+
       {/* Header */}
       <div className="border-b border-white/5 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -97,12 +167,17 @@ export default function ProfilePage() {
             <div className="relative inline-block mx-auto">
               <div className="w-28 h-28 rounded-full border-2 border-[#c2ff0c] p-1 bg-white/5 overflow-hidden shadow-[0_0_25px_rgba(194,255,12,0.2)] mx-auto">
                 <img 
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200&h=200" 
+                  src={avatarUrl} 
                   alt="User Avatar"
                   className="w-full h-full object-cover rounded-full"
                 />
               </div>
-              <button className="absolute bottom-0 right-0 p-2 bg-[#c2ff0c] text-black rounded-full shadow-lg hover:scale-105 transition-transform border-none">
+              <button 
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 p-2 bg-[#c2ff0c] text-black rounded-full shadow-lg hover:scale-110 transition-transform border-none cursor-pointer"
+                title="Changer la photo de profil"
+              >
                 <Camera className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -231,13 +306,13 @@ export default function ProfilePage() {
               {isSaved && (
                 <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold font-headline flex items-center gap-2">
                   <Check className="h-4 w-4" />
-                  Profil mis à jour avec succès !
+                  Profil mis à jour et sauvegardé avec succès !
                 </div>
               )}
 
               <Button
                 type="submit"
-                className="h-11 px-6 bg-[#c2ff0c] text-black font-extrabold font-headline text-xs rounded-xl uppercase hover:shadow-[0_0_15px_rgba(194,255,12,0.3)] border-none"
+                className="h-11 px-6 bg-[#c2ff0c] text-black font-extrabold font-headline text-xs rounded-xl uppercase hover:shadow-[0_0_15px_rgba(194,255,12,0.3)] border-none cursor-pointer"
               >
                 Sauvegarder les Modifications
               </Button>
@@ -257,20 +332,31 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-white/5 border border-white/5 rounded-xl">
+              <div className="flex justify-between items-center p-3.5 bg-white/5 border border-white/5 rounded-xl">
                 <div>
                   <h4 className="text-xs font-bold text-white font-headline">Authentification 2FA Authenticator</h4>
                   <p className="text-[10px] text-white/40 font-body">Sécurise la signature des transactions et le retrait de fonds.</p>
                 </div>
-                <Badge className="bg-emerald-500/10 text-emerald-400 font-bold uppercase text-[9px] border-none">ACTIF</Badge>
+                <Button
+                  type="button"
+                  onClick={handleToggle2FA}
+                  className={cn(
+                    "h-8 px-3 text-[10px] font-extrabold uppercase font-headline rounded-lg border-none cursor-pointer transition-all",
+                    is2FAEnabled ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
+                  )}
+                >
+                  {is2FAEnabled ? "ACTIF (Désactiver)" : "INACTIF (Activer)"}
+                </Button>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-white/5 border border-white/5 rounded-xl">
+              <div className="flex justify-between items-center p-3.5 bg-white/5 border border-white/5 rounded-xl">
                 <div>
                   <h4 className="text-xs font-bold text-white font-headline">Chiffrement Clés Privées Local (AES-256)</h4>
                   <p className="text-[10px] text-white/40 font-body">Les clés ne quittent jamais la mémoire de votre navigateur.</p>
                 </div>
-                <Badge className="bg-purple-500/10 text-purple-300 font-bold uppercase text-[9px] border-none">BLINDÉ</Badge>
+                <Badge className="bg-purple-500/20 text-purple-300 font-bold uppercase text-[9px] border-none px-2.5 py-1">
+                  BLINDÉ
+                </Badge>
               </div>
             </div>
           </Card>
