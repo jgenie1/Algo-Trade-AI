@@ -8,9 +8,14 @@ import {
 } from "lucide-react";
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from "@/lib/utils";
 import { useAppState } from "@/context/AppContext";
+import dynamic from "next/dynamic";
 import VaultGrowthChart from "@/components/wallet/VaultGrowthChart";
 import { exportTransactionsToCSV, exportBotsPerformanceToCSV } from "@/services/exportService";
-import AutomatedPipelineFlowVisualizer from "@/components/trading/AutomatedPipelineFlowVisualizer";
+
+const AutomatedPipelineFlowVisualizer = dynamic(
+  () => import("@/components/trading/AutomatedPipelineFlowVisualizer").then((mod) => mod.default),
+  { ssr: false }
+);
 
 function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", className = "" }: {
   value: number; decimals?: number; prefix?: string; suffix?: string; className?: string;

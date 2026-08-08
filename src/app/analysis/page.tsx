@@ -15,7 +15,10 @@ import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { currencyPairs as allCurrencyPairs, timeframes as allTimeframes } from '@/hooks/useTradingSimulation';
-import AutomatedPipelineFlowVisualizer from '@/components/trading/AutomatedPipelineFlowVisualizer';
+const AutomatedPipelineFlowVisualizer = dynamic(
+  () => import('@/components/trading/AutomatedPipelineFlowVisualizer').then((mod) => mod.default),
+  { ssr: false }
+);
 
 const TVWidget = dynamic(
   () => import('@/components/trading/TradingViewWidget').then((mod) => mod.default),

@@ -37,10 +37,19 @@ interface PipelineStep {
 export default function AutomatedPipelineFlowVisualizer() {
   const { tradingMode, activePositions, closedPositions, bots } = useAppState();
   const [activeStep, setActiveStep] = useState<number>(1);
+  const [isMounted, setIsMounted] = useState<boolean>(false);
 
-  const activeBotCount = bots.filter(b => b.status === 'RUNNING').length;
-  const realSolPositions = activePositions.filter(p => (p.mode || 'DEMO') === tradingMode).length;
-  const recentClosed = closedPositions.filter(p => (p.mode || 'DEMO') === tradingMode);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const safeBots = bots || [];
+  const safeActive = activePositions || [];
+  const safeClosed = closedPositions || [];
+
+  const activeBotCount = safeBots.filter(b => b.status === 'RUNNING').length;
+  const realSolPositions = safeActive.filter(p => (p.mode || 'DEMO') === tradingMode).length;
+  const recentClosed = safeClosed.filter(p => (p.mode || 'DEMO') === tradingMode);
   const totalProfit = recentClosed.reduce((sum, p) => sum + (p.profit || 0), 0);
 
   useEffect(() => {
@@ -49,6 +58,17 @@ export default function AutomatedPipelineFlowVisualizer() {
     }, 2800);
     return () => clearInterval(timer);
   }, []);
+
+  if (!isMounted) {
+    return (
+      <Card className="bg-[#0b0814]/90 backdrop-blur-2xl border border-white/12 rounded-2xl p-5 md:p-6 shadow-2xl min-h-[220px] flex items-center justify-center">
+        <div className="flex items-center gap-2 text-white/50 text-xs font-mono">
+          <div className="w-2 h-2 rounded-full bg-[#c2ff0c] animate-ping" />
+          Chargement du Visualiseur de Pipeline IA...
+        </div>
+      </Card>
+    );
+  }
 
   const steps: PipelineStep[] = [
     {
