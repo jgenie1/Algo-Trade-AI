@@ -1,9 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db, DEFAULT_USER, saveFullState, AppState, auth } from '@/lib/firebase';
+import { db, DEFAULT_USER, saveFullState, AppState } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
+// firebase/auth anonymous signin not used (disabled)
 import { getRealMarketBasePrice, initClientUsdHtgRate, fetchLiveUsdHtgRate } from '@/lib/utils';
 
 interface AppContextType {
@@ -53,20 +53,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   // Track last synced state string to break Firestore feedback loops
   const lastStateHashRef = useRef<string>('');
 
-  // 1. Firebase Anonymous Authentication
-  useEffect(() => {
-    try {
-      signInAnonymously(auth)
-        .then(() => {
-          console.log("Firebase Auth: Connected anonymously");
-        })
-        .catch((error) => {
-          console.warn("Firebase Auth: Anonymous login not allowed/configured. Continuing in local-only mode.", error);
-        });
-    } catch (e) {
-      console.warn("Firebase Auth init error:", e);
-    }
-  }, []);
+  // Firebase Anonymous Authentication is disabled (not configured in this project)
 
   // 1b. Load persisted USD/HTG rate from localStorage AFTER hydration (avoids SSR mismatch)
   useEffect(() => {
