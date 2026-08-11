@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
+import { sweepSubWalletProfitToMaster } from '@/services/pumpFunService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -185,6 +186,29 @@ export default function TradingBotsManager({
         const skimSol = totalProfitToClaim * 0.10;
         if (setReserveVaultSol) {
           setReserveVaultSol(prev => (Number(prev) || 0) + skimSol);
+        }
+
+        // Transférer les gains nets réellement sur la blockchain vers le Master Wallet
+        const storedWallet = typeof window !== 'undefined' ? localStorage.getItem('connected_web3_wallet') : null;
+        const masterPubKey = storedWallet ? JSON.parse(storedWallet).address : '';
+        const storedSubs = typeof window !== 'undefined' ? localStorage.getItem('trade_sub_wallets') : null;
+        const subWalletsArr = storedSubs ? JSON.parse(storedSubs) : [];
+
+        if (masterPubKey && masterPubKey.length >= 32) {
+          botsWithProfits.forEach(bot => {
+            const profitVal = bot.netProfit || bot.pnl || 0;
+            if (profitVal > 0.0001) {
+              const subIdx = ((bot as any).subWallet || 1) - 1;
+              const subKey = subWalletsArr[subIdx]?.privateKey;
+              if (subKey) {
+                sweepSubWalletProfitToMaster({
+                  subWalletPrivateKey: subKey,
+                  masterPublicKey: masterPubKey,
+                  netProfitSol: profitVal * 0.90
+                });
+              }
+            }
+          });
         }
       } else {
         setBalance(prev => prev + totalProfitToClaim);
