@@ -73,7 +73,7 @@ export async function fetchSwapQuote(
     // Si c'est sur Solana, on tente d'utiliser l'API publique Jupiter Quote avec Timeout
     if (fromToken.chain === 'SOL' && toToken.chain === 'SOL') {
       const amountLamports = Math.floor(amount * Math.pow(10, fromToken.decimals));
-      const url = `https://quote-api.jup.ag/v6/quote?inputMint=${fromToken.address}&outputMint=${toToken.address}&amount=${amountLamports}&slippageBps=${Math.round(slippagePct * 100)}`;
+      const url = `/api/jupiter-quote?inputMint=${fromToken.address}&outputMint=${toToken.address}&amount=${amountLamports}&slippageBps=${Math.round(slippagePct * 100)}`;
 
       try {
         const res = await fetchWithTimeout(url, { cache: 'no-store' }, 3500);
