@@ -171,10 +171,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         });
     };
 
-    // Safety timeout: if Firebase never responds (network block on server), fall back to localStorage after 3s
     const safetyTimer = setTimeout(() => {
       if (!isInitialized.current) {
-        console.warn("Firebase Timeout: no response after 3s, switching to localStorage fallback");
+        console.log("Firebase Firestore unreachable (hosting network restriction) — using localStorage.");
         loadFromLocalStorage();
         isInitialized.current = true;
         setIsLoading(false);

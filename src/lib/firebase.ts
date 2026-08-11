@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, setLogLevel, doc, setDoc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { initializeFirestore, setLogLevel, doc, setDoc, getDoc } from 'firebase/firestore';
+// firebase/auth not used in this project (anonymous auth disabled)
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDR7gRGxRFzRCXP0SB8Z0tPxVNOiJPDGP0",
@@ -17,8 +17,11 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 // Set Firestore log level to silent so offline fallback logs do not trigger Next.js console.error dev overlay
 setLogLevel('silent');
 
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+// Use long-polling instead of WebChannel (which registers window.addEventListener('unload')
+// triggering Permissions Policy violations in modern Chrome).
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 
 export const DEFAULT_USER = 'main_terminal';
 
