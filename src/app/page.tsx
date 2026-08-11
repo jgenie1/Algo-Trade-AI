@@ -147,38 +147,38 @@ export default function TradingTerminalPage() {
 
       {/* Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full">
-        <TabsList className="flex w-full bg-black/40 border border-white/15 p-1.5 rounded-xl gap-2 h-auto mb-6 overflow-x-auto no-scrollbar scrollbar-none whitespace-nowrap">
+        <TabsList className="flex w-full bg-[#120a1c]/90 border border-white/15 p-1.5 rounded-2xl gap-2 h-auto mb-6 overflow-x-auto no-scrollbar scrollbar-none snap-x whitespace-nowrap backdrop-blur-xl">
           <TabsTrigger
             value="manual"
-            className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-amber-500/25 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/30 text-slate-300 hover:text-white"
+            className="flex-1 min-w-[160px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-amber-500/25 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/40 data-[state=active]:shadow-[0_0_12px_rgba(245,158,11,0.2)] text-slate-300 hover:text-white snap-start"
           >
-            <Zap className="inline-block h-4 w-4 mr-1.5 text-amber-400" />
+            <Zap className="inline-block h-3.5 w-3.5 mr-1.5 text-amber-400" />
             Trading Manuel & Analyse
           </TabsTrigger>
 
           <TabsTrigger
             value="bots"
-            className="flex-1 min-w-[190px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/30 text-slate-300 hover:text-white"
+            className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/40 data-[state=active]:shadow-[0_0_12px_rgba(194,255,12,0.2)] text-slate-300 hover:text-white snap-start"
           >
-            <Bot className="inline-block h-4 w-4 mr-1.5 text-[#c2ff0c]" />
-            Bots Automatiques & Intelligence
+            <Bot className="inline-block h-3.5 w-3.5 mr-1.5 text-[#c2ff0c]" />
+            Bots IA & Intelligence
           </TabsTrigger>
 
           <TabsTrigger
             value="tokens"
-            className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
+            className="flex-1 min-w-[160px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/40 data-[state=active]:shadow-[0_0_12px_rgba(168,85,247,0.3)] text-slate-300 hover:text-white flex items-center justify-center gap-1.5 snap-start"
           >
-            <Coins className="inline-block h-4 w-4 text-purple-400" />
-            Mes Tokens & Vente en Bloc
+            <Coins className="inline-block h-3.5 w-3.5 text-purple-400" />
+            Mes Tokens & Vente
           </TabsTrigger>
 
           {tradingMode === 'REAL' && (
             <TabsTrigger
               value="wallets"
-              className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 text-xs font-extrabold uppercase rounded-lg transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/30 text-slate-300 hover:text-white flex items-center justify-center gap-1.5"
+              className="flex-1 min-w-[160px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/40 data-[state=active]:shadow-[0_0_12px_rgba(168,85,247,0.3)] text-slate-300 hover:text-white flex items-center justify-center gap-1.5 snap-start"
             >
-              <span className="text-sm">💳</span>
-              Multi-Wallets Solana
+              <span className="text-xs">💳</span>
+              Multi-Wallets SOL
             </TabsTrigger>
           )}
         </TabsList>

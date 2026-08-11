@@ -289,17 +289,35 @@ export default function ManualOrderForm({
             {/* Amount input */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] font-bold text-white/40 uppercase font-headline">Montant (Marge en USD)</label>
-                <span className="text-[10px] text-white/40 font-body">Max: {balance.toFixed(0)} $</span>
+                <label className="text-[10px] font-bold text-slate-400 uppercase font-headline">Montant ({tradingMode === 'REAL' ? 'Marge en SOL' : 'Marge en USD'})</label>
+                <span className="text-[10px] text-slate-400 font-body">Max: {tradingMode === 'REAL' ? `${(solanaBalance || 0).toFixed(3)} SOL` : `${balance.toFixed(0)} $`}</span>
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{tradingMode === 'REAL' ? 'SOL' : '$'}</span>
                 <Input
                   type="number"
                   value={orderAmount || ""}
                   onChange={(e) => setOrderAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 text-sm focus:ring-[#c2ff0c] text-white font-body focus:outline-none"
+                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl pl-10 pr-3 text-sm focus:ring-[#c2ff0c] text-white font-body focus:outline-none"
                 />
+              </div>
+
+              {/* Quick % Buttons for Mobile & Desktop */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[0.25, 0.50, 0.75, 1.0].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => {
+                      const avail = tradingMode === 'REAL' ? (solanaBalance || 0) : balance;
+                      const calculated = Math.max(0, Math.floor(avail * pct * 1000) / 1000);
+                      setOrderAmount(calculated);
+                    }}
+                    className="py-1.5 px-2 text-[10px] font-mono font-extrabold bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-slate-300 hover:text-white transition-all active:scale-95 select-none"
+                  >
+                    {pct * 100}%
+                  </button>
+                ))}
               </div>
             </div>
 

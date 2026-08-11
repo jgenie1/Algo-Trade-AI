@@ -95,12 +95,12 @@ export default function PortfolioStatsHeader({
     : 'Mode Réel (Solana)';
 
   return (
-    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#14101a] border border-white/10 rounded-2xl p-4 sm:p-5 w-full shadow-2xl relative overflow-hidden backdrop-blur-xl">
+    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 bg-[#120b1c]/90 border border-white/10 rounded-2xl p-3.5 sm:p-5 w-full shadow-2xl relative overflow-hidden backdrop-blur-2xl">
       {/* Top Accent Line */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/40 via-purple-500/50 to-[#c2ff0c]/40" />
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/50 via-purple-500/60 to-[#c2ff0c]/60" />
 
       {/* Mode Switch Controls Segment */}
-      <div className="flex items-center bg-black/40 border border-white/10 p-1.5 rounded-xl gap-1 shrink-0">
+      <div className="flex items-center justify-between sm:justify-start bg-black/50 border border-white/10 p-1.5 rounded-xl gap-1 shrink-0 w-full sm:w-auto">
         <Button
           variant="ghost"
           onClick={() => {
@@ -108,10 +108,10 @@ export default function PortfolioStatsHeader({
             onSelectTab('manual');
           }}
           className={cn(
-            "px-4 py-2 h-9 text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-2 border-none cursor-pointer",
+            "flex-1 sm:flex-initial px-3 sm:px-4 py-2 h-9 text-[11px] sm:text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1.5 border-none cursor-pointer select-none",
             isDemo
-              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm font-black"
-              : "text-white/40 hover:text-white hover:bg-white/5"
+              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)] font-black"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
           )}
         >
           <span className="h-2 w-2 rounded-full bg-amber-400" />
@@ -125,10 +125,10 @@ export default function PortfolioStatsHeader({
             onSelectTab('manual');
           }}
           className={cn(
-            "px-4 py-2 h-9 text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-2 border-none cursor-pointer",
+            "flex-1 sm:flex-initial px-3 sm:px-4 py-2 h-9 text-[11px] sm:text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1.5 border-none cursor-pointer select-none",
             !isDemo
-              ? "bg-purple-600/25 text-purple-200 border border-purple-500/40 shadow-sm font-black"
-              : "text-white/40 hover:text-white hover:bg-white/5"
+              ? "bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.3)] font-black"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
           )}
         >
           <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
@@ -140,10 +140,10 @@ export default function PortfolioStatsHeader({
             variant="ghost"
             onClick={handleResetDemo}
             title="Réinitialiser le solde à 10 000 $, effacer les bots & positions démo."
-            className="px-3 py-2 h-9 text-[11px] font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center gap-1.5 bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 ml-1 cursor-pointer"
+            className="px-2.5 sm:px-3 py-2 h-9 text-[10px] sm:text-[11px] font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1 bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 ml-1 cursor-pointer select-none shrink-0"
           >
             <RotateCcw className="h-3.5 w-3.5 text-rose-400" />
-            Réinitialiser
+            <span className="hidden xs:inline">Reset</span>
           </Button>
         )}
       </div>
