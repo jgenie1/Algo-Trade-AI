@@ -88,7 +88,27 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
     }
   }
 
-  // --- SOURCE 2 : EXCHANGERATE API & COINBASE API (FOREX ET MÉTAUX EN DIRECT) ---
+  // --- SOURCE 2 : CRYPTOCOMPARE / TRADINGVIEW REALTIME FEED ---
+  try {
+    const ccRes = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histominute?fsym=${cleanSymbol}&tsym=USD&limit=30`, { cache: 'no-store' }, 3000);
+    if (ccRes.ok) {
+      const ccData = await ccRes.json();
+      if (ccData && ccData.Data && Array.isArray(ccData.Data.Data) && ccData.Data.Data.length > 0) {
+        const candles: Candle[] = ccData.Data.Data.map((d: any) => ({
+          time: d.time,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close,
+          volume: d.volumeto || 0
+        }));
+        candleCache[cacheKey] = { candles, timestamp: Date.now() };
+        return candles;
+      }
+    }
+  } catch (e) {}
+
+  // --- SOURCE 3 : EXCHANGERATE API & COINBASE API (FOREX ET MÉTAUX EN DIRECT) ---
   try {
     const res = await fetchWithTimeout('https://api.exchangerate-api.com/v4/latest/USD', { cache: 'no-store' }, 4000);
 
@@ -101,7 +121,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
     // Fallback silencieux vers Coinbase API si ExchangeRate API est restreint par le serveur d'hébergement
   }
 
-  // --- SOURCE 3 : COINBASE API (FALLBACK ULTIME GRATUIT ET FIABLE TOUT SERVEUR) ---
+  // --- SOURCE 4 : COINBASE API (FALLBACK ULTIME GRATUIT ET FIABLE TOUT SERVEUR) ---
   try {
     const res = await fetchWithTimeout('https://api.coinbase.com/v2/exchange-rates?currency=USD', { cache: 'no-store' }, 4000);
 
