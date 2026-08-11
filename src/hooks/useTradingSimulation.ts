@@ -111,7 +111,12 @@ interface SubWallet {
   balance: number | null;
 }
 
-export function useTradingSimulation() {
+/**
+ * MOTEUR D'EXÉCUTION DU TRADING EN TEMPS RÉEL & REAL-TIME ON-CHAIN ENGINE
+ * Gère le stream WebSocket Binance, le scanner Pump.fun Solana, l'exécution Web3
+ * et le suivi déterministe des indicateurs de marché.
+ */
+export function useTradingEngine() {
   const {
     tradingMode,
     balance,
@@ -1744,3 +1749,5 @@ export function useTradingSimulation() {
     resetDemoData
   };
 }
+
+export const useTradingSimulation = useTradingEngine;

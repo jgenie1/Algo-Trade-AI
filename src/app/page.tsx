@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Zap, Bot, Coins } from 'lucide-react';
-import { useTradingSimulation } from '@/hooks/useTradingSimulation';
+import { useTradingEngine } from '@/hooks/useTradingEngine';
 import { useAppState } from '@/context/AppContext';
 import ActivePositionsTable from '@/components/trading/ActivePositionsTable';
 import ManualOrderForm from '@/components/trading/ManualOrderForm';
@@ -75,7 +75,7 @@ export default function TradingTerminalPage() {
     handleDisperseSOL,
     handleClosePosition,
     resetDemoData
-  } = useTradingSimulation();
+  } = useTradingEngine();
 
   const { setTradingMode, reserveVault } = useAppState();
 
