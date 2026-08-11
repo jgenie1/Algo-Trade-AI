@@ -25,13 +25,16 @@ const TradingViewWidget: React.FC<TradingViewWidgetProps> = ({
         // Map indicators to TradingView studies
         const studies: string[] = [];
         if (indicators) {
-          if (indicators.includes("RSI")) studies.push("RSI");
-          if (indicators.includes("MACD")) studies.push("MACD");
-          if (indicators.includes("Bollinger Bands")) studies.push("BB");
+          // Use @tv-basicstudies namespace to load built-in indicators.
+          // Bare IDs like "RSI" / "BB" are treated as Pine Script IDs and
+          // trigger pine-facade requests that always 404.
+          if (indicators.includes("RSI")) studies.push("RSI@tv-basicstudies");
+          if (indicators.includes("MACD")) studies.push("MACD@tv-basicstudies");
+          if (indicators.includes("Bollinger Bands")) studies.push("BB@tv-basicstudies");
           if (indicators.includes("EMA")) studies.push("MAExp@tv-basicstudies");
           if (indicators.includes("SMA")) studies.push("MASimple@tv-basicstudies");
         } else {
-          studies.push("RSI", "MASimple@tv-basicstudies");
+          studies.push("RSI@tv-basicstudies", "MASimple@tv-basicstudies");
         }
 
         const widget = new window.TradingView.widget({
