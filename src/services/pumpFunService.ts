@@ -539,7 +539,7 @@ export async function getRealSolanaBalance(): Promise<{ success: boolean; balanc
       signer = Keypair.fromSecretKey(bs58.decode(trimmed));
     }
 
-    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || process.env.SOLANA_RPC_URL || "https://solana-rpc.publicnode.com";
     const connection = new Connection(rpcUrl, 'confirmed');
 
     const balanceLamports = await connection.getBalance(signer.publicKey);
@@ -593,9 +593,9 @@ export async function fetchLiveWalletBalance(): Promise<{
         const customRpc = localStorage.getItem('settings_rpc_url');
         const rpcEndpoints = [
           customRpc,
-          'https://api.mainnet-beta.solana.com',
           'https://solana-rpc.publicnode.com',
-          'https://rpc.ankr.com/solana'
+          'https://rpc.ankr.com/solana',
+          'https://api.mainnet-beta.solana.com'
         ].filter(Boolean) as string[];
 
         for (const rpcUrl of rpcEndpoints) {
@@ -671,7 +671,7 @@ export async function fetchLiveWalletBalance(): Promise<{
 export async function checkSolanaNetworkHealth(): Promise<{ success: boolean; latency?: number; blockHeight?: number; error?: string }> {
   try {
     const { Connection } = await import('@solana/web3.js');
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    const rpcUrl = process.env.SOLANA_RPC_URL || "https://solana-rpc.publicnode.com";
     const connection = new Connection(rpcUrl, 'confirmed');
 
     const startTime = Date.now();
@@ -694,7 +694,7 @@ export async function checkSolanaNetworkHealth(): Promise<{ success: boolean; la
 export async function getMultipleSolanaBalances(pubKeys: string[]): Promise<{ success: boolean; balances?: Record<string, number>; error?: string }> {
   try {
     const { Connection, PublicKey } = await import('@solana/web3.js');
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    const rpcUrl = process.env.SOLANA_RPC_URL || "https://solana-rpc.publicnode.com";
     const connection = new Connection(rpcUrl, 'confirmed');
 
     const balances: Record<string, number> = {};
@@ -1275,7 +1275,8 @@ export async function sweepSubWalletProfitToMaster({
 
   const RPC_URL =
     process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-    clusterApiUrl('mainnet-beta');
+    (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
+    'https://solana-rpc.publicnode.com';
 
   const connection = new Connection(RPC_URL, {
     commitment: 'confirmed',
