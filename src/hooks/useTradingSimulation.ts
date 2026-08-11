@@ -947,10 +947,12 @@ export function useTradingSimulation() {
                 const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2];
                 const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2];
 
-                if (lastRsi < buyThreshold && isBullishReversal && Math.random() < triggerChance) {
+                const isRealMode = tradingModeRef.current === 'REAL';
+
+                if (lastRsi < buyThreshold && isBullishReversal && (isRealMode || Math.random() < triggerChance)) {
                   signal = 'BUY';
                   reason = `RSI Survente (${lastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) confirmé par un retournement haussier (Fermeture: ${closes[closes.length - 1].toFixed(5)} > ${closes[closes.length - 2].toFixed(5)})`;
-                } else if (lastRsi > sellThreshold && isBearishReversal && Math.random() < triggerChance) {
+                } else if (lastRsi > sellThreshold && isBearishReversal && (isRealMode || Math.random() < triggerChance)) {
                   signal = 'SELL';
                   reason = `RSI Surachat (${lastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) confirmé par un retournement baissier (Fermeture: ${closes[closes.length - 1].toFixed(5)} < ${closes[closes.length - 2].toFixed(5)})`;
                 }
@@ -984,11 +986,12 @@ export function useTradingSimulation() {
                 const lastVol = volumes[lastIdx] || 0;
                 const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
                 const volumeConfirm = lastVol > avgVol * 1.05;
+                const isRealMode = tradingModeRef.current === 'REAL';
 
-                if (goldenCross && volumeConfirm && Math.random() < triggerChance) {
+                if (goldenCross && volumeConfirm && (isRealMode || Math.random() < triggerChance)) {
                   signal = 'BUY';
                   reason = `Crossover haussier EMA 9/20 confirmé par pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)`;
-                } else if (deathCross && volumeConfirm && Math.random() < triggerChance) {
+                } else if (deathCross && volumeConfirm && (isRealMode || Math.random() < triggerChance)) {
                   signal = 'SELL';
                   reason = `Crossover baissier EMA 9/20 confirmé par pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)`;
                 }
@@ -1007,11 +1010,12 @@ export function useTradingSimulation() {
                   
                   const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2];
                   const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2];
+                  const isRealMode = tradingModeRef.current === 'REAL';
 
-                  if (lastClose <= lower && isBullishRebound && Math.random() < triggerChance) {
+                  if (lastClose <= lower && isBullishRebound && (isRealMode || Math.random() < triggerChance)) {
                     signal = 'BUY';
                     reason = `Rebond de survente BB (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})`;
-                  } else if (lastClose >= upper && isBearishRebound && Math.random() < triggerChance) {
+                  } else if (lastClose >= upper && isBearishRebound && (isRealMode || Math.random() < triggerChance)) {
                     signal = 'SELL';
                     reason = `Correction de surachat BB (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})`;
                   }
