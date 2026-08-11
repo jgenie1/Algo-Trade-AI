@@ -90,7 +90,7 @@ export default function Header() {
   } | null>(null);
 
   // Settings State (persisted locally)
-  const [rpcUrl, setRpcUrl] = useState('https://solana-mainnet.core.chainstack.com/39a622a578bd62b');
+  const [rpcUrl, setRpcUrl] = useState('https://solana-rpc.publicnode.com');
   const [slippage, setSlippage] = useState('15');
   const [priorityFee, setPriorityFee] = useState('0.001');
   const [minMarginSol, setMinMarginSol] = useState('0.001');

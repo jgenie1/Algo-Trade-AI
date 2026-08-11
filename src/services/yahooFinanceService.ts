@@ -88,25 +88,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
     }
   }
 
-  // --- SOURCE 2 : CRYPTOCOMPARE / TRADINGVIEW REALTIME FEED ---
-  try {
-    const ccRes = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histominute?fsym=${cleanSymbol}&tsym=USD&limit=30`, { cache: 'no-store' }, 3000);
-    if (ccRes.ok) {
-      const ccData = await ccRes.json();
-      if (ccData && ccData.Data && Array.isArray(ccData.Data.Data) && ccData.Data.Data.length > 0) {
-        const candles: Candle[] = ccData.Data.Data.map((d: any) => ({
-          time: d.time,
-          open: d.open,
-          high: d.high,
-          low: d.low,
-          close: d.close,
-          volume: d.volumeto || 0
-        }));
-        candleCache[cacheKey] = { candles, timestamp: Date.now() };
-        return candles;
-      }
-    }
-  } catch (e) {}
+
 
   // --- SOURCE 3 : EXCHANGERATE API & COINBASE API (FOREX ET MÉTAUX EN DIRECT) ---
   try {

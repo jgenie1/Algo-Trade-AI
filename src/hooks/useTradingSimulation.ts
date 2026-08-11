@@ -219,9 +219,9 @@ export function useTradingEngine() {
         const customRpc = localStorage.getItem('settings_rpc_url');
         const rpcEndpoints = [
           customRpc,
-          'https://api.mainnet-beta.solana.com',
           'https://solana-rpc.publicnode.com',
           'https://rpc.ankr.com/solana',
+          'https://api.mainnet-beta.solana.com',
           'https://solana-mainnet.rpc.extrnode.com'
         ].filter(Boolean) as string[];
 
