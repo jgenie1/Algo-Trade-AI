@@ -173,7 +173,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
     const safetyTimer = setTimeout(() => {
       if (!isInitialized.current) {
-        console.log("Firebase Firestore unreachable (hosting network restriction) — using localStorage.");
+        console.log("Firebase Firestore unreachable — using localStorage.");
+        // Unsubscribe to stop Firestore SDK retry loops (e.g. blocked by Brave Shields)
+        try { unsubscribe(); } catch (_) {}
         loadFromLocalStorage();
         isInitialized.current = true;
         setIsLoading(false);
@@ -266,7 +268,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           setIsLoading(false);
         },
         (error) => {
-          console.warn("Firestore snapshot error (using localStorage fallback):", error);
+          // Stop the subscription immediately to prevent the Firestore SDK from
+          // retrying in an infinite loop (e.g. ERR_BLOCKED_BY_CLIENT in Brave).
+          try { unsubscribe(); } catch (_) {}
+          console.log("Firestore blocked/unavailable — switching to localStorage fallback.");
           if (!isInitialized.current) {
             loadFromLocalStorage();
             isInitialized.current = true;
