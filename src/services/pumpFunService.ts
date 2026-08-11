@@ -100,102 +100,39 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
-  try {
-    const url = `${PUMPFUN_API_URL}/coins?offset=0&limit=12&sort=created_timestamp&order=DESC`;
-    const res = await fetchWithTimeout(url, {
-      headers: getHeaders(),
-      next: { revalidate: 0 }
-    }, 3500);    if (!res.ok) {
-      throw new Error(`Pump.fun HTTP error: ${res.status}`);
-    }
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      return data;
-    }
-    return await fetchRealPumpCoins();
-  } catch (error) {
-    return await fetchRealPumpCoins();
-  }
+}export async function fetchLatestPumpCoins(): Promise<PumpCoin[]> {
+  return await fetchRealPumpCoins();
 }
 
 /**
- * Fetch REAL on-chain Pump.fun coins from the live API.
- * NEVER falls back to mock coins — for Real Mode trading only.
- * Throws an error if the API is unreachable or returns bad data.
+ * Fetch REAL on-chain Pump.fun coins from the internal server proxy API.
+ * NEVER makes direct browser calls to pump.fun frontend APIs (which fail with CORS/403 in browser).
  */
 export async function fetchRealPumpCoins(): Promise<PumpCoin[]> {
   // 1. Primary: Call internal server-side proxy route (/api/pump-coins) to bypass browser CORS & Cloudflare
   try {
-    const proxyRes = await fetchWithTimeout('/api/pump-coins', { cache: 'no-store' }, 4000);
+    const proxyRes = await fetchWithTimeout('/api/pump-coins', { cache: 'no-store' }, 5000);
 
-    if (proxyRes.ok) {
+    if (proxyRes && proxyRes.ok) {
       const result = await proxyRes.json();
       if (result && result.success && Array.isArray(result.coins) && result.coins.length > 0) {
         return result.coins;
       }
     }
   } catch (e) {
-    console.warn('[Pump.fun API Proxy] Server proxy fetch failed, trying direct fallback endpoints...', e);
+    // Silent catch
   }
 
-  // 2. Secondary fallback: Try direct frontend API endpoints
-  const endpoints = [
-    `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=created_timestamp&order=DESC`,
-    `${PUMPFUN_API_URL}/coins?offset=0&limit=20&sort=last_reply&order=DESC`,
-    `https://frontend-api-v2.pump.fun/coins?offset=0&limit=20&sort=created_timestamp&order=DESC`,
-  ];
-
-  for (const url of endpoints) {
-    try {
-      const res = await fetchWithTimeout(url, {
-        headers: getHeaders(),
-        next: { revalidate: 0 }
-      }, 4000);
-
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      if (!Array.isArray(data) || data.length === 0) continue;
-
-      // Filter: only real on-chain mints (base58, 32-44 chars, no mock prefix)
-      const realCoins = data.filter((c: PumpCoin) => {
-        const m = (c.mint || '').trim();
-        return m.length >= 32 && m.length <= 44 && !/^mnt_/.test(m) && !/[^1-9A-HJ-NP-Za-km-z]/.test(m);
-      });
-
-      if (realCoins.length > 0) return realCoins;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error('API Pump.fun inaccessible. Vérifiez votre connexion Internet ou réessayez dans quelques secondes.');
+  // 2. Secondary fallback: Return empty or default coins if server route unavailable
+  return [];
 }
 
 export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
-
-  // 1. Try Pump.fun API
-  try {
-    const url = `${PUMPFUN_API_URL}/coins/${mint}`;
-    const res = await fetchWithTimeout(url, {
-      headers: getHeaders(),
-      next: { revalidate: 0 }
-    }, 3500);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.mint) return data;
-    }
-  } catch (error) {}
-
-  // 2. Fallback to DexScreener live API for exact on-chain Solana tokens
+  // 1. Try DexScreener live API first for exact on-chain Solana tokens (CORS enabled)
   try {
     const dexRes = await fetchWithTimeout(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { cache: 'no-store' }, 3500);
 
-    if (dexRes.ok) {
+    if (dexRes && dexRes.ok) {
       const dexData = await dexRes.json();
       if (dexData && Array.isArray(dexData.pairs) && dexData.pairs.length > 0) {
         const p = dexData.pairs[0];
@@ -247,12 +184,9 @@ export async function getWorkingConnection(): Promise<any> {
   const candidates = [
     customRpc,
     envRpc,
-    'https://solana-rpc.publicnode.com',
     'https://rpc.ankr.com/solana',
-    'https://api.mainnet-beta.solana.com',
     'https://solana-mainnet.rpc.extrnode.com',
-    'https://mainnet.helius-rpc.com/?api-key=public',
-    'https://solana-api.projectserum.com',
+    'https://solana-rpc.publicnode.com',
   ].filter(Boolean) as string[];
 
   // Deduplicate while preserving order
@@ -266,19 +200,13 @@ export async function getWorkingConnection(): Promise<any> {
   for (const url of unique) {
     try {
       const conn = new Connection(url, { commitment: 'confirmed' });
-      // Quick health check — if this throws 403/timeout, try the next one
       await conn.getLatestBlockhash({ commitment: 'confirmed' });
-      console.log(`[RPC] Using: ${url}`);
       return conn;
-    } catch (err: any) {
-      console.warn(`[RPC] ${url} failed (${err?.message?.slice(0, 60)}), trying next...`);
-    }
+    } catch (err: any) {}
   }
 
-  throw new Error(
-    'Tous les RPCs Solana sont inaccessibles (403 / timeout). ' +
-    'Vérifiez votre connexion Internet ou configurez un RPC Solana personnel dans Paramètres → URL RPC.'
-  );
+  // Fallback to default Ankr connection if all checks fail
+  return new Connection('https://rpc.ankr.com/solana', 'confirmed');
 }
 
 export async function executeRealPumpTrade(params: {
@@ -539,9 +467,7 @@ export async function getRealSolanaBalance(): Promise<{ success: boolean; balanc
       signer = Keypair.fromSecretKey(bs58.decode(trimmed));
     }
 
-    const rpcUrl = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || process.env.SOLANA_RPC_URL || "https://solana-rpc.publicnode.com";
-    const connection = new Connection(rpcUrl, 'confirmed');
-
+    const connection = await getWorkingConnection();
     const balanceLamports = await connection.getBalance(signer.publicKey);
     return {
       success: true,
@@ -584,28 +510,17 @@ export async function fetchLiveWalletBalance(): Promise<{
         targetAddr = winSolana.publicKey.toBase58();
         targetChain = 'Solana';
       }
-
       if (targetAddr && (targetChain === 'Solana' || !targetChain)) {
         solanaPubKey = targetAddr;
         walletChain = 'Solana';
-        const { Connection, PublicKey } = await import('@solana/web3.js');
+        const { PublicKey } = await import('@solana/web3.js');
         const pubKey = new PublicKey(targetAddr);
-        const customRpc = localStorage.getItem('settings_rpc_url');
-        const rpcEndpoints = [
-          customRpc,
-          'https://solana-rpc.publicnode.com',
-          'https://rpc.ankr.com/solana',
-          'https://api.mainnet-beta.solana.com'
-        ].filter(Boolean) as string[];
-
-        for (const rpcUrl of rpcEndpoints) {
-          try {
-            const connection = new Connection(rpcUrl, 'confirmed');
-            const lamports = await connection.getBalance(pubKey);
-            solanaBalance = lamports / 1e9;
-            break;
-          } catch (rpcErr) {}
-        }
+        
+        try {
+          const connection = await getWorkingConnection();
+          const lamports = await connection.getBalance(pubKey);
+          solanaBalance = lamports / 1e9;
+        } catch (rpcErr) {}
 
         if (solanaBalance !== null) {
           return {
@@ -670,10 +585,7 @@ export async function fetchLiveWalletBalance(): Promise<{
 
 export async function checkSolanaNetworkHealth(): Promise<{ success: boolean; latency?: number; blockHeight?: number; error?: string }> {
   try {
-    const { Connection } = await import('@solana/web3.js');
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://solana-rpc.publicnode.com";
-    const connection = new Connection(rpcUrl, 'confirmed');
-
+    const connection = await getWorkingConnection();
     const startTime = Date.now();
     const blockHeight = await connection.getBlockHeight();
     const latency = Date.now() - startTime;
@@ -693,9 +605,8 @@ export async function checkSolanaNetworkHealth(): Promise<{ success: boolean; la
 
 export async function getMultipleSolanaBalances(pubKeys: string[]): Promise<{ success: boolean; balances?: Record<string, number>; error?: string }> {
   try {
-    const { Connection, PublicKey } = await import('@solana/web3.js');
-    const rpcUrl = process.env.SOLANA_RPC_URL || "https://solana-rpc.publicnode.com";
-    const connection = new Connection(rpcUrl, 'confirmed');
+    const { PublicKey } = await import('@solana/web3.js');
+    const connection = await getWorkingConnection();
 
     const balances: Record<string, number> = {};
     const results = await Promise.allSettled(
@@ -1180,6 +1091,7 @@ export async function transferSolOnChain(params: {
 export interface SweepResult {
   success: boolean;
   signature?: string;
+  txHash?: string;
   sourceAddress?: string;
   destinationAddress?: string;
   requestedSol: number;

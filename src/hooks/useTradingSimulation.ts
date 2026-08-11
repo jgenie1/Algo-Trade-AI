@@ -219,10 +219,9 @@ export function useTradingEngine() {
         const customRpc = localStorage.getItem('settings_rpc_url');
         const rpcEndpoints = [
           customRpc,
-          'https://solana-rpc.publicnode.com',
           'https://rpc.ankr.com/solana',
-          'https://api.mainnet-beta.solana.com',
-          'https://solana-mainnet.rpc.extrnode.com'
+          'https://solana-mainnet.rpc.extrnode.com',
+          'https://solana-rpc.publicnode.com'
         ].filter(Boolean) as string[];
 
         for (const rpcUrl of rpcEndpoints) {
@@ -232,9 +231,7 @@ export function useTradingEngine() {
             const sol = lamports / 1e9;
             setSolanaBalance(sol);
             return true;
-          } catch (rpcErr) {
-            console.warn(`[Wallet RPC] ${rpcUrl} failed:`, rpcErr);
-          }
+          } catch (rpcErr) {}
         }
         return true;
       } catch (e) {

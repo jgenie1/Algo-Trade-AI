@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const { setBalance } = useAppState();
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
-  const [rpcUrl, setRpcUrl] = useState<string>('https://solana-rpc.publicnode.com');
+  const [rpcUrl, setRpcUrl] = useState<string>('https://rpc.ankr.com/solana');
   const [solanaPrivateKey, setSolanaPrivateKey] = useState<string>('');
   const [solanaPubKeyInput, setSolanaPubKeyInput] = useState<string>('');
   const [showPrivateKey, setShowPrivateKey] = useState<boolean>(false);

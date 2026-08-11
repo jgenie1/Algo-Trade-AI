@@ -62,7 +62,7 @@ export default function ManualOrderForm({
 
   // Fetch live trending coins from Pump.fun (real mints only in REAL mode)
   React.useEffect(() => {
-    if (tradingMode !== 'REAL') return;
+    if ((tradingMode as string) !== 'REAL') return;
     const loadCoins = async () => {
       try {
         setTrendingCoinsError('');
@@ -289,11 +289,11 @@ export default function ManualOrderForm({
             {/* Amount input */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] font-bold text-slate-400 uppercase font-headline">Montant ({tradingMode === 'REAL' ? 'Marge en SOL' : 'Marge en USD'})</label>
-                <span className="text-[10px] text-slate-400 font-body">Max: {tradingMode === 'REAL' ? `${(solanaBalance || 0).toFixed(3)} SOL` : `${balance.toFixed(0)} $`}</span>
+                <label className="text-[10px] font-bold text-slate-400 uppercase font-headline">Montant ({(tradingMode as string) === 'REAL' ? 'Marge en SOL' : 'Marge en USD'})</label>
+                <span className="text-[10px] text-slate-400 font-body">Max: {(tradingMode as string) === 'REAL' ? `${(solanaBalance || 0).toFixed(3)} SOL` : `${balance.toFixed(0)} $`}</span>
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{tradingMode === 'REAL' ? 'SOL' : '$'}</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{(tradingMode as string) === 'REAL' ? 'SOL' : '$'}</span>
                 <Input
                   type="number"
                   value={orderAmount || ""}
@@ -309,7 +309,7 @@ export default function ManualOrderForm({
                     key={pct}
                     type="button"
                     onClick={() => {
-                      const avail = tradingMode === 'REAL' ? (solanaBalance || 0) : balance;
+                      const avail = (tradingMode as string) === 'REAL' ? (solanaBalance || 0) : balance;
                       const calculated = Math.max(0, Math.floor(avail * pct * 1000) / 1000);
                       setOrderAmount(calculated);
                     }}
