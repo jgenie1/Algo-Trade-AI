@@ -177,13 +177,13 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-xs text-white/50 leading-relaxed font-body">
-            📈 Connectez vos alertes Pine Script et indicateurs TradingView directement à votre terminal d'exécution automatique AlgoTrade AI.
+            📈 Connectez vos alertes Pine Script et indicateurs TradingView directement à votre terminal d&apos;exécution automatique AlgoTrade AI.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 font-body">
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/70 font-headline uppercase">
-                Clé d'API TradingView / REST Token
+                Clé d&apos;API TradingView / REST Token
               </label>
               <Input
                 type="text"
@@ -272,7 +272,7 @@ export default function SettingsPage() {
             />
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/5">
               <p className="text-[10px] text-white/50 leading-relaxed font-body flex-1 min-w-[240px]">
-                🔒 <strong>Sécurité local-first :</strong> Votre clé est stockée uniquement dans la mémoire locale de votre navigateur. <strong>Requis pour permettre aux robots d'exécuter des snipes Solana en arrière-plan sans popup Phantom à chaque position.</strong>
+                🔒 <strong>Sécurité local-first :</strong> Votre clé est stockée uniquement dans la mémoire locale de votre navigateur. <strong>Requis pour permettre aux robots d&apos;exécuter des snipes Solana en arrière-plan sans popup Phantom à chaque position.</strong>
               </p>
 
               <button
@@ -358,7 +358,7 @@ export default function SettingsPage() {
                 className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
               />
               <p className="text-[10px] text-white/40 leading-relaxed font-body">
-                💡 <strong>Seuil d'exécution :</strong> Si votre solde wallet est supérieur à ce montant (ex: 0.001 SOL), les ordres SELL et BUY sont autorisés même avec un faible solde (ex: 0.0023 SOL).
+                💡 <strong>Seuil d&apos;exécution :</strong> Si votre solde wallet est supérieur à ce montant (ex: 0.001 SOL), les ordres SELL et BUY sont autorisés même avec un faible solde (ex: 0.0023 SOL).
               </p>
             </div>
 
@@ -378,7 +378,7 @@ export default function SettingsPage() {
                 className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
               />
               <p className="text-[10px] text-white/40 leading-relaxed font-body">
-                ⚡ <strong>Vitesse d'inclusion :</strong> Frais alloués aux validateurs Solana/Jito pour garantir un passage prioritaire des ordres sans rejet en période de forte volatilité.
+                ⚡ <strong>Vitesse d&apos;inclusion :</strong> Frais alloués aux validateurs Solana/Jito pour garantir un passage prioritaire des ordres sans rejet en période de forte volatilité.
               </p>
             </div>
 
@@ -398,7 +398,7 @@ export default function SettingsPage() {
                 className="h-11 bg-white/5 border-white/10 text-xs font-mono text-white focus:ring-[#c2ff0c]"
               />
               <p className="text-[10px] text-white/40 leading-relaxed font-body">
-                📊 <strong>Tolérance d'écart :</strong> Écart de prix maximal accepté entre l'envoi de l'ordre et son exécution on-chain. Recommandé : 15% pour Pump.fun / Raydium.
+                📊 <strong>Tolérance d&apos;écart :</strong> Écart de prix maximal accepté entre l&apos;envoi de l&apos;ordre et son exécution on-chain. Recommandé : 15% pour Pump.fun / Raydium.
               </p>
             </div>
           </div>

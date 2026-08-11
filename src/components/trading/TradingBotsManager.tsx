@@ -444,7 +444,7 @@ export default function TradingBotsManager({
                   <span>🤖</span> Autopilote Quantitatif IA
                 </CardTitle>
                 <p className="text-xs text-slate-300 font-medium font-body leading-relaxed">
-                  L'IA analyse le marché Forex & Crypto en temps réel pour ouvrir et gérer des positions optimales de manière 100% autonome.
+                  L&apos;IA analyse le marché Forex & Crypto en temps réel pour ouvrir et gérer des positions optimales de manière 100% autonome.
                 </p>
               </div>
             ) : botStrategy === 'Pump.fun Sniper Bot' ? (
@@ -462,7 +462,7 @@ export default function TradingBotsManager({
                   <span className="text-[#c2ff0c]">📊</span> Stratégie Technique : {botStrategy}
                 </CardTitle>
                 <p className="text-xs text-slate-300 font-medium font-body leading-relaxed">
-                  Exécute automatiquement des transactions sur l'actif sélectionné en se basant sur les indicateurs techniques et la tendance du marché.
+                  Exécute automatiquement des transactions sur l&apos;actif sélectionné en se basant sur les indicateurs techniques et la tendance du marché.
                 </p>
               </div>
             )}
@@ -698,7 +698,7 @@ export default function TradingBotsManager({
             <div className="flex justify-between items-center">
               <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center gap-2">
                 <span className="text-purple-400">🧠</span>
-                <span>Moteur d'Apprentissage & Feedback IA ({safeBotLearnings.length})</span>
+                <span>Moteur d&apos;Apprentissage & Feedback IA ({safeBotLearnings.length})</span>
               </CardTitle>
               {safeBotLearnings.length > 0 && (
                 <Button
@@ -717,7 +717,7 @@ export default function TradingBotsManager({
               {safeBotLearnings.length === 0 ? (
                 <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">
                   <span className="text-2xl mb-1">🧠</span>
-                  <span>Le bot n'a rencontré aucun échec pour l'instant. Il apprendra automatiquement de ses pertes futures.</span>
+                  <span>Le bot n&apos;a rencontré aucun échec pour l&apos;instant. Il apprendra automatiquement de ses pertes futures.</span>
                 </div>
               ) : (
                 safeBotLearnings.map((l, idx) => (
@@ -749,7 +749,7 @@ export default function TradingBotsManager({
             <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bot className="h-5 w-5 text-violet-400" />
-                <span>Journal d'Activité des Bots</span>
+                <span>Journal d&apos;Activité des Bots</span>
               </div>
               <Badge className="bg-violet-500/25 text-violet-200 text-xs font-bold border-none uppercase font-headline">
                 {safeBotLogs.length} Événements
@@ -829,7 +829,7 @@ export default function TradingBotsManager({
             {isLoading ? (
               <div className="border border-white/15 rounded-xl p-6 flex items-center gap-3 bg-black/20">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-[#c2ff0c]" />
-                <span className="text-xs text-slate-300 font-medium font-body">Chargement de l'historique...</span>
+                <span className="text-xs text-slate-300 font-medium font-body">Chargement de l&apos;historique...</span>
               </div>
             ) : filteredClosed.length === 0 ? (
               <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">

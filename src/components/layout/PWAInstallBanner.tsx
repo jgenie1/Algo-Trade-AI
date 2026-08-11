@@ -88,26 +88,26 @@ export default function PWAInstallBanner() {
           <DialogHeader className="border-b border-white/10 pb-3">
             <DialogTitle className="text-xl font-headline font-extrabold text-[#c2ff0c] flex items-center gap-2">
               <Smartphone className="h-6 w-6" />
-              Installer l'application PWA
+              Installer l&apos;application PWA
             </DialogTitle>
             <DialogDescription className="text-xs text-white/60 font-body mt-1">
-              Profitez d'une expérience native sans téléchargement sur l'App Store / Play Store.
+              Profitez d&apos;une expérience native sans téléchargement sur l&apos;App Store / Play Store.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs text-white/80">
-            <p className="font-bold text-white">Pour installer l'application sur votre écran d'accueil :</p>
+            <p className="font-bold text-white">Pour installer l&apos;application sur votre écran d&apos;accueil :</p>
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
               <Share className="h-5 w-5 text-sky-400 shrink-0" />
               <span>1. Appuyez sur le bouton <strong>Partager</strong> dans la barre de votre navigateur (Safari / Chrome).</span>
             </div>
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
               <PlusSquare className="h-5 w-5 text-[#c2ff0c] shrink-0" />
-              <span>2. Faites défiler vers le bas et sélectionnez <strong>"Sur l'écran d'accueil"</strong>.</span>
+              <span>2. Faites défiler vers le bas et sélectionnez <strong>&quot;Sur l&apos;écran d&apos;accueil&quot;</strong>.</span>
             </div>
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
               <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-              <span>3. Confirmez pour lancer l'application en mode plein écran autonome !</span>
+              <span>3. Confirmez pour lancer l&apos;application en mode plein écran autonome !</span>
             </div>
           </div>
 
@@ -116,7 +116,7 @@ export default function PWAInstallBanner() {
               onClick={() => setShowIOSModal(false)}
               className="w-full h-11 bg-[#c2ff0c] text-black font-extrabold font-headline rounded-2xl text-xs uppercase"
             >
-              J'ai Compris
+              J&apos;ai Compris
             </Button>
           </DialogFooter>
         </DialogContent>

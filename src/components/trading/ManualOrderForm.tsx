@@ -456,7 +456,7 @@ export default function ManualOrderForm({
 
             {/* Disclaimer & Execution button */}
             <div className="p-3 bg-purple-950/10 border border-purple-500/10 rounded-xl text-[9px] text-purple-300/70 leading-normal font-body">
-              ⚡ Les ordres manuels en Mode Réel sont acheminés en direct via votre nœud Chainstack et s'exécutent sur la blockchain Solana. Le levier est forcé à 1x (Spot).
+              ⚡ Les ordres manuels en Mode Réel sont acheminés en direct via votre nœud Chainstack et s&apos;exécutent sur la blockchain Solana. Le levier est forcé à 1x (Spot).
             </div>
 
             <Button
@@ -464,7 +464,7 @@ export default function ManualOrderForm({
               disabled={!isSolanaWalletActive}
               className="w-full h-12 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white font-semibold text-xs rounded-xl transition-all duration-300 font-headline uppercase tracking-wider mt-2 hover:shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-500/40"
             >
-              Exécuter l'Achat Réel sur Solana
+              Exécuter l&apos;Achat Réel sur Solana
             </Button>
           </>
         )}

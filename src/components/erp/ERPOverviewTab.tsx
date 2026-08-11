@@ -74,7 +74,7 @@ export default function ERPOverviewTab({
           <span className="text-[10px] text-white/50 font-mono block">
             ≈ {formatUsdToHtg(formattedClosedProfitUsd)}
           </span>
-          <span className="text-[9px] text-white/30 font-body block mt-1">Profit net clôturé sur l'organisation</span>
+          <span className="text-[9px] text-white/30 font-body block mt-1">Profit net clôturé sur l&apos;organisation</span>
         </Card>
       </div>
 
@@ -82,7 +82,7 @@ export default function ERPOverviewTab({
         <div className="flex justify-between items-center border-b border-white/5 pb-4">
           <div>
             <h3 className="text-lg font-bold text-white font-headline">Inventaire de Répartition des Actifs</h3>
-            <p className="text-xs text-white/40 font-body mt-0.5">Ventilation du bilan comptable de l'organisation</p>
+            <p className="text-xs text-white/40 font-body mt-0.5">Ventilation du bilan comptable de l&apos;organisation</p>
           </div>
         </div>
 

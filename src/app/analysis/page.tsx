@@ -172,7 +172,7 @@ export default function ForexAnalysisPage() {
             Analyse Visuelle IA
           </h1>
           <p className="text-sm text-white/50 font-body mt-1">
-            Analyse de marché Forex en temps réel combinée à l'intelligence artificielle Gemini.
+            Analyse de marché Forex en temps réel combinée à l&apos;intelligence artificielle Gemini.
           </p>
         </div>
 

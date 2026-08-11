@@ -253,7 +253,7 @@ export default function ProfilePage() {
                 Informations Personnelles & Préférences
               </h3>
               <p className="text-xs text-white/40 mt-1 font-body">
-                Mettez à jour vos coordonnées et choisissez votre devise d'affichage préférée.
+                Mettez à jour vos coordonnées et choisissez votre devise d&apos;affichage préférée.
               </p>
             </div>
 
@@ -290,7 +290,7 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Devise Principale d'Affichage</label>
+                  <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Devise Principale d&apos;Affichage</label>
                   <select
                     value={preferredCurrency}
                     onChange={(e) => setPreferredCurrency(e.target.value)}

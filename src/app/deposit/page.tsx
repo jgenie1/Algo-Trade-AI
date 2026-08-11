@@ -284,7 +284,7 @@ export default function DepositPage() {
                         disabled={!manualAddress.trim()}
                         className="flex-1 h-9 bg-purple-600 hover:bg-purple-700 text-white font-bold font-headline text-xs"
                       >
-                        Enregistrer l'adresse
+                        Enregistrer l&apos;adresse
                       </Button>
                       <Button
                         variant="ghost"
@@ -320,7 +320,7 @@ export default function DepositPage() {
                         className="h-8 text-xs text-white/40 hover:text-white flex items-center gap-1.5 px-2"
                       >
                         <Edit2 className="h-3.5 w-3.5" />
-                        Changer l'adresse
+                        Changer l&apos;adresse
                       </Button>
                       <a
                         href={`${SOL_EXPLORER}${displayAddress}`}
@@ -345,7 +345,7 @@ export default function DepositPage() {
                       <div className="flex items-center gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                         <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
                         <span className="text-xs text-amber-300 font-body">
-                          Adresse saisie manuellement — assurez-vous qu'elle est correcte avant d'envoyer
+                          Adresse saisie manuellement — assurez-vous qu&apos;elle est correcte avant d&apos;envoyer
                         </span>
                       </div>
                     )}
@@ -366,7 +366,7 @@ export default function DepositPage() {
                       <div className="space-y-1">
                         <p className="text-sm font-bold text-amber-300 font-headline">Aucun wallet Solana détecté</p>
                         <p className="text-xs text-white/50 font-body leading-relaxed">
-                          Connectez votre wallet <strong className="text-white/70">Phantom</strong> via le bouton "Connecter Wallet" en haut de page, 
+                          Connectez votre wallet <strong className="text-white/70">Phantom</strong> via le bouton &quot;Connecter Wallet&quot; en haut de page, 
                           ou saisissez manuellement votre adresse de réception SOL.
                         </p>
                       </div>

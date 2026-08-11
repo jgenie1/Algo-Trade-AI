@@ -88,7 +88,7 @@ export default function AIAnalysisHistoryTable({
               {combinedHistory.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-xs text-white/30 font-body">
-                    Aucun signal ou trade récent enregistré. Lancez l'analyse IA ou ouvrez une position.
+                    Aucun signal ou trade récent enregistré. Lancez l&apos;analyse IA ou ouvrez une position.
                   </td>
                 </tr>
               ) : (

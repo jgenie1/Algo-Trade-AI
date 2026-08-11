@@ -68,7 +68,7 @@ export default function AIAnalysisConsoleCard({
           </div>
         </CardTitle>
         <CardDescription className="text-white/40 text-xs font-body">
-          Configurez la paire et le timeframe puis lancez l'analyse visuelle & algorithmique.
+          Configurez la paire et le timeframe puis lancez l&apos;analyse visuelle & algorithmique.
         </CardDescription>
       </CardHeader>
 
@@ -200,7 +200,7 @@ export default function AIAnalysisConsoleCard({
           {!analysis && !isLoading && (
             <div className="text-center py-6 text-white/30 flex flex-col items-center justify-center">
               <BrainCircuit className="h-8 w-8 mb-2 opacity-50"/>
-              <p className="text-xs font-body">Les résultats de l'analyse IA s'afficheront ici après avoir cliqué sur le bouton ci-dessus.</p>
+              <p className="text-xs font-body">Les résultats de l&apos;analyse IA s&apos;afficheront ici après avoir cliqué sur le bouton ci-dessus.</p>
             </div>
           )}
         </div>

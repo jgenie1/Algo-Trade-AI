@@ -128,7 +128,7 @@ export default function ERPLedgerTab({
               Grand Livre Comptable & Audit Financier
             </h3>
             <p className="text-xs text-slate-400 font-body mt-0.5">
-              Journal d'audit de toutes les opérations financières de l'entreprise
+              Journal d&apos;audit de toutes les opérations financières de l&apos;entreprise
             </p>
           </div>
 

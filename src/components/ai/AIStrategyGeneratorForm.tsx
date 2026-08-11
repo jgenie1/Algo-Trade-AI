@@ -138,7 +138,7 @@ export default function AIStrategyGeneratorForm() {
               </span>
             </CardTitle>
             <CardDescription className="text-xs font-body text-white/50">
-              Décrivez vos règles de trading en langage naturel. L'IA génère et déploie le bot en 1 clic.
+              Décrivez vos règles de trading en langage naturel. L&apos;IA génère et déploie le bot en 1 clic.
             </CardDescription>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function AIStrategyGeneratorForm() {
             {isGenerating ? (
               <>
                 <Sparkles className="h-4 w-4 animate-spin text-[#c2ff0c]" />
-                Compilations des règles par l'IA...
+                Compilations des règles par l&apos;IA...
               </>
             ) : (
               <>

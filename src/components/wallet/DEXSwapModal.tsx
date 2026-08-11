@@ -412,7 +412,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
             {quote && (
               <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1.5 font-mono text-[11px]">
                 <div className="flex justify-between text-white/60">
-                  <span>Route DEX d'exécution :</span>
+                  <span>Route DEX d&apos;exécution :</span>
                   <span className="text-purple-300 font-bold">{quote.routePlan}</span>
                 </div>
                 <div className="flex justify-between text-white/60">

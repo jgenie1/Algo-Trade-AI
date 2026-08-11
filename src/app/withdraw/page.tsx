@@ -202,7 +202,7 @@ export default function WithdrawPage() {
             {tradingMode === 'REAL' ? 'Solana Mainnet (Web3)' : 'Portefeuille Démo (USD)'}
           </div>
           <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">
-            ✓ Prêt pour l'opération
+            ✓ Prêt pour l&apos;opération
           </span>
           <span className="text-[9px] text-white/30 font-body block mt-1">Sélecteur de mode disponible en haut</span>
         </Card>

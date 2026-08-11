@@ -64,7 +64,7 @@ export default function MultiWalletsManager({
           {!isSolanaWalletActive && (
             <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[10px] text-amber-300 font-body leading-relaxed space-y-1">
               <p>⚠️ <strong>Clé principale manquante</strong> :</p>
-              <p>Votre clé <code>SOLANA_PRIVATE_KEY</code> n'est pas encore configurée dans le fichier <code>.env</code>.</p>
+              <p>Votre clé <code>SOLANA_PRIVATE_KEY</code> n&apos;est pas encore configurée dans le fichier <code>.env</code>.</p>
               <p className="text-white/40">Veuillez la renseigner et relancer le serveur de dev pour pouvoir distribuer du SOL en réel.</p>
             </div>
           )}

@@ -211,11 +211,11 @@ export default function AutomatedPipelineFlowVisualizer() {
             </span>
             <h2 className="text-xl font-extrabold tracking-tight font-headline text-white flex items-center gap-2">
               <Layers className="h-5 w-5 text-[#c2ff0c]" />
-              Pipeline d'Exécution & Auto-Virement des Gains IA
+              Pipeline d&apos;Exécution & Auto-Virement des Gains IA
             </h2>
           </div>
           <p className="text-xs text-white/50 mt-1 font-body">
-            Flux de trading automatisé en 10 étapes : du scan anti-scam jusqu'au virement des bénéfices réels sur votre wallet.
+            Flux de trading automatisé en 10 étapes : du scan anti-scam jusqu&apos;au virement des bénéfices réels sur votre wallet.
           </p>
         </div>
 

@@ -58,8 +58,19 @@ export default function ErrorPage({
         <div className="space-y-2">
           <h2 className="text-xl font-bold font-headline text-white">Rechargement du Terminal</h2>
           <p className="text-xs text-white/50 font-body leading-relaxed">
-            Le terminal s'est interrompu lors de l'initialisation. Cliquez ci-dessous pour recharger l'interface en toute sécurité.
+            Le terminal s&apos;est interrompu lors de l&apos;initialisation. Cliquez ci-dessous pour recharger l&apos;interface en toute sécurité.
           </p>
+          {error && (
+            <div className="mt-3 p-3 bg-red-950/80 border border-red-500/30 rounded-xl text-left">
+              <p className="text-xs font-mono font-bold text-red-400 break-all">{error.message || String(error)}</p>
+              {error.digest && <p className="text-[10px] font-mono text-red-400/60 mt-1">Digest: {error.digest}</p>}
+              {error.stack && (
+                <pre className="mt-2 text-[9px] font-mono text-red-300/70 overflow-auto max-h-32 whitespace-pre-wrap no-scrollbar">
+                  {error.stack}
+                </pre>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-2.5 pt-2">
@@ -68,7 +79,7 @@ export default function ErrorPage({
             className="w-full h-11 bg-[#c2ff0c] text-black font-extrabold text-xs uppercase rounded-xl font-headline flex items-center justify-center gap-2 hover:bg-[#c2ff0c]/90 border-none transition-all cursor-pointer"
           >
             <RefreshCw className="h-4 w-4" />
-            Recharger l'Interface
+            Recharger l&apos;Interface
           </button>
           <button
             onClick={handleHardReset}
@@ -85,7 +96,7 @@ export default function ErrorPage({
             className="w-full h-10 bg-transparent hover:bg-white/5 text-white/40 font-bold text-[11px] uppercase rounded-xl font-headline flex items-center justify-center gap-2 cursor-pointer"
           >
             <Home className="h-3.5 w-3.5" />
-            Retour à l'Accueil
+            Retour à l&apos;Accueil
           </Link>
         </div>
       </div>

@@ -473,7 +473,7 @@ export default function Header() {
                 </span>
               </DialogTitle>
               <DialogDescription className="text-white/40 text-xs font-body">
-                Connectez votre portefeuille d'actifs numériques pour exécuter des ordres réels et transférer vos bénéfices.
+                Connectez votre portefeuille d&apos;actifs numériques pour exécuter des ordres réels et transférer vos bénéfices.
               </DialogDescription>
             </DialogHeader>
 
@@ -592,7 +592,7 @@ export default function Header() {
                     </Button>
                   </div>
                   <p className="text-[10px] text-white/40 font-body">
-                    Connecte n'importe quel portefeuille Solana en lecture pour suivre le solde SOL en temps réel.
+                    Connecte n&apos;importe quel portefeuille Solana en lecture pour suivre le solde SOL en temps réel.
                   </p>
                 </div>
               </div>

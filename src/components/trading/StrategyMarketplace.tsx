@@ -217,7 +217,7 @@ export default function StrategyMarketplace() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-[#c2ff0c]" />
-              <h2 className="text-lg font-bold font-headline text-white">Vos Bots & Stratégies d'App en Tâche de Fond ({bots.length})</h2>
+              <h2 className="text-lg font-bold font-headline text-white">Vos Bots & Stratégies d&apos;App en Tâche de Fond ({bots.length})</h2>
             </div>
             <Link href="/?tab=bots" className="text-xs text-[#c2ff0c] font-headline font-bold hover:underline">
               Gérer dans le Terminal →

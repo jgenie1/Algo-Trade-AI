@@ -98,7 +98,7 @@ export default function PositionDetailsModal({
             <span className="text-sm font-bold text-white font-body">{position.leverage}x</span>
           </div>
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
-            <span className="text-[10px] text-white/40 block uppercase font-headline">Prix d'Entrée</span>
+            <span className="text-[10px] text-white/40 block uppercase font-headline">Prix d&apos;Entrée</span>
             <span className="text-sm font-bold text-white font-body">
               {position.entryPrice.toFixed(position.entryPrice > 100 ? 2 : 5)} {isSol ? 'SOL' : ''}
             </span>
@@ -238,10 +238,10 @@ export default function PositionDetailsModal({
         {/* Bot Indicators Section */}
         {!isSol && position.botId && (
           <div className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-2">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-violet-400 font-headline">Indicateurs à l'Entrée</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-violet-400 font-headline">Indicateurs à l&apos;Entrée</h4>
             <div className="grid grid-cols-2 gap-3 text-[10px] font-body text-white/60">
               <div>
-                <span>RSI d'Entrée :</span>
+                <span>RSI d&apos;Entrée :</span>
                 <span className="font-bold text-white ml-1.5">{position.entryRsi?.toFixed(1) ?? 'N/A'}</span>
               </div>
               <div>

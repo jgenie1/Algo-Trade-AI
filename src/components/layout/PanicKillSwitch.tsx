@@ -82,7 +82,7 @@ export default function PanicKillSwitch() {
     // 3. Envoyer une alerte d'urgence Telegram & Discord
     await dispatchAlert(
       "🚨 ARRÊT D'URGENCE EXÉCUTÉ (PANIC KILL SWITCH)",
-      `Toutes les positions actives (${activePositions.length}) ont été fermées d'urgence et tous les bots (${bots.length}) ont été mis en pause immédiate. Le capital restant est mis en sécurité.`,
+      `Toutes les positions actives (${safePositions.length}) ont été fermées d'urgence et tous les bots (${safeBots.length}) ont été mis en pause immédiate. Le capital restant est mis en sécurité.`,
       'STOP_LOSS'
     );
 
@@ -102,7 +102,7 @@ export default function PanicKillSwitch() {
         className="h-10 px-3 bg-gradient-to-r from-rose-950/60 to-red-950/60 hover:from-rose-900/80 hover:to-red-900/80 border border-rose-500/40 text-rose-300 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(244,63,94,0.35)] shrink-0"
       >
         <AlertOctagon className="h-4 w-4 text-rose-400 animate-pulse" />
-        <span className="hidden md:inline font-headline uppercase tracking-wide">Arrêt d'Urgence</span>
+        <span className="hidden md:inline font-headline uppercase tracking-wide">Arrêt d&apos;Urgence</span>
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -110,10 +110,10 @@ export default function PanicKillSwitch() {
           <DialogHeader className="border-b border-rose-500/15 pb-3">
             <DialogTitle className="text-xl font-headline font-extrabold text-rose-400 flex items-center gap-2">
               <ShieldAlert className="h-6 w-6" />
-              Arrêt d'Urgence Général (Kill Switch)
+              Arrêt d&apos;Urgence Général (Kill Switch)
             </DialogTitle>
             <DialogDescription className="text-xs text-white/50 font-body mt-1">
-              Cette action clôturera <strong>immédiatement 100% de vos positions actives</strong> et suspendra l'exécution de <strong>tous vos bots de trading</strong>.
+              Cette action clôturera <strong>immédiatement 100% de vos positions actives</strong> et suspendra l&apos;exécution de <strong>tous vos bots de trading</strong>.
             </DialogDescription>
           </DialogHeader>
 
@@ -130,11 +130,11 @@ export default function PanicKillSwitch() {
           ) : (
             <div className="space-y-4 font-body py-2">
               <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-300 space-y-1">
-                <p className="font-bold">⚠️ Récapitulatif de l'action d'urgence :</p>
+                <p className="font-bold">⚠️ Récapitulatif de l&apos;action d&apos;urgence :</p>
                 <ul className="list-disc pl-4 space-y-1 text-[11px] text-white/70">
                   <li>Fermeture instantanée de {(Array.isArray(activePositions) ? activePositions : []).length} position(s) ouverte(s).</li>
-                  <li>Mise en pause de {(Array.isArray(bots) ? bots : []).filter(b => b.status === 'RUNNING').length} bot(s) en cours d'exécution.</li>
-                  <li>Envoi d'une alerte prioritaire sur votre Telegram / Discord.</li>
+                  <li>Mise en pause de {(Array.isArray(bots) ? bots : []).filter(b => b.status === 'RUNNING').length} bot(s) en cours d&apos;exécution.</li>
+                  <li>Envoi d&apos;une alerte prioritaire sur votre Telegram / Discord.</li>
                 </ul>
               </div>
 

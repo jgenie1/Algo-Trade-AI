@@ -30,7 +30,7 @@ export default function SettingsNotificationsCard({
             Alertes & Notifications En Temps Réel (Telegram & Discord)
           </h3>
           <p className="text-xs text-white/40 mt-0.5 font-body">
-            Recevez une notification instantanée à chaque exécution d'ordre.
+            Recevez une notification instantanée à chaque exécution d&apos;ordre.
           </p>
         </div>
         <Badge className="bg-emerald-500/15 text-emerald-300 font-mono text-[10px] uppercase border-none">

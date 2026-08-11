@@ -311,7 +311,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     botsRef.current = Array.isArray(bots) ? bots : [];
     activePositionsRef.current = Array.isArray(activePositions) ? activePositions : [];
     balanceRef.current = balance;
-  });
+  }, [bots, activePositions, balance]);
 
   // 2b. Boucle d'exécution continue des bots actifs & alertes automatiques Telegram/Discord
   useEffect(() => {
@@ -333,10 +333,11 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           setReserveVault, 
           setReserveVaultSol
         );
-      });
+      }).catch(err => console.warn("Failed to load botExecutionEngine (network issue?):", err));
     }, 5000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Array.isArray(bots) && bots.some(b => b && b.status === 'RUNNING')]);
 
   // 3. Save to Firestore whenever states change

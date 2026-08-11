@@ -40,7 +40,7 @@ export default function VaultGrowthChart() {
             Croissance Du Capital & Accumulation Du Coffre-Fort (10%)
           </CardTitle>
           <p className="text-xs text-white/40 font-body mt-0.5">
-            Suivi en temps réel de l'évolution du solde total et des réserves sécurisées.
+            Suivi en temps réel de l&apos;évolution du solde total et des réserves sécurisées.
           </p>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 font-mono text-xs border border-emerald-500/20">

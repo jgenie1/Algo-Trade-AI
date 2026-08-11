@@ -27,12 +27,13 @@ export default function ActivePositionsTable({
   setSelectedPosition,
   handleClosePosition
 }: ActivePositionsTableProps) {
+  const { activePositions, tradingMode, isLoading } = useAppState();
   const safePositions = Array.isArray(activePositions) ? activePositions : [];
-  const filteredPositions = safePositions.filter(p => p && (p.mode || 'DEMO') === tradingMode);
+  const filteredPositions = safePositions.filter((p: any) => p && (p.mode || 'DEMO') === tradingMode);
   const isSolMode = tradingMode === 'REAL';
 
   // Calcul du PnL Total En Direct cumulé
-  const totalLiveProfit = filteredPositions.reduce((acc, p) => {
+  const totalLiveProfit = filteredPositions.reduce((acc: number, p: any) => {
     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
@@ -87,7 +88,7 @@ export default function ActivePositionsTable({
           <div className="space-y-3">
             {/* VUE MOBILE (Cartes Tactiles Compactes avec PnL En Direct) */}
             <div className="block md:hidden space-y-3">
-              {filteredPositions.map((p, idx) => {
+              {filteredPositions.map((p: any, idx: number) => {
                 const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                 const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
                 const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
@@ -186,7 +187,7 @@ export default function ActivePositionsTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPositions.map((p, idx) => {
+                  {filteredPositions.map((p: any, idx: number) => {
                     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
                     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;

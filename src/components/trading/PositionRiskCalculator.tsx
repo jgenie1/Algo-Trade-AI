@@ -69,7 +69,7 @@ export default function PositionRiskCalculator({ solanaBalance }: PositionRiskCa
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Prix d'Entrée ($)</label>
+          <label className="text-[10px] font-bold uppercase text-white/50 font-headline">Prix d&apos;Entrée ($)</label>
           <Input
             type="number"
             value={entryPrice}

@@ -104,7 +104,7 @@ export default function WalletTokenPortfolio({
 
   useEffect(() => {
     loadTokens();
-  }, [solanaPubKey, walletChain, nativeBal, activePositions.length, tradingMode, balance]);
+  }, [solanaPubKey, walletChain, nativeBal, (Array.isArray(activePositions) ? activePositions.length : 0), tradingMode, balance]);
 
   // Tokens sélectionnés pouvant être vendus en bloc
   const sellableTokens = tokens.filter(t => selectedAddresses.has(getTokenKey(t)) && !t.isStablecoin && t.balance > 0);
@@ -168,8 +168,9 @@ export default function WalletTokenPortfolio({
       });
 
       if (soldPosIds.size > 0) {
-        const remainingPos = activePositions.filter(p => !soldPosIds.has(p.id));
-        const closedPos = activePositions.filter(p => soldPosIds.has(p.id)).map(p => ({
+        const safeActive = Array.isArray(activePositions) ? activePositions : [];
+        const remainingPos = safeActive.filter(p => p && !soldPosIds.has(p.id));
+        const closedPos = safeActive.filter(p => p && soldPosIds.has(p.id)).map(p => ({
           ...p,
           closedAt: Date.now(),
           status: 'CLOSED',
@@ -209,7 +210,7 @@ export default function WalletTokenPortfolio({
               Portefeuille & Solde des Tokens
             </h2>
             <p className="text-xs text-white/50 font-body max-w-xl">
-              Consultez vos avoirs en temps réel, échangez chaque token individuellement en USD ou convertissez l'intégralité de vos altcoins/memecoins en une seule opération.
+              Consultez vos avoirs en temps réel, échangez chaque token individuellement en USD ou convertissez l&apos;intégralité de vos altcoins/memecoins en une seule opération.
             </p>
           </div>
 

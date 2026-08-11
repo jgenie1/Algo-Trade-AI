@@ -49,7 +49,7 @@ export default function DepositGuidesCard({ solanaPubKey }: DepositGuidesCardPro
               <p>1. Connectez-vous sur votre compte Binance, Coinbase ou Bybit.</p>
               <p>2. Allez dans Retrait / Withdraw ➔ Sélectionnez la crypto SOL (Solana).</p>
               <p>3. Collez votre adresse unique ci-dessus : <span className="font-mono text-[#c2ff0c]">{solanaPubKey ? `${solanaPubKey.slice(0, 8)}...` : 'Chargement...'}</span></p>
-              <p>4. Validez l'envoi. La transaction est confirmée sur Solana en moins de 3 secondes.</p>
+              <p>4. Validez l&apos;envoi. La transaction est confirmée sur Solana en moins de 3 secondes.</p>
             </>
           )}
 
@@ -57,7 +57,7 @@ export default function DepositGuidesCard({ solanaPubKey }: DepositGuidesCardPro
             <>
               <p>1. Ouvrez votre extension Phantom ou Solflare.</p>
               <p>2. Cliquez sur Envoyez / Send ➔ Choisissez SOL.</p>
-              <p>3. Entrez l'adresse de votre bot et indiquez le montant.</p>
+              <p>3. Entrez l&apos;adresse de votre bot et indiquez le montant.</p>
             </>
           )}
 
@@ -67,7 +67,7 @@ export default function DepositGuidesCard({ solanaPubKey }: DepositGuidesCardPro
                 <ShieldCheck className="h-4 w-4" /> Vos fonds restent 100% sous votre contrôle
               </div>
               <p className="text-white/50 text-[11px]">
-                Le dépôt s'effectue directement sur le réseau Solana Mainnet. Aucun intermédiaire centralisé ne bloque vos retraits.
+                Le dépôt s&apos;effectue directement sur le réseau Solana Mainnet. Aucun intermédiaire centralisé ne bloque vos retraits.
               </p>
             </div>
           )}

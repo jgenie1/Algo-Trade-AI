@@ -173,7 +173,7 @@ export default function MobileQuickActionSheet() {
 
           {/* Section Panic Switch */}
           <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-            <span className="text-xs text-white/60 font-body">Arrêt d'Urgence Global :</span>
+            <span className="text-xs text-white/60 font-body">Arrêt d&apos;Urgence Global :</span>
             <PanicKillSwitch />
           </div>
         </DialogContent>

@@ -104,7 +104,7 @@ export default function MarketRadarAndChart({
             <div>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline">
-                  Centre d'Analyse Multi-Actifs
+                  Centre d&apos;Analyse Multi-Actifs
                 </CardTitle>
                 <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-headline uppercase font-bold border-none">
                   Live Stream 24/7
@@ -339,7 +339,7 @@ export default function MarketRadarAndChart({
             <div className="flex-1 overflow-y-auto bg-black/30 border border-white/5 rounded-xl p-3 space-y-2 font-mono text-[11px] max-h-[480px]">
               {(!Array.isArray(botLogs) || botLogs.length === 0) ? (
                 <div className="text-center text-white/30 py-12 font-body text-xs">
-                  Aucun log de scan disponible pour l'instant. Démarrez un bot en autogestion pour voir le flux en direct.
+                  Aucun log de scan disponible pour l&apos;instant. Démarrez un bot en autogestion pour voir le flux en direct.
                 </div>
               ) : (
                 botLogs.map(log => (

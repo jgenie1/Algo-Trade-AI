@@ -409,8 +409,8 @@ export function useTradingSimulation() {
       setIsLoadingPrice(true);
       const uniquePairs = Array.from(new Set([
         selectedPair,
-        ...activePositions.map(p => p.pair),
-        ...bots.filter(b => b.status === 'RUNNING').map(b => b.pair)
+        ...(Array.isArray(activePositions) ? activePositions : []).map(p => p && p.pair),
+        ...(Array.isArray(bots) ? bots : []).filter(b => b && b.status === 'RUNNING').map(b => b.pair)
       ]));
 
       const validPairs = uniquePairs.filter(p => p && p !== 'ALL' && p !== 'SOLANA' && p !== 'SOL:MEME');
@@ -480,6 +480,7 @@ export function useTradingSimulation() {
     updatePrices();
     const interval = setInterval(updatePrices, 2000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPair, activePositions.length, bots.length]);
 
 
@@ -555,7 +556,7 @@ export function useTradingSimulation() {
     tradingModeRef.current = tradingMode;
     balanceRef.current = balance;
     solanaBalanceRef.current = solanaBalance;
-  });
+  }, [bots, activePositions, livePrices, botLearnings, subWallets, tradingMode, balance, solanaBalance]);
 
   // Client-side WS
   useEffect(() => {
@@ -1319,7 +1320,8 @@ export function useTradingSimulation() {
 
     const interval = setInterval(checkStops, 1000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradingMode, bots, activePositions]);
 
   const addBotLog = (botId: string, botName: string, message: string, type: 'info' | 'trade' | 'error') => {
     const newLog = {

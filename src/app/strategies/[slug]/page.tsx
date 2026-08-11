@@ -20,7 +20,7 @@ export default function StrategyDetailPage() {
           </CardHeader>
           <CardContent>
             <CardDescription className="font-body text-muted-foreground text-lg px-4">
-             Cette page vous permettra de configurer et d'exécuter des stratégies de trading en direct. Cette fonctionnalité est en cours de développement.
+             Cette page vous permettra de configurer et d&apos;exécuter des stratégies de trading en direct. Cette fonctionnalité est en cours de développement.
             </CardDescription>
             <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground font-body">
               <Wrench className="h-4 w-4" />

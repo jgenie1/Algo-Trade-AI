@@ -60,7 +60,7 @@ export default function ERPRiskTab({
             {riskLevel}
           </div>
           <span className="text-[10px] text-white/50 font-mono block">
-            Exposition globale: {riskRatio.toFixed(1)}% de l'AUM
+            Exposition globale: {riskRatio.toFixed(1)}% de l&apos;AUM
           </span>
         </Card>
 
@@ -84,7 +84,7 @@ export default function ERPRiskTab({
             {leverageCap}x
           </div>
           <span className="text-[10px] text-white/40 font-mono block">
-            Plafond paramétrable par l'Risk Manager
+            Plafond paramétrable par l&apos;Risk Manager
           </span>
         </Card>
 
@@ -105,15 +105,15 @@ export default function ERPRiskTab({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge className="bg-rose-500 text-white font-extrabold text-[10px] uppercase px-2.5 py-0.5 border-none shadow-lg animate-pulse">
-                ARRÊT D'URGENCE DE SÉCURITÉ
+                ARRÊT D&apos;URGENCE DE SÉCURITÉ
               </Badge>
               <span className="text-xs text-rose-300 font-mono font-bold">PROTOCOLE ERM ENTERPRISE</span>
             </div>
             <h3 className="text-xl font-extrabold text-white font-headline">
-              Coupe-Circuit d'Urgence (Panic Kill-Switch)
+              Coupe-Circuit d&apos;Urgence (Panic Kill-Switch)
             </h3>
             <p className="text-xs text-rose-200/70 font-body max-w-2xl">
-              Ferme immédiatement toutes les positions ouvertes, stoppe l'ensemble des robots d'arbitrage et sécurise les fonds en solde liquide.
+              Ferme immédiatement toutes les positions ouvertes, stoppe l&apos;ensemble des robots d&apos;arbitrage et sécurise les fonds en solde liquide.
             </p>
           </div>
 
@@ -143,7 +143,7 @@ export default function ERPRiskTab({
             <div className="space-y-2 bg-white/5 p-3.5 rounded-xl border border-white/5">
               <div className="flex justify-between font-headline font-bold text-slate-200">
                 <span>Plafond de Taille par Position</span>
-                <span className="text-purple-400 font-mono">{maxPositionSize}% de l'AUM</span>
+                <span className="text-purple-400 font-mono">{maxPositionSize}% de l&apos;AUM</span>
               </div>
               <input
                 type="range"
@@ -183,7 +183,7 @@ export default function ERPRiskTab({
         <Card className="bg-[#14101a] border-white/10 rounded-2xl p-6 space-y-5">
           <div className="border-b border-white/10 pb-3 flex items-center gap-2">
             <Lock className="h-5 w-5 text-amber-400" />
-            <h3 className="text-base font-bold text-white font-headline">Règles d'Isolation & Sous-Portefeuilles</h3>
+            <h3 className="text-base font-bold text-white font-headline">Règles d&apos;Isolation & Sous-Portefeuilles</h3>
           </div>
 
           <div className="space-y-3 font-body text-xs">
@@ -198,7 +198,7 @@ export default function ERPRiskTab({
             <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
               <div>
                 <span className="font-bold text-white font-headline block">Contrôle de Dérive du Solde (Slippage max 1%)</span>
-                <span className="text-[10px] text-slate-400">Rejet des ordres hors des bandes d'écart tolérées</span>
+                <span className="text-[10px] text-slate-400">Rejet des ordres hors des bandes d&apos;écart tolérées</span>
               </div>
               <Badge className="bg-emerald-500/20 text-emerald-300 border-none font-mono">ACTIF</Badge>
             </div>

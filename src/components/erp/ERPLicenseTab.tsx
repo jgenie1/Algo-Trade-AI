@@ -245,7 +245,7 @@ export default function ERPLicenseTab({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-amber-400" />
-              <span className="font-bold text-white font-headline text-sm">Noeuds d'Exécution Bots</span>
+              <span className="font-bold text-white font-headline text-sm">Noeuds d&apos;Exécution Bots</span>
             </div>
             <span className="text-xs text-amber-400 font-mono font-bold">3 / 10</span>
           </div>
@@ -265,7 +265,7 @@ export default function ERPLicenseTab({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-400" />
-              <span className="font-bold text-white font-headline text-sm">Quota d'Inférence IA Gemini</span>
+              <span className="font-bold text-white font-headline text-sm">Quota d&apos;Inférence IA Gemini</span>
             </div>
             <span className="text-xs text-purple-400 font-mono font-bold">850 / 5 000</span>
           </div>
@@ -303,7 +303,7 @@ export default function ERPLicenseTab({
           </div>
 
           <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-1">
-            <span className="text-[10px] uppercase text-slate-400 font-headline block">Mode d'Hébergement</span>
+            <span className="text-[10px] uppercase text-slate-400 font-headline block">Mode d&apos;Hébergement</span>
             <span className="text-lg font-bold text-purple-300 font-mono">Private Cloud</span>
             <p className="text-[10px] text-white/30">Cluster dédié sous isolation VPC</p>
           </div>

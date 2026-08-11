@@ -67,7 +67,7 @@ export default function GlobalError({
             <div style={{ fontSize: '36px', marginBottom: '16px' }}>⚡</div>
             <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#ffffff' }}>AlgoTradeAI - Rechargement</h2>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: '1.5', margin: '0 0 24px 0' }}>
-              Le terminal s'est réinitialisé en toute sécurité. Cliquez ci-dessous pour ouvrir l'application et restaurer vos flux.
+              Le terminal s&apos;est réinitialisé en toute sécurité. Cliquez ci-dessous pour ouvrir l&apos;application et restaurer vos flux.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -75,7 +75,7 @@ export default function GlobalError({
                 onClick={handleSafeReload}
                 style={{ width: '100%', height: '44px', backgroundColor: '#c2ff0c', color: '#000000', fontWeight: 'bold', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}
               >
-                Ouvrir l'Application
+                Ouvrir l&apos;Application
               </button>
               <button
                 onClick={handleHardReset}

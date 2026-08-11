@@ -38,7 +38,7 @@ export default function TransactionHistoryTable({
   if (transactions.length === 0) {
     return (
       <div className="p-8 text-center text-xs text-white/30 border border-dashed border-white/5 rounded-xl font-body">
-        Aucun dépôt ou retrait n'a été enregistré pour le moment en mode {tradingMode === 'DEMO' ? 'Démo' : 'Réel'}.
+        Aucun dépôt ou retrait n&apos;a été enregistré pour le moment en mode {tradingMode === 'DEMO' ? 'Démo' : 'Réel'}.
       </div>
     );
   }

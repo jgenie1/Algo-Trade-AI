@@ -158,7 +158,7 @@ export default function PerformancePage() {
             <TrendingUp className="h-8 w-8 text-[#c2ff0c]" />
             Comparatif des Performances
           </h1>
-          <p className="text-sm text-white/40 mt-1 font-body">Analysez et comparez l'efficacité de vos stratégies.</p>
+          <p className="text-sm text-white/40 mt-1 font-body">Analysez et comparez l&apos;efficacité de vos stratégies.</p>
         </div>
 
         <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-xl gap-1 shrink-0">
