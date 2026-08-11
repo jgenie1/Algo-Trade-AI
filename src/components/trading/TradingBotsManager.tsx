@@ -96,158 +96,662 @@ export default function TradingBotsManager({
     isLoading 
   } = useAppState();
 
-  const handleClaimBotProfit = (botId: string) => {
-    const targetBot = bots.find(b => b.id === botId);
-    if (!targetBot) return;
+  const handleClaimBotProfit = async (botId: string) => {
+    const targetBot = bots.find((b) => b.id === botId);
 
-    const profitToClaim = typeof targetBot.netProfit === 'number' && !isNaN(targetBot.netProfit) && targetBot.netProfit > 0
-      ? targetBot.netProfit 
-      : (typeof targetBot.pnl === 'number' && !isNaN(targetBot.pnl) && targetBot.pnl > 0 ? targetBot.pnl : 0);
-
-    if (profitToClaim <= 0) {
-      alert("Aucun gain à encaisser pour ce robot.");
+    if (!targetBot) {
       return;
     }
 
-    const isRealMode = (targetBot.mode || tradingMode) === 'REAL';
-    const currency = isRealMode ? 'SOL' : '$';
+    const profitToClaim =
+      typeof targetBot.netProfit === 'number' &&
+      Number.isFinite(targetBot.netProfit) &&
+      targetBot.netProfit > 0
+        ? targetBot.netProfit
+        : typeof targetBot.pnl === 'number' &&
+          Number.isFinite(targetBot.pnl) &&
+          targetBot.pnl > 0
+        ? targetBot.pnl
+        : 0;
 
-    if (confirm(`Voulez-vous encaisser et transférer +${profitToClaim.toFixed(2)} ${currency} de gains générés par "${targetBot.strategy}" vers votre solde / Wallet Phantom ?`)) {
-      if (isRealMode) {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('web3_wallet_updated'));
-        }
-        const skimSol = profitToClaim * 0.10;
-        if (setReserveVaultSol) {
-          setReserveVaultSol(prev => (Number(prev) || 0) + skimSol);
-        }
-      } else {
-        setBalance(prev => prev + profitToClaim);
-        const skimUsd = profitToClaim * 0.10;
-        if (setReserveVault) {
-          setReserveVault(prev => (Number(prev) || 0) + skimUsd);
-        }
+    if (profitToClaim <= 0) {
+      alert('Aucun gain à encaisser pour ce robot.');
+      return;
+    }
+
+    const isRealMode =
+      (targetBot.mode || tradingMode) === 'REAL';
+
+    /*
+     * DEMO
+     */
+    if (!isRealMode) {
+      if (
+        !confirm(
+          `Voulez-vous encaisser +${profitToClaim.toFixed(
+            2
+          )} $ ?`
+        )
+      ) {
+        return;
       }
 
-      setBots(prev => prev.map(b => {
-        if (b.id === botId) {
-          return {
-            ...b,
-            netProfit: 0,
-            pnl: 0
-          };
-        }
-        return b;
-      }));
+      setBalance((prev) => prev + profitToClaim);
 
-      const newTx = {
-        id: 'tx_claim_' + Math.random().toString(36).substring(2, 9),
-        type: 'CLAIM',
-        amount: profitToClaim,
-        currency: currency,
-        status: 'COMPLETED',
-        timestamp: Date.now(),
-        description: `Encaissement des bénéfices du bot ${targetBot.strategy}`
-      };
-      if (setTransactions) {
-        setTransactions(prev => [newTx, ...(prev || [])]);
+      const skimUsd = profitToClaim * 0.10;
+
+      if (setReserveVault) {
+        setReserveVault(
+          (prev) => (Number(prev) || 0) + skimUsd
+        );
       }
+
+      setBots((prev) =>
+        prev.map((b) =>
+          b.id === botId
+            ? {
+                ...b,
+                netProfit: 0,
+                pnl: 0,
+              }
+            : b
+        )
+      );
+
+      setTransactions?.((prev) => [
+        {
+          id:
+            'tx_claim_' +
+            Math.random().toString(36).substring(2, 9),
+          type: 'CLAIM',
+          amount: profitToClaim,
+          currency: '$',
+          status: 'COMPLETED',
+          timestamp: Date.now(),
+          description:
+            `Encaissement des bénéfices du bot ${targetBot.strategy}`,
+        },
+        ...(prev || []),
+      ]);
 
       addBotLog(
-        botId, 
-        targetBot.strategy, 
-        `[ENCAISSEMENT RÉUSSI] Gains de +${profitToClaim.toFixed(2)} ${currency} transférés vers votre solde & Wallet Phantom avec succès !`, 
+        botId,
+        targetBot.strategy,
+        `[ENCAISSEMENT RÉUSSI] +${profitToClaim.toFixed(
+          2
+        )} $ encaissés.`,
+        'trade'
+      );
+
+      alert(
+        `✅ +${profitToClaim.toFixed(
+          2
+        )} $ encaissés avec succès.`
+      );
+
+      return;
+    }
+
+    /*
+     * REAL / SOLANA
+     */
+
+    const storedWallet =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('connected_web3_wallet')
+        : null;
+
+    if (!storedWallet) {
+      alert(
+        'Aucun portefeuille Solana connecté.'
+      );
+      return;
+    }
+
+    let walletData: { address?: string };
+
+    try {
+      walletData = JSON.parse(storedWallet);
+    } catch {
+      alert(
+        'Les informations du portefeuille connecté sont invalides.'
+      );
+      return;
+    }
+
+    const masterPubKey = walletData.address;
+
+    if (!masterPubKey) {
+      alert(
+        'Adresse du portefeuille principal introuvable.'
+      );
+      return;
+    }
+
+    const storedSubs =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('trade_sub_wallets')
+        : null;
+
+    if (!storedSubs) {
+      alert(
+        'Aucun sous-wallet de trading trouvé.'
+      );
+      return;
+    }
+
+    let subWalletsArr: Array<{
+      privateKey?: string;
+      publicKey?: string;
+    }>;
+
+    try {
+      subWalletsArr = JSON.parse(storedSubs);
+    } catch {
+      alert(
+        'Les sous-wallets enregistrés sont invalides.'
+      );
+      return;
+    }
+
+    const subIdx =
+      ((targetBot as any).subWallet || 1) - 1;
+
+    const subWallet =
+      subWalletsArr[subIdx];
+
+    if (!subWallet?.privateKey) {
+      alert(
+        `Aucune clé privée trouvée pour le sous-wallet #${
+          subIdx + 1
+        }.`
+      );
+      return;
+    }
+
+    const amountToMaster =
+      profitToClaim * 0.90;
+
+    if (amountToMaster <= 0) {
+      alert(
+        'Le montant net à transférer est nul.'
+      );
+      return;
+    }
+
+    if (
+      !confirm(
+        `Transférer réellement ${amountToMaster.toFixed(
+          6
+        )} SOL vers votre portefeuille connecté ?\n\n` +
+          `Profit: ${profitToClaim.toFixed(
+            6
+          )} SOL\n` +
+          `Part transférée: ${amountToMaster.toFixed(
+            6
+          )} SOL\n` +
+          `Réserve interne: ${(profitToClaim * 0.10).toFixed(
+            6
+          )} SOL`
+      )
+    ) {
+      return;
+    }
+
+    /*
+     * IMPORTANT:
+     * On ne touche PAS au profit avant la confirmation
+     * de la transaction blockchain.
+     */
+    try {
+      addBotLog(
+        botId,
+        targetBot.strategy,
+        `[TRANSFERT] Préparation du transfert de ${amountToMaster.toFixed(
+          6
+        )} SOL vers ${masterPubKey}...`,
+        'info'
+      );
+
+      const result =
+        await sweepSubWalletProfitToMaster({
+          subWalletPrivateKey:
+            subWallet.privateKey,
+          masterPublicKey: masterPubKey,
+          netProfitSol:
+            amountToMaster,
+        });
+
+      if (!result.success || !result.signature) {
+        throw new Error(
+          result.error ||
+            "La transaction n'a pas été confirmée."
+        );
+      }
+
+      /*
+       * SEULEMENT MAINTENANT on considère le claim réussi.
+       */
+
+      const skimSol =
+        profitToClaim * 0.10;
+
+      if (setReserveVaultSol) {
+        setReserveVaultSol(
+          (prev) =>
+            (Number(prev) || 0) + skimSol
+        );
+      }
+
+      setBots((prev) =>
+        prev.map((b) =>
+          b.id === botId
+            ? {
+                ...b,
+                netProfit: 0,
+                pnl: 0,
+              }
+            : b
+        )
+      );
+
+      setTransactions?.((prev) => [
+        {
+          id:
+            'tx_claim_' +
+            Math.random().toString(36).substring(2, 9),
+          type: 'CLAIM',
+          amount: result.sentSol,
+          currency: 'SOL',
+          status: 'COMPLETED',
+          timestamp: Date.now(),
+          description:
+            `Transfert blockchain des bénéfices du bot ${targetBot.strategy}`,
+          signature: result.signature,
+        },
+        ...(prev || []),
+      ]);
+
+      addBotLog(
+        botId,
+        targetBot.strategy,
+        `[BLOCKCHAIN CONFIRMÉE] ${result.sentSol.toFixed(
+          6
+        )} SOL transférés vers ${result.destinationAddress}. TX: ${result.signature}`,
         'trade'
       );
 
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('web3_wallet_updated'));
+        window.dispatchEvent(
+          new Event('web3_wallet_updated')
+        );
       }
 
-      alert(`✅ Succès ! +${profitToClaim.toFixed(2)} ${currency} ont été encaissés et transférés vers votre solde / Wallet Phantom !`);
+      alert(
+        `✅ TRANSFERT CONFIRMÉ SUR SOLANA\n\n` +
+          `${result.sentSol.toFixed(
+            6
+          )} SOL ont été transférés vers votre portefeuille.\n\n` +
+          `Transaction:\n${result.signature}`
+      );
+    } catch (error) {
+      console.error(
+        'Erreur transfert blockchain:',
+        error
+      );
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Erreur inconnue';
+
+      /*
+       * TRÈS IMPORTANT:
+       * Le bot conserve son netProfit.
+       * On ne prétend PAS que le paiement a réussi.
+       */
+
+      addBotLog(
+        botId,
+        targetBot.strategy,
+        `[ÉCHEC TRANSFERT] ${message}`,
+        'error'
+      );
+
+      alert(
+        `❌ Le transfert SOL a échoué.\n\n${message}\n\n` +
+          `Aucun gain n'a été supprimé du bot.`
+      );
     }
   };
 
-  const handleClaimAllProfits = () => {
-    const botsWithProfits = filteredBots.filter(b => (b.netProfit || b.pnl || 0) > 0);
+  const handleClaimAllProfits = async () => {
+    const botsWithProfits = filteredBots.filter(
+      (b) =>
+        Number(b.netProfit || b.pnl || 0) > 0
+    );
+
     if (botsWithProfits.length === 0) {
-      alert("Aucun gain à encaisser pour le moment.");
+      alert(
+        'Aucun gain à encaisser pour le moment.'
+      );
       return;
     }
 
-    const totalProfitToClaim = botsWithProfits.reduce((sum, b) => sum + (b.netProfit || b.pnl || 0), 0);
-    const currency = tradingMode === 'REAL' ? 'SOL' : '$';
+    /*
+     * DEMO
+     */
+    if (tradingMode !== 'REAL') {
+      const totalProfit = botsWithProfits.reduce(
+        (sum, bot) =>
+          sum +
+          Number(
+            bot.netProfit || bot.pnl || 0
+          ),
+        0
+      );
 
-    if (confirm(`Voulez-vous encaisser TOUS les gains des bots (+${totalProfitToClaim.toFixed(2)} ${currency}) vers votre solde / Wallet Phantom ?`)) {
-      if (tradingMode === 'REAL') {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('web3_wallet_updated'));
-        }
-        const skimSol = totalProfitToClaim * 0.10;
-        if (setReserveVaultSol) {
-          setReserveVaultSol(prev => (Number(prev) || 0) + skimSol);
-        }
+      if (
+        !confirm(
+          `Encaisser ${totalProfit.toFixed(2)} $ ?`
+        )
+      ) {
+        return;
+      }
 
-        // Transférer les gains nets réellement sur la blockchain vers le Master Wallet
-        const storedWallet = typeof window !== 'undefined' ? localStorage.getItem('connected_web3_wallet') : null;
-        const masterPubKey = storedWallet ? JSON.parse(storedWallet).address : '';
-        const storedSubs = typeof window !== 'undefined' ? localStorage.getItem('trade_sub_wallets') : null;
-        const subWalletsArr = storedSubs ? JSON.parse(storedSubs) : [];
+      setBalance(
+        (prev) => prev + totalProfit
+      );
 
-        if (masterPubKey && masterPubKey.length >= 32) {
-          botsWithProfits.forEach(bot => {
-            const profitVal = bot.netProfit || bot.pnl || 0;
-            if (profitVal > 0.0001) {
-              const subIdx = ((bot as any).subWallet || 1) - 1;
-              const subKey = subWalletsArr[subIdx]?.privateKey;
-              if (subKey) {
-                sweepSubWalletProfitToMaster({
-                  subWalletPrivateKey: subKey,
-                  masterPublicKey: masterPubKey,
-                  netProfitSol: profitVal * 0.90
-                });
+      setReserveVault?.(
+        (prev) =>
+          (Number(prev) || 0) +
+          totalProfit * 0.10
+      );
+
+      const ids = new Set(
+        botsWithProfits.map((b) => b.id)
+      );
+
+      setBots((prev) =>
+        prev.map((b) =>
+          ids.has(b.id)
+            ? {
+                ...b,
+                netProfit: 0,
+                pnl: 0,
               }
-            }
+            : b
+        )
+      );
+
+      setTransactions?.((prev) => [
+        {
+          id:
+            'tx_claim_all_' +
+            Math.random().toString(36).substring(2, 9),
+          type: 'CLAIM',
+          amount: totalProfit,
+          currency: '$',
+          status: 'COMPLETED',
+          timestamp: Date.now(),
+          description:
+            'Encaissement global des bénéfices',
+        },
+        ...(prev || []),
+      ]);
+
+      alert(
+        `✅ ${totalProfit.toFixed(
+          2
+        )} $ encaissés.`
+      );
+
+      return;
+    }
+
+    /*
+     * REAL
+     */
+
+    const storedWallet =
+      typeof window !== 'undefined'
+        ? localStorage.getItem(
+            'connected_web3_wallet'
+          )
+        : null;
+
+    if (!storedWallet) {
+      alert(
+        'Aucun portefeuille Solana connecté.'
+      );
+      return;
+    }
+
+    let walletData: { address?: string };
+
+    try {
+      walletData = JSON.parse(storedWallet);
+    } catch {
+      alert(
+        'Portefeuille connecté invalide.'
+      );
+      return;
+    }
+
+    const masterPubKey =
+      walletData.address;
+
+    if (!masterPubKey) {
+      alert(
+        'Adresse du portefeuille principal introuvable.'
+      );
+      return;
+    }
+
+    const storedSubs =
+      typeof window !== 'undefined'
+        ? localStorage.getItem(
+            'trade_sub_wallets'
+          )
+        : null;
+
+    if (!storedSubs) {
+      alert(
+        'Aucun sous-wallet de trading trouvé.'
+      );
+      return;
+    }
+
+    let subWalletsArr: Array<{
+      privateKey?: string;
+    }>;
+
+    try {
+      subWalletsArr =
+        JSON.parse(storedSubs);
+    } catch {
+      alert(
+        'Sous-wallets invalides.'
+      );
+      return;
+    }
+
+    if (
+      !confirm(
+        `Vous allez transférer les gains réellement disponibles des ${botsWithProfits.length} bots vers:\n\n${masterPubKey}\n\nContinuer ?`
+      )
+    ) {
+      return;
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+    let totalSent = 0;
+
+    const successfulBotIds: string[] = [];
+
+    for (const bot of botsWithProfits) {
+      const profit =
+        Number(
+          bot.netProfit || bot.pnl || 0
+        );
+
+      if (!Number.isFinite(profit) || profit <= 0) {
+        continue;
+      }
+
+      const subIdx =
+        ((bot as any).subWallet || 1) - 1;
+
+      const subWallet =
+        subWalletsArr[subIdx];
+
+      if (!subWallet?.privateKey) {
+        failedCount++;
+
+        addBotLog(
+          bot.id,
+          bot.strategy,
+          `[ÉCHEC] Sous-wallet #${
+            subIdx + 1
+          } introuvable.`,
+          'error'
+        );
+
+        continue;
+      }
+
+      const amountToMaster =
+        profit * 0.90;
+
+      try {
+        addBotLog(
+          bot.id,
+          bot.strategy,
+          `[TRANSFERT] ${amountToMaster.toFixed(
+            6
+          )} SOL vers le Master Wallet...`,
+          'info'
+        );
+
+        const result =
+          await sweepSubWalletProfitToMaster({
+            subWalletPrivateKey:
+              subWallet.privateKey,
+            masterPublicKey: masterPubKey,
+            netProfitSol:
+              amountToMaster,
           });
+
+        if (
+          !result.success ||
+          !result.signature
+        ) {
+          throw new Error(
+            result.error ||
+              'Transaction non confirmée.'
+          );
         }
-      } else {
-        setBalance(prev => prev + totalProfitToClaim);
-        const skimUsd = totalProfitToClaim * 0.10;
-        if (setReserveVault) {
-          setReserveVault(prev => (Number(prev) || 0) + skimUsd);
-        }
+
+        successCount++;
+        totalSent += result.sentSol;
+        successfulBotIds.push(bot.id);
+
+        setReserveVaultSol?.(
+          (prev) =>
+            (Number(prev) || 0) +
+            profit * 0.10
+        );
+
+        setTransactions?.((prev) => [
+          {
+            id:
+              'tx_claim_' +
+              Math.random()
+                .toString(36)
+                .substring(2, 9),
+            type: 'CLAIM',
+            amount: result.sentSol,
+            currency: 'SOL',
+            status: 'COMPLETED',
+            timestamp: Date.now(),
+            description:
+              `Transfert blockchain du bot ${bot.strategy}`,
+            signature:
+              result.signature,
+          },
+          ...(prev || []),
+        ]);
+
+        addBotLog(
+          bot.id,
+          bot.strategy,
+          `[BLOCKCHAIN CONFIRMÉE] ${result.sentSol.toFixed(
+            6
+          )} SOL transférés. TX: ${result.signature}`,
+          'trade'
+        );
+      } catch (error) {
+        failedCount++;
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Erreur inconnue';
+
+        addBotLog(
+          bot.id,
+          bot.strategy,
+          `[ÉCHEC BLOCKCHAIN] ${message}`,
+          'error'
+        );
       }
+    }
 
-      const botIdsToReset = new Set(botsWithProfits.map(b => b.id));
-      setBots(prev => prev.map(b => {
-        if (botIdsToReset.has(b.id)) {
-          return {
-            ...b,
-            netProfit: 0,
-            pnl: 0
-          };
-        }
-        return b;
-      }));
+    /*
+     * NE RESET QUE LES BOTS DONT LA TRANSACTION
+     * A ÉTÉ EFFECTIVEMENT CONFIRMÉE.
+     */
+    if (successfulBotIds.length > 0) {
+      const successIds = new Set(
+        successfulBotIds
+      );
 
-      const newTx = {
-        id: 'tx_claim_all_' + Math.random().toString(36).substring(2, 9),
-        type: 'CLAIM',
-        amount: totalProfitToClaim,
-        currency: currency,
-        status: 'COMPLETED',
-        timestamp: Date.now(),
-        description: `Encaissement global des bénéfices de tous les bots`
-      };
-      if (setTransactions) {
-        setTransactions(prev => [newTx, ...(prev || [])]);
-      }
+      setBots((prev) =>
+        prev.map((bot) =>
+          successIds.has(bot.id)
+            ? {
+                ...bot,
+                netProfit: 0,
+                pnl: 0,
+              }
+            : bot
+        )
+      );
+    }
 
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('web3_wallet_updated'));
-      }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new Event('web3_wallet_updated')
+      );
+    }
 
-      alert(`✅ Succès ! +${totalProfitToClaim.toFixed(2)} ${currency} de gains globaux ont été encaissés sur votre solde / Wallet Phantom !`);
+    if (successCount > 0) {
+      alert(
+        `✅ Encaissement terminé.\n\n` +
+          `Bots réussis: ${successCount}\n` +
+          `Bots échoués: ${failedCount}\n` +
+          `SOL réellement transférés: ${totalSent.toFixed(
+            6
+          )} SOL\n\n` +
+          `Les bots en échec ont conservé leurs gains.`
+      );
+    } else {
+      alert(
+        `❌ Aucun transfert blockchain n'a réussi.\n\n` +
+          `Les gains des bots ont été conservés.`
+      );
     }
   };
 

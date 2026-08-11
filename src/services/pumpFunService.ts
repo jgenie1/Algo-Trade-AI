@@ -1,4 +1,14 @@
 
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  clusterApiUrl,
+} from '@solana/web3.js';
+import bs58 from 'bs58';
+
 export interface PumpCoin {
   mint: string;
   initialized: boolean;
@@ -1167,24 +1177,243 @@ export async function transferSolOnChain(params: {
   }
 }
 
+export interface SweepResult {
+  success: boolean;
+  signature?: string;
+  sourceAddress?: string;
+  destinationAddress?: string;
+  requestedSol: number;
+  sentSol: number;
+  remainingSol: number;
+  explorerUrl?: string;
+  error?: string;
+}
+
+function privateKeyToKeypair(privateKey: string): Keypair {
+  const value = privateKey.trim();
+
+  // Base58 private key
+  try {
+    const decoded = bs58.decode(value);
+
+    if (decoded.length === 64) {
+      return Keypair.fromSecretKey(decoded);
+    }
+  } catch {
+    // Continue with JSON format
+  }
+
+  // JSON array format: [1,2,3,...]
+  try {
+    const parsed = JSON.parse(value);
+
+    if (Array.isArray(parsed)) {
+      const bytes = Uint8Array.from(parsed);
+
+      if (bytes.length === 64) {
+        return Keypair.fromSecretKey(bytes);
+      }
+    }
+  } catch {
+    // Invalid format
+  }
+
+  throw new Error(
+    'Clé privée invalide. Utilise une clé secrète Solana Base58 ou un tableau JSON de 64 octets.'
+  );
+}
+
 /**
- * Effectue le balayage automatique des bénéfices (Profit Sweep) depuis un sous-portefeuille bot vers le Master Wallet principal sur Solana.
+ * Transfère réellement du SOL du sous-wallet vers le Master Wallet.
+ *
+ * IMPORTANT:
+ * - La transaction est envoyée sur Solana.
+ * - La confirmation est attendue.
+ * - Aucun succès n'est retourné si la transaction échoue.
+ * - Le montant réellement transféré ne peut jamais dépasser
+ *   le solde réel du sous-wallet moins les frais.
  */
-export async function sweepSubWalletProfitToMaster(params: {
+export async function sweepSubWalletProfitToMaster({
+  subWalletPrivateKey,
+  masterPublicKey,
+  netProfitSol,
+}: {
   subWalletPrivateKey: string;
   masterPublicKey: string;
   netProfitSol: number;
-}): Promise<{ success: boolean; txHash?: string; error?: string }> {
-  const { subWalletPrivateKey, masterPublicKey, netProfitSol } = params;
-
-  if (netProfitSol <= 0.0001) {
-    return { success: false, error: "Profit minimal non atteint pour le balayage." };
+}): Promise<SweepResult> {
+  if (!subWalletPrivateKey) {
+    throw new Error('Clé privée du sous-wallet absente.');
   }
 
-  return transferSolOnChain({
-    fromPrivateKey: subWalletPrivateKey,
-    toPublicKey: masterPublicKey,
-    amountSol: netProfitSol
+  if (!masterPublicKey) {
+    throw new Error('Adresse du Master Wallet absente.');
+  }
+
+  if (!Number.isFinite(netProfitSol) || netProfitSol <= 0) {
+    throw new Error('Montant de transfert invalide.');
+  }
+
+  const sourceKeypair = privateKeyToKeypair(subWalletPrivateKey);
+
+  let destination: PublicKey;
+
+  try {
+    destination = new PublicKey(masterPublicKey);
+  } catch {
+    throw new Error('Adresse du Master Wallet invalide.');
+  }
+
+  const sourceAddress = sourceKeypair.publicKey.toBase58();
+  const destinationAddress = destination.toBase58();
+
+  if (sourceAddress === destinationAddress) {
+    throw new Error(
+      'Le sous-wallet et le Master Wallet sont identiques.'
+    );
+  }
+
+  const RPC_URL =
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+    clusterApiUrl('mainnet-beta');
+
+  const connection = new Connection(RPC_URL, {
+    commitment: 'confirmed',
   });
+
+  // Solde réel du sous-wallet
+  const balanceLamports = await connection.getBalance(
+    sourceKeypair.publicKey,
+    'confirmed'
+  );
+
+  const balanceSol = balanceLamports / 1_000_000_000;
+
+  if (balanceLamports <= 0) {
+    throw new Error(
+      `Le sous-wallet ${sourceAddress} ne possède aucun SOL.`
+    );
+  }
+
+  /*
+   * On garde une petite réserve pour payer les frais de transaction.
+   * Le montant exact des frais est calculé avant l'envoi.
+   */
+  const requestedLamports = Math.floor(
+    netProfitSol * 1_000_000_000
+  );
+
+  const latestBlockhash =
+    await connection.getLatestBlockhash('confirmed');
+
+  const testTransaction = new Transaction({
+    feePayer: sourceKeypair.publicKey,
+    recentBlockhash: latestBlockhash.blockhash,
+  }).add(
+    SystemProgram.transfer({
+      fromPubkey: sourceKeypair.publicKey,
+      toPubkey: destination,
+      lamports: requestedLamports,
+    })
+  );
+
+  const message = testTransaction.compileMessage();
+  const feeResult = await connection.getFeeForMessage(
+    message,
+    'confirmed'
+  );
+
+  const estimatedFeeLamports = feeResult.value ?? 5000;
+
+  /*
+   * Ne jamais envoyer plus que le solde réel.
+   */
+  const maxTransferLamports = Math.max(
+    0,
+    balanceLamports - estimatedFeeLamports
+  );
+
+  const transferLamports = Math.min(
+    requestedLamports,
+    maxTransferLamports
+  );
+
+  if (transferLamports <= 0) {
+    throw new Error(
+      `Solde insuffisant pour payer le transfert et les frais. Solde: ${balanceSol.toFixed(
+        6
+      )} SOL`
+    );
+  }
+
+  /*
+   * Protection contre les arrondis.
+   */
+  if (transferLamports < 1) {
+    throw new Error('Montant de transfert trop faible.');
+  }
+
+  const finalTransaction = new Transaction({
+    feePayer: sourceKeypair.publicKey,
+    recentBlockhash: latestBlockhash.blockhash,
+  }).add(
+    SystemProgram.transfer({
+      fromPubkey: sourceKeypair.publicKey,
+      toPubkey: destination,
+      lamports: transferLamports,
+    })
+  );
+
+  finalTransaction.sign(sourceKeypair);
+
+  // Envoi réel sur Solana
+  const signature = await connection.sendRawTransaction(
+    finalTransaction.serialize(),
+    {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+    }
+  );
+
+  // Confirmation réelle
+  const confirmation =
+    await connection.confirmTransaction(
+      {
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight:
+          latestBlockhash.lastValidBlockHeight,
+      },
+      'confirmed'
+    );
+
+  if (confirmation.value.err) {
+    throw new Error(
+      `La transaction Solana a échoué: ${JSON.stringify(
+        confirmation.value.err
+      )}`
+    );
+  }
+
+  const sentSol = transferLamports / 1_000_000_000;
+
+  const remainingLamports =
+    await connection.getBalance(
+      sourceKeypair.publicKey,
+      'confirmed'
+    );
+
+  return {
+    success: true,
+    signature,
+    sourceAddress,
+    destinationAddress,
+    requestedSol: netProfitSol,
+    sentSol,
+    remainingSol:
+      remainingLamports / 1_000_000_000,
+    explorerUrl:
+      `https://solscan.io/tx/${signature}`,
+  };
 }
 
