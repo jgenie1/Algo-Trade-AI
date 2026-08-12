@@ -20,6 +20,36 @@ import {
   analyzePumpCoinWithSniperPrompt 
 } from '@/services/pumpFunService';
 import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
+
+function getDerivedMasterPublicKey(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const stored = localStorage.getItem('connected_web3_wallet');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.address && parsed.address.length >= 32) return parsed.address;
+      if (parsed?.publicKey && parsed.publicKey.length >= 32) return parsed.publicKey;
+    }
+  } catch (e) {}
+
+  const privKey = localStorage.getItem('settings_solana_private_key') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+  if (privKey) {
+    try {
+      const trimmed = privKey.trim();
+      let keyBytes: Uint8Array;
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        keyBytes = new Uint8Array(JSON.parse(trimmed));
+      } else {
+        keyBytes = bs58.decode(trimmed);
+      }
+      const kp = Keypair.fromSecretKey(keyBytes);
+      return kp.publicKey.toBase58();
+    } catch (e) {}
+  }
+  return '';
+}
 
 export const currencyPairs = [
   { value: 'ALL', label: '🌐 Toutes les Paires (Scan Multi-Actifs Continu)', ticker: 'ALL' },
@@ -1444,6 +1474,9 @@ export function useTradingEngine() {
       const sourceLabel = p.botId || 'manual';
       const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
 
+      const botSubIndex = (botConfig?.subWallet || 1) - 1;
+      const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey;
+
       addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Envoi de la transaction de vente sur Solana Mainnet pour $${cleanSymbol}...`, 'info');
 
       try {
@@ -1454,6 +1487,7 @@ export function useTradingEngine() {
           denominatedInSol: false,
           slippage: 15,
           priorityFee: priority,
+          customPrivateKey: botSubWalletKey,
           pool: targetPool
         });
 
@@ -1506,9 +1540,7 @@ export function useTradingEngine() {
         const botObj = botsRef.current.find(b => b.id === p.botId);
         const subIndex = (botObj?.subWallet || 1) - 1;
         const subWalletKey = subWalletsRef.current[subIndex]?.privateKey;
-        const masterPubKey = (typeof window !== 'undefined' ? localStorage.getItem('connected_web3_wallet') : null) 
-          ? JSON.parse(localStorage.getItem('connected_web3_wallet')!).address 
-          : (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '');
+        const masterPubKey = getDerivedMasterPublicKey();
 
         if (subWalletKey && masterPubKey && masterPubKey.length >= 32) {
           const netProfitSol = profit * 0.90; // 90% net profit to master wallet

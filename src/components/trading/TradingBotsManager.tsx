@@ -1275,11 +1275,21 @@ export default function TradingBotsManager({
                           <span className="text-white/20">•</span>
                           <span className="text-slate-200 font-body normal-case font-bold">
                             {isWinRule
-                              ? `Gain analysé: +${(l.gainAmount || 0).toFixed(2)} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`
-                              : `Perte analysée: ${(l.lossAmount || 0).toFixed(2)} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`}
+                              ? `Gain analysé: ${formatSmartPnl(l.gainAmount || 0, (l.mode || tradingMode) === 'REAL')} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`
+                              : `Perte analysée: ${formatSmartPnl(l.lossAmount || 0, (l.mode || tradingMode) === 'REAL')} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`}
                           </span>
                         </div>
                         <p className="text-xs text-white font-body font-medium leading-relaxed">{l.learningEffect}</p>
+                        {l.txHash && (
+                          <a
+                            href={`https://solscan.io/tx/${l.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 underline font-mono mt-1"
+                          >
+                            🔗 Tx Solscan: {l.txHash.slice(0, 10)}...{l.txHash.slice(-6)}
+                          </a>
+                        )}
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="text-xs text-slate-300 font-body block">
