@@ -1301,19 +1301,15 @@ export default function TradingBotsManager({
                           >
                             🔗 Confirmé sur Solscan: {l.txHash.slice(0, 10)}...{l.txHash.slice(-6)}
                           </a>
-                        ) : isRealModeItem && isWinRule ? (
-                          <span className="text-[10px] text-amber-400/80 font-mono block mt-0.5">
-                            💡 Cliquez &quot;💰 Encaisser&quot; pour transférer vers votre Wallet.
-                          </span>
                         ) : null}
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0 text-right flex flex-col items-end gap-1.5">
                         <span className="text-xs text-slate-300 font-body block">
                           {l.timestamp ? new Date(l.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}
                         </span>
                         <Badge
                           className={cn(
-                            "mt-1 px-2 py-0.5 rounded text-[9px] font-bold font-headline uppercase border-none",
+                            "px-2 py-0.5 rounded text-[9px] font-bold font-headline uppercase border-none",
                             isWinRule
                               ? "bg-emerald-500/30 text-emerald-200"
                               : "bg-purple-500/30 text-purple-200"
@@ -1321,6 +1317,15 @@ export default function TradingBotsManager({
                         >
                           {isWinRule ? 'Optimisation IA' : 'Protection IA'}
                         </Badge>
+                        {isRealModeItem && isWinRule && !l.txHash && l.botId && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleClaimBotProfit(l.botId!)}
+                            className="h-7 px-2.5 text-[10px] font-bold bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 rounded-lg transition-all"
+                          >
+                            💰 Encaisser
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
