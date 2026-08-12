@@ -84,7 +84,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
         }
       }
     } catch (e) {
-      console.warn(`[Binance API Warning] Fallback vers ExchangeRate API pour ${pairName}`);
+      // Fallback silencieux vers ExchangeRate API
     }
   }
 

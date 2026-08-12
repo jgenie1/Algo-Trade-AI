@@ -1154,26 +1154,38 @@ export async function sweepSubWalletProfitToMaster({
   masterPublicKey: string;
   netProfitSol: number;
 }): Promise<SweepResult> {
+  const fallbackResult = (errText: string): SweepResult => ({
+    success: false,
+    error: errText,
+    requestedSol: netProfitSol || 0,
+    sentSol: 0,
+    remainingSol: 0,
+  });
+
   if (!subWalletPrivateKey) {
-    throw new Error('Clé privée du sous-wallet absente.');
+    return fallbackResult('Clé privée du sous-wallet absente.');
   }
 
   if (!masterPublicKey) {
-    throw new Error('Adresse du Master Wallet absente.');
+    return fallbackResult('Adresse du Master Wallet absente.');
   }
 
   if (!Number.isFinite(netProfitSol) || netProfitSol <= 0) {
-    throw new Error('Montant de transfert invalide.');
+    return fallbackResult('Montant de transfert invalide.');
   }
 
-  const sourceKeypair = privateKeyToKeypair(subWalletPrivateKey);
+  let sourceKeypair: Keypair;
+  try {
+    sourceKeypair = privateKeyToKeypair(subWalletPrivateKey);
+  } catch (err: any) {
+    return fallbackResult(err?.message || 'Clé privée du sous-wallet invalide.');
+  }
 
   let destination: PublicKey;
-
   try {
     destination = new PublicKey(masterPublicKey);
   } catch {
-    throw new Error('Adresse du Master Wallet invalide.');
+    return fallbackResult('Adresse du Master Wallet invalide.');
   }
 
   const sourceAddress = sourceKeypair.publicKey.toBase58();

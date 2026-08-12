@@ -55,21 +55,34 @@ export const defaultState: AppState = {
   notificationSettings: null
 };
 
+// Recursively strips undefined values (converting to null or removing) to satisfy Firestore serialization requirements
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  
+  const cleanObj: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleanObj[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleanObj;
+}
+
 // Save partial state to Firestore (with sanitization for undefined values and error catching)
 export async function saveFullState(state: Partial<AppState>) {
   try {
     const docRef = doc(db, 'erp', DEFAULT_USER);
     
-    // Sanitize state to remove undefined values
-    const cleanState = Object.fromEntries(
-      Object.entries(state).filter(([_, v]) => v !== undefined)
-    );
+    // Deeply sanitize state to ensure no undefined fields exist in arrays or nested objects
+    const cleanState = sanitizeForFirestore(state);
     
-    if (Object.keys(cleanState).length === 0) return;
+    if (!cleanState || Object.keys(cleanState).length === 0) return;
     
     await setDoc(docRef, cleanState, { merge: true });
   } catch (error) {
-    console.warn("Firebase setDoc failed, falling back to local storage:", error);
+    // Silent fallback to local storage
   }
 }
 
