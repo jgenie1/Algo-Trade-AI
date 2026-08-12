@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAppState } from '@/context/AppContext';
+import { saveFullState, saveBotLearnings } from '@/lib/firebase';
 import { formatSmartPnl } from '@/lib/utils';
 import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
@@ -799,24 +800,35 @@ export function useTradingEngine() {
               // Log du rapport d'analyse expert 14-Points
               addBotLogRef.current(bot.id, "Pump.fun Sniper", `🎯 RAPPORT D'ANALYSE EXPERT 14-POINTS pour $${matchingCoin.symbol} :\nScore: ${analysis.recommendation} | Smart Money: ${analysis.smartMoneyScore}/10 | Liquidité: ${analysis.liquidityScore}/10 | Meme Score: ${analysis.memeScore}/10`, 'trade');
 
-              // Check AI Learning blockage
+              // Check AI Learning blockage (Losses) and Boost (Wins)
               let learningBlocked = false;
               let learningReason = '';
+              let isWinningPatternMatch = false;
+              let winningPatternReason = '';
 
-              const myLearnings = botLearningsRef.current.filter(l => l.botId === bot.id);
+              const myLearnings = botLearningsRef.current.filter(l => l.botId === bot.id || l.botId === 'manual');
               for (const learning of myLearnings) {
-                if (learning.bondingCurveProgress !== undefined && learning.replyCount !== undefined) {
-                  if (Math.abs(curveProgress - learning.bondingCurveProgress) < 15 && replies <= learning.replyCount) {
-                    learningBlocked = true;
-                    learningReason = learning.learningEffect;
-                    break;
+                if (learning.bondingCurveProgress !== undefined) {
+                  if (Math.abs(curveProgress - learning.bondingCurveProgress) < 15) {
+                    if ((learning.lossAmount ?? 0) > 0 && replies <= (learning.replyCount || 10)) {
+                      learningBlocked = true;
+                      learningReason = learning.learningEffect;
+                      break;
+                    } else if ((learning.gainAmount ?? 0) > 0 || (learning.learningEffect && learning.learningEffect.includes('Gagnant'))) {
+                      isWinningPatternMatch = true;
+                      winningPatternReason = learning.learningEffect;
+                    }
                   }
                 }
               }
 
               if (learningBlocked) {
-                addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage] Signal ${signal} sur $${matchingCoin.symbol} BLOQUÉ : perte passée (${learningReason}).`, 'info');
+                addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage - Protection] Signal ${signal} sur $${matchingCoin.symbol} BLOQUÉ : Règle de perte passée (${learningReason}).`, 'info');
                 continue;
+              }
+
+              if (isWinningPatternMatch) {
+                addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage - Motif Gagnant] Signal ${signal} sur $${matchingCoin.symbol} VALIDÉ : Motif historiquement gagnant (${winningPatternReason}). Confiance renforcée.`, 'info');
               }
 
               let posTradeAmount = bot.capital;
@@ -1125,25 +1137,40 @@ export function useTradingEngine() {
               if (signal) {
                 let learningBlocked = false;
                 let learningReason = '';
+                let isWinningPatternMatch = false;
+                let winningPatternReason = '';
 
-                const myLearnings = botLearningsRef.current.filter(l => l.botId === bot.id);
+                const myLearnings = botLearningsRef.current.filter(l => l.botId === bot.id || l.botId === 'manual');
                 for (const learning of myLearnings) {
-                  if (learning.pair === currentPair && learning.type === signal) {
+                  if (learning.pair === currentPair && (learning.type === signal || !learning.type)) {
                     if (learning.entryRsi !== undefined) {
                       const rsiDiff = Math.abs(lastRsi - learning.entryRsi);
                       if (rsiDiff < 6) {
-                        learningBlocked = true;
-                        learningReason = learning.learningEffect;
-                        break;
+                        if ((learning.lossAmount ?? 0) > 0) {
+                          learningBlocked = true;
+                          learningReason = learning.learningEffect;
+                          break;
+                        } else if ((learning.gainAmount ?? 0) > 0 || (learning.learningEffect && learning.learningEffect.includes('Gagnant'))) {
+                          isWinningPatternMatch = true;
+                          winningPatternReason = learning.learningEffect;
+                        }
                       }
+                    } else if ((learning.gainAmount ?? 0) > 0 || (learning.learningEffect && learning.learningEffect.includes('Gagnant'))) {
+                      isWinningPatternMatch = true;
+                      winningPatternReason = learning.learningEffect;
                     }
                   }
                 }
 
                 if (learningBlocked) {
                   const cleanPair = currentPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-                  addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage] Signal ${signal} sur ${cleanPair} BLOQUÉ : perte passée (${learningReason}).`, 'info');
+                  addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage - Protection] Signal ${signal} sur ${cleanPair} BLOQUÉ : Règle de perte passée (${learningReason}).`, 'info');
                   continue;
+                }
+
+                if (isWinningPatternMatch) {
+                  const cleanPair = currentPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+                  addBotLogRef.current(bot.id, bot.strategy, `[IA Apprentissage - Motif Gagnant] Signal ${signal} sur ${cleanPair} OPTIMISÉ : Motif historiquement gagnant (${winningPatternReason}).`, 'info');
                 }
 
                 const cleanPair = currentPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
@@ -1572,29 +1599,59 @@ export function useTradingEngine() {
         bondingCurveProgress: p.bondingCurveProgress,
         replyCount: p.replyCount,
         lossAmount: Math.abs(profit),
+        gainAmount: 0,
+        mode: posMode,
         timestamp: Date.now(),
         learningEffect
       };
 
       setBotLearnings(prev => {
         if (prev.some(x => x.id === newLearning.id)) return prev;
-        return [newLearning, ...prev];
+        const updated = [newLearning, ...prev].slice(0, 100);
+        saveBotLearnings(updated);
+        return updated;
       });
 
       setTimeout(() => {
-        addBotLog(sourceLabel, sourceLabel, `[IA Apprentissage] Leçon enregistrée : "${learningEffect}".`, 'info');
+        addBotLog(sourceLabel, logBotName, `[IA Apprentissage - Perte Analysee] Règle de protection enregistrée dans Firestore : "${learningEffect}".`, 'info');
       }, 50);
     } else if (profit > 0) {
+      let winningEffect = '';
+      if (p.entryRsi !== undefined) {
+        const emaStatus = p.entryEmaTrend === 'ABOVE' ? 'au-dessus de' : 'sous';
+        winningEffect = `[Motif Gagnant Validé] ${p.type || 'BUY'} sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} avec RSI à ${p.entryRsi.toFixed(0)} (${emaStatus} EMA 20) -> Gain: +${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'}`;
+      } else if (p.bondingCurveProgress !== undefined) {
+        winningEffect = `[Motif Gagnant Validé] Achat Meme Coin à ${p.bondingCurveProgress.toFixed(0)}% de Bonding Curve -> Gain: +${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'}`;
+      } else {
+        winningEffect = `[Configuration Gagnante] Confirmation du modèle haussier/baissier sur ${p.pair.replace('FX:', '').replace('SOL:', '')} (+${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'})`;
+      }
+
       const winningPattern = {
         id: 'win_' + Math.random().toString(36).substring(2, 9),
         botId: p.botId || 'manual',
         pair: p.pair,
         type: p.type,
+        entryRsi: p.entryRsi,
+        entryEmaTrend: p.entryEmaTrend,
+        bondingCurveProgress: p.bondingCurveProgress,
+        replyCount: p.replyCount,
         lossAmount: 0,
+        gainAmount: profit,
+        mode: posMode,
         timestamp: Date.now(),
-        learningEffect: `[Configuration Gagnante] Confirmation du modèle haussier/baissier sur ${p.pair.replace('FX:', '').replace('SOL:', '')} (+${profit.toFixed(2)} $)`
+        learningEffect: winningEffect
       };
-      setBotLearnings(prev => [winningPattern, ...prev].slice(0, 50));
+
+      setBotLearnings(prev => {
+        if (prev.some(x => x.id === winningPattern.id)) return prev;
+        const updated = [winningPattern, ...prev].slice(0, 100);
+        saveBotLearnings(updated);
+        return updated;
+      });
+
+      setTimeout(() => {
+        addBotLog(sourceLabel, logBotName, `[IA Apprentissage - Gain Analysé] Motif gagnant enregistré dans Firestore : "${winningEffect}".`, 'info');
+      }, 50);
     }
     
     const botIdVal = p.botId;

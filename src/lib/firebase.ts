@@ -86,6 +86,17 @@ export async function saveFullState(state: Partial<AppState>) {
   }
 }
 
+// Explicit atomic save for AI Bot Learnings (gains & losses) to Firestore
+export async function saveBotLearnings(learnings: any[]) {
+  try {
+    const docRef = doc(db, 'erp', DEFAULT_USER);
+    const cleanLearnings = sanitizeForFirestore(learnings);
+    await setDoc(docRef, { botLearnings: cleanLearnings }, { merge: true });
+  } catch (error) {
+    // Silent fallback
+  }
+}
+
 // Fetch state once
 export async function getFullState(): Promise<AppState> {
   try {

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
+import { saveBotLearnings } from '@/lib/firebase';
 import { sweepSubWalletProfitToMaster } from '@/services/pumpFunService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1227,11 +1228,17 @@ export default function TradingBotsManager({
               <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center gap-2">
                 <span className="text-purple-400">🧠</span>
                 <span>Moteur d&apos;Apprentissage & Feedback IA ({safeBotLearnings.length})</span>
+                <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full font-normal">
+                  ☁️ Firestore Synced
+                </span>
               </CardTitle>
               {safeBotLearnings.length > 0 && (
                 <Button
                   variant="link"
-                  onClick={() => setBotLearnings([])}
+                  onClick={() => {
+                    setBotLearnings([]);
+                    saveBotLearnings([]);
+                  }}
                   className="h-auto p-0 text-xs text-slate-300 hover:text-white font-extrabold underline-offset-4"
                 >
                   Réinitialiser
@@ -1245,27 +1252,53 @@ export default function TradingBotsManager({
               {safeBotLearnings.length === 0 ? (
                 <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">
                   <span className="text-2xl mb-1">🧠</span>
-                  <span>Le bot n&apos;a rencontré aucun échec pour l&apos;instant. Il apprendra automatiquement de ses pertes futures.</span>
+                  <span>Aucune règle enregistrée pour l&apos;instant. Le moteur IA apprendra automatiquement de ses <strong>pertes (règles de protection)</strong> et de ses <strong>gains (motifs gagnants)</strong> et les sauvegardera dans Firestore.</span>
                 </div>
               ) : (
-                safeBotLearnings.map((l, idx) => (
-                  <div key={l.id ? `${l.id}_${idx}` : `lrn_${idx}`} className="bg-purple-950/20 border border-purple-500/25 hover:border-purple-500/40 rounded-xl p-3.5 flex justify-between items-center gap-3 transition-all">
-                    <div className="space-y-1">
-                      <div className="text-xs text-purple-300 font-headline uppercase font-extrabold flex items-center gap-2">
-                        <span>Leçon #{(l.id || '').replace('lrn_', '')}</span>
-                        <span className="text-white/20">•</span>
-                        <span className="text-slate-200 font-body normal-case font-bold">Perte évitée: {(l.lossAmount || 0).toFixed(2)} {(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}</span>
+                safeBotLearnings.map((l, idx) => {
+                  const isWinRule = (l.gainAmount || 0) > 0 || (l.learningEffect && (l.learningEffect.includes('Gagnant') || l.learningEffect.includes('Gagnante')));
+                  return (
+                    <div
+                      key={l.id ? `${l.id}_${idx}` : `lrn_${idx}`}
+                      className={cn(
+                        "border rounded-xl p-3.5 flex justify-between items-center gap-3 transition-all",
+                        isWinRule
+                          ? "bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-500/50"
+                          : "bg-purple-950/20 border-purple-500/25 hover:border-purple-500/40"
+                      )}
+                    >
+                      <div className="space-y-1">
+                        <div className="text-xs font-headline uppercase font-extrabold flex items-center gap-2">
+                          <span className={isWinRule ? "text-emerald-300" : "text-purple-300"}>
+                            {isWinRule ? '🚀 Motif Gagnant' : '🛡️ Règle de Protection'} #{(l.id || '').replace('lrn_', '').replace('win_', '')}
+                          </span>
+                          <span className="text-white/20">•</span>
+                          <span className="text-slate-200 font-body normal-case font-bold">
+                            {isWinRule
+                              ? `Gain analysé: +${(l.gainAmount || 0).toFixed(2)} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`
+                              : `Perte analysée: ${(l.lossAmount || 0).toFixed(2)} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-white font-body font-medium leading-relaxed">{l.learningEffect}</p>
                       </div>
-                      <p className="text-xs text-white font-body font-medium leading-relaxed">{l.learningEffect}</p>
+                      <div className="shrink-0 text-right">
+                        <span className="text-xs text-slate-300 font-body block">
+                          {l.timestamp ? new Date(l.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}
+                        </span>
+                        <Badge
+                          className={cn(
+                            "mt-1 px-2 py-0.5 rounded text-[9px] font-bold font-headline uppercase border-none",
+                            isWinRule
+                              ? "bg-emerald-500/30 text-emerald-200"
+                              : "bg-purple-500/30 text-purple-200"
+                          )}
+                        >
+                          {isWinRule ? 'Optimisation IA' : 'Protection IA'}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <span className="text-xs text-slate-300 font-body block">{l.timestamp ? new Date(l.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}</span>
-                      <Badge className="mt-1 px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/30 text-purple-200 font-headline uppercase border-none">
-                        Actif
-                      </Badge>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>
