@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calculator, ShieldCheck, Percent, Zap } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
+import { getRealMarketBasePrice } from '@/lib/utils';
 
 interface PositionRiskCalculatorProps {
   solanaBalance?: number | null;
@@ -22,7 +23,7 @@ export default function PositionRiskCalculator({ solanaBalance }: PositionRiskCa
 
   const [riskPercent, setRiskPercent] = useState<number>(1.0); // 1% par défaut
   const [stopLossPips, setStopLossPips] = useState<number>(20); // 20 pips/points par défaut
-  const [entryPrice, setEntryPrice] = useState<number>(145.50);
+  const [entryPrice, setEntryPrice] = useState<number>(getRealMarketBasePrice('SOL') || 145.50);
 
   // Calculs de gestion de risque
   const maxRiskAmount = allocatableBalance * (riskPercent / 100); // Perte max tolérée

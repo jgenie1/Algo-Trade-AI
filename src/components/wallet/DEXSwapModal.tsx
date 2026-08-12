@@ -23,6 +23,7 @@ import {
 import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap, WalletToken, fetchWalletTokenBalances } from '@/services/dexSwapService';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { useAppState } from '@/context/AppContext';
+import { getRealMarketBasePrice } from '@/lib/utils';
 import { cn, formatUsdToHtg, formatSmartNumber } from '@/lib/utils';
 
 interface DEXSwapModalProps {
@@ -211,10 +212,8 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
 
   const getTokenUsdPrice = (token: SwapToken): number => {
     if (token.symbol === 'USDC' || token.symbol === 'USDT') return 1.0;
-    if (token.symbol === 'SOL') return 145.5;
-    if (token.symbol === 'ETH') return 3250.0;
-    if (token.symbol === 'BNB') return 580.0;
-    return 1.0;
+    const price = getRealMarketBasePrice(token.symbol);
+    return price > 0 ? price : 1.0;
   };
 
   const handleExecuteSwap = async () => {
@@ -231,16 +230,17 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
 
     if (res.success) {
       const outQty = parseFloat(quote.outAmount) || 0;
+      const currentSolPrice = getRealMarketBasePrice('SOL') || 145.5;
       if (tradingMode === 'DEMO') {
         if (fromToken.symbol === 'SOL') {
-          setSolanaBalanceState(prev => Math.max(0, (prev !== null ? prev : (balance / 145.5)) - numAmount));
+          setSolanaBalanceState(prev => Math.max(0, (prev !== null ? prev : (balance / currentSolPrice)) - numAmount));
           if (toToken.symbol === 'USDC' || toToken.symbol === 'USDT') {
-            setBalance(prev => prev + (outQty > 0 ? outQty : numAmount * 145.5));
+            setBalance(prev => prev + (outQty > 0 ? outQty : numAmount * currentSolPrice));
           }
         } else if (fromToken.symbol === 'USDC' || fromToken.symbol === 'USDT') {
           setBalance(prev => Math.max(0, prev - numAmount));
           if (toToken.symbol === 'SOL') {
-            setSolanaBalanceState(prev => (prev || 0) + (outQty > 0 ? outQty : numAmount / 145.5));
+            setSolanaBalanceState(prev => (prev || 0) + (outQty > 0 ? outQty : numAmount / currentSolPrice));
           }
         }
       }

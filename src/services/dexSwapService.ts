@@ -152,7 +152,11 @@ export async function fetchWalletTokenBalances(
   // 1. Native Token (SOL / ETH / BNB)
   const nativeSymbol = activeChain === 'BSC' ? 'BNB' : activeChain === 'ETH' ? 'ETH' : 'SOL';
   const nativeName = activeChain === 'BSC' ? 'BNB Native' : activeChain === 'ETH' ? 'Ethereum Native' : 'Solana Native';
-  const nativePrice = activeChain === 'BSC' ? 580.0 : activeChain === 'ETH' ? 3250.0 : 145.5;
+  const nativePrice = activeChain === 'BSC'
+    ? (getRealMarketBasePrice('BNB') || 580.0)
+    : activeChain === 'ETH'
+      ? (getRealMarketBasePrice('ETH') || 3250.0)
+      : (getRealMarketBasePrice('SOL') || 145.5);
   const nativeLogo = activeChain === 'BSC'
     ? 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png'
     : activeChain === 'ETH'
@@ -223,7 +227,7 @@ export async function fetchWalletTokenBalances(
         const name = knownToken?.name || (symbol === 'USDC' ? 'USD Coin' : `SPL Token ${mint.slice(0, 6)}`);
         const isStable = symbol === 'USDC' || symbol === 'USDT';
 
-        let priceUsd = isStable ? 1.0 : (knownToken?.symbol === 'SOL' ? 145.5 : 0.50);
+        let priceUsd = isStable ? 1.0 : (getRealMarketBasePrice(symbol) || 0.50);
         
         try {
           const resPx = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, { cache: 'no-store' });

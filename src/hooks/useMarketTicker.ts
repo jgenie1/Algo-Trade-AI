@@ -1,68 +1,82 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { getRealMarketBasePrice } from '@/lib/utils';
 import { fetchLiveMarketData } from '@/services/yahooFinanceService';
+import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 
 export function useMarketTicker() {
   const [selectedPair, setSelectedPair] = useState<string>('FX:EURUSD');
   const [livePrices, setLivePrices] = useState<{ [key: string]: number }>({});
   const [priceDirections, setPriceDirections] = useState<{ [key: string]: 'up' | 'down' | 'flat' }>({});
-  const [isLoadingPrice, setIsLoadingPrice] = useState<boolean>(false);
+  const [isLoadingPrice, setIsLoadingPrice] = useState<boolean>(true);
 
-  // Initialize prices with real market base prices
   useEffect(() => {
-    const initialPrices: { [key: string]: number } = {
-      'FX:EURUSD': getRealMarketBasePrice('FX:EURUSD'),
-      'FX:GBPUSD': getRealMarketBasePrice('FX:GBPUSD'),
-      'FX:USDJPY': getRealMarketBasePrice('FX:USDJPY'),
-      'FX:AUDUSD': getRealMarketBasePrice('FX:AUDUSD'),
-      'FX:USDCAD': getRealMarketBasePrice('FX:USDCAD'),
-      'FX:USDCHF': getRealMarketBasePrice('FX:USDCHF'),
-      'FX:EURGBP': getRealMarketBasePrice('FX:EURGBP'),
-      'FX:EURJPY': getRealMarketBasePrice('FX:EURJPY'),
-      'FX:GBPJPY': getRealMarketBasePrice('FX:GBPJPY'),
-      'BTC': getRealMarketBasePrice('BTC'),
-      'ETH': getRealMarketBasePrice('ETH'),
-      'SOL': getRealMarketBasePrice('SOL'),
-      'BNB': getRealMarketBasePrice('BNB'),
-      'XRP': getRealMarketBasePrice('XRP'),
-      'ADA': getRealMarketBasePrice('ADA'),
-      'DOGE': getRealMarketBasePrice('DOGE'),
-      'LINK': getRealMarketBasePrice('LINK'),
-      'AVAX': getRealMarketBasePrice('AVAX'),
-      'GOLD': getRealMarketBasePrice('GOLD'),
-      'SILVER': getRealMarketBasePrice('SILVER'),
-      'OIL': getRealMarketBasePrice('OIL'),
-    };
-    setLivePrices(initialPrices);
-  }, []);
+    let isMounted = true;
 
-  // Price Simulation Tick Loop (Every 2 seconds)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLivePrices((prevPrices) => {
-        const updated = { ...prevPrices };
-        const updatedDirections: { [key: string]: 'up' | 'down' | 'flat' } = {};
+    const fetchAllLivePrices = async () => {
+      const trackedPairs = [
+        'FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD',
+        'FX:USDCHF', 'FX:EURGBP', 'FX:EURJPY', 'FX:GBPJPY',
+        'BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'LINK', 'AVAX',
+        'GOLD', 'SILVER', 'OIL'
+      ];
 
-        Object.keys(updated).forEach((pair) => {
-          const currentPrice = updated[pair];
-          if (!currentPrice || isNaN(currentPrice)) return;
+      const newPrices: { [key: string]: number } = {};
 
-          // Micro volatility simulation (between -0.15% and +0.15%)
-          const changePercent = (Math.random() - 0.495) * 0.003;
-          const newPrice = Math.max(0.000001, currentPrice * (1 + changePercent));
-          
-          updatedDirections[pair] = newPrice > currentPrice ? 'up' : newPrice < currentPrice ? 'down' : 'flat';
-          updated[pair] = parseFloat(newPrice.toFixed(pair.includes('BTC') || pair.includes('GOLD') ? 2 : 4));
+      // 1. Fetch Crypto prices in batch via CoinMarketCap Pro API
+      try {
+        const cmcData = await fetchCoinMarketCapQuotes(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'LINK', 'AVAX']);
+        if (cmcData) {
+          Object.keys(cmcData).forEach(sym => {
+            const price = cmcData[sym]?.quote?.USD?.price;
+            if (price && !isNaN(price) && price > 0) {
+              newPrices[sym] = price;
+              newPrices[`${sym}-USD`] = price;
+            }
+          });
+        }
+      } catch (e) {}
+
+      // 2. Fetch Forex & Commodities live data
+      await Promise.allSettled(
+        trackedPairs.map(async (pair) => {
+          if (newPrices[pair]) return; // Already loaded from CoinMarketCap
+          try {
+            const candles = await fetchLiveMarketData(pair, '15');
+            if (candles && candles.length > 0) {
+              const lastPrice = candles[candles.length - 1].close;
+              if (lastPrice && !isNaN(lastPrice) && lastPrice > 0) {
+                newPrices[pair] = lastPrice;
+              }
+            }
+          } catch (e) {}
+        })
+      );
+
+      if (!isMounted) return;
+
+      const newDirections: { [key: string]: 'up' | 'down' | 'flat' } = {};
+      setLivePrices(prev => {
+        Object.keys(newPrices).forEach(pair => {
+          const oldPrice = prev[pair];
+          const newPrice = newPrices[pair];
+          if (oldPrice && newPrice) {
+            newDirections[pair] = newPrice > oldPrice ? 'up' : newPrice < oldPrice ? 'down' : 'flat';
+          }
         });
-
-        setPriceDirections(updatedDirections);
-        return updated;
+        return { ...prev, ...newPrices };
       });
-    }, 2000);
 
-    return () => clearInterval(interval);
+      setPriceDirections(prev => ({ ...prev, ...newDirections }));
+      setIsLoadingPrice(false);
+    };
+
+    fetchAllLivePrices();
+    const interval = setInterval(fetchAllLivePrices, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return {
@@ -75,3 +89,4 @@ export function useMarketTicker() {
     setIsLoadingPrice
   };
 }
+

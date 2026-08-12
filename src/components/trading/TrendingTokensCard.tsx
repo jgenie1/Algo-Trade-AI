@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ArrowUpRight, ArrowDownRight, RefreshCw, Flame } from 'lucide-react';
 import { getBnbPrice } from '@/services/pancakeSwapService';
 import { tokenList } from '@/config/tokens';
-import { cn } from '@/lib/utils';
+import { cn, getRealMarketBasePrice } from '@/lib/utils';
 
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 
@@ -28,23 +28,23 @@ export default function TrendingTokensCard() {
       // Priorité 1: CoinMarketCap Pro API (Serveur Proxy Confidentiel)
       const cmcData = await fetchCoinMarketCapQuotes(['BTC', 'ETH', 'SOL', 'BNB', 'LINK']);
       if (cmcData) {
-        const buildToken = (name: string, sym: string, fallbackPrice: number): TokenDisplay => {
+        const buildToken = (name: string, sym: string): TokenDisplay => {
           const q = cmcData[sym]?.quote?.USD;
           return {
             name,
             symbol: sym,
             iconUrl: tokenList.find(t => t.symbol === sym)?.iconUrl || '',
-            price: q ? q.price : fallbackPrice,
+            price: q ? q.price : (getRealMarketBasePrice(sym) || 0),
             change24h: q ? q.percent_change_24h : 0
           };
         };
 
         const updatedTokens: TokenDisplay[] = [
-          buildToken('Bitcoin', 'BTC', 65000.00),
-          buildToken('Ethereum', 'ETH', 3400.00),
-          buildToken('Solana', 'SOL', 145.50),
-          buildToken('Binance Coin', 'BNB', 580.00),
-          buildToken('Chainlink', 'LINK', 14.50),
+          buildToken('Bitcoin', 'BTC'),
+          buildToken('Ethereum', 'ETH'),
+          buildToken('Solana', 'SOL'),
+          buildToken('Binance Coin', 'BNB'),
+          buildToken('Chainlink', 'LINK'),
         ];
 
         setTokens(updatedTokens);

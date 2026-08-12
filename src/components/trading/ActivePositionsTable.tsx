@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Activity, Eye, TrendingUp, TrendingDown } from 'lucide-react';
-import { cn, formatSmartPnl } from '@/lib/utils';
+import { cn, formatSmartPnl, getRealMarketBasePrice } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { 
   Table, 
@@ -36,7 +36,7 @@ export default function ActivePositionsTable({
   const totalLiveProfit = filteredPositions.reduce((acc: number, p: any) => {
     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
     const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
     const priceDiff = current - entry;
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
@@ -91,7 +91,7 @@ export default function ActivePositionsTable({
               {filteredPositions.map((p: any, idx: number) => {
                 const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                 const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-                const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+                const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
                 const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
                 const priceDiff = current - entry;
                 const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
@@ -190,7 +190,7 @@ export default function ActivePositionsTable({
                   {filteredPositions.map((p: any, idx: number) => {
                     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-                    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+                    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
                     const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
                     const priceDiff = current - entry;
                     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;

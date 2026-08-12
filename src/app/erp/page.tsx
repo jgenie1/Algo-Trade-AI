@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Building2, FileSpreadsheet, BarChart3, ShieldAlert, Cpu } from 'lucide-react';
-import { cn, formatUsdToHtg, SOL_USD_RATE } from '@/lib/utils';
+import { cn, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export default function SaaSERPPage() {
     });
   }, []);
 
-  const solPriceUsd = SOL_USD_RATE || 145.0;
+  const solPriceUsd = getRealMarketBasePrice('SOL') || 145.0;
 
   // Mode filtering
   const modePositions = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode);
@@ -44,7 +44,7 @@ export default function SaaSERPPage() {
   let openPositionsPnLUsd = 0;
   let openPositionsMarginUsd = 0;
   modePositions.forEach(p => {
-    const entry = typeof p.entryPrice === 'number' && p.entryPrice > 0 ? p.entryPrice : 145.50;
+    const entry = typeof p.entryPrice === 'number' && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
     const current = entry;
     const priceDiff = current - entry;
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;

@@ -5,40 +5,52 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export const SOL_USD_RATE = 145.0;
+// Dynamic live price cache updated from real API feeds (CoinMarketCap, Binance, ExchangeRate API)
+const liveMarketPricesStore: Record<string, number> = {};
+
+/**
+ * Updates the global live market price cache when an API returns a fresh quote.
+ */
+export function updateLiveMarketPrice(pair: string, price: number): void {
+  if (typeof price === 'number' && !isNaN(price) && price > 0) {
+    const cleanKey = pair.replace('FX:', '').replace('-USD', '').replace('=', '').toUpperCase();
+    liveMarketPricesStore[pair] = price;
+    liveMarketPricesStore[cleanKey] = price;
+  }
+}
+
+/**
+ * Returns the current live market price for a given pair from real API feeds.
+ */
+export function getRealMarketBasePrice(pair: string): number {
+  if (!pair) return liveMarketPricesStore['SOL'] || liveMarketPricesStore['SOL-USD'] || 0;
+  const p = pair.toUpperCase();
+  const cleanKey = p.replace('FX:', '').replace('-USD', '').replace('=', '');
+
+  if (liveMarketPricesStore[pair] && liveMarketPricesStore[pair] > 0) {
+    return liveMarketPricesStore[pair];
+  }
+  if (liveMarketPricesStore[cleanKey] && liveMarketPricesStore[cleanKey] > 0) {
+    return liveMarketPricesStore[cleanKey];
+  }
+
+  return 0;
+}
+
+/**
+ * Returns the live SOL/USD price from real API feeds.
+ */
+export function getSolUsdRate(): number {
+  return liveMarketPricesStore['SOL'] || liveMarketPricesStore['SOL-USD'] || 0;
+}
+
+export const SOL_USD_RATE = 145.0; // Legacy fallback; live market API prices are used across app
 
 // IMPORTANT: This value must be STABLE between SSR and first client render.
 // It is only updated via setClientUsdHtgRate() after React hydration completes.
 // This prevents the "Hydration failed" error caused by localStorage reads during SSR.
 let cachedUsdHtgRate = 130.77;
 let _isClientRateLoaded = false;
-
-export function getRealMarketBasePrice(pair: string): number {
-  if (!pair) return 145.50;
-  const p = pair.toUpperCase();
-  if (p.includes('EURUSD')) return 1.0850;
-  if (p.includes('GBPUSD')) return 1.3300;
-  if (p.includes('USDJPY')) return 154.50;
-  if (p.includes('AUDUSD')) return 0.6550;
-  if (p.includes('USDCAD')) return 1.3750;
-  if (p.includes('USDCHF')) return 0.8850;
-  if (p.includes('EURGBP')) return 0.8520;
-  if (p.includes('EURJPY')) return 167.50;
-  if (p.includes('GBPJPY')) return 196.50;
-  if (p.includes('BTC')) return 65000.00;
-  if (p.includes('ETH')) return 3400.00;
-  if (p.includes('SOL')) return 145.50;
-  if (p.includes('BNB')) return 580.00;
-  if (p.includes('XRP')) return 0.58;
-  if (p.includes('ADA')) return 0.38;
-  if (p.includes('DOGE')) return 0.12;
-  if (p.includes('LINK')) return 14.50;
-  if (p.includes('AVAX')) return 28.50;
-  if (p.includes('GOLD')) return 2400.00;
-  if (p.includes('SILVER')) return 28.50;
-  if (p.includes('OIL')) return 78.50;
-  return 145.50;
-}
 
 /**
  * Returns the current USD→HTG rate.

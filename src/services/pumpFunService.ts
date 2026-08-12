@@ -7,6 +7,8 @@ import {
   Transaction,
   clusterApiUrl,
 } from '@solana/web3.js';
+import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
+import { getRealMarketBasePrice } from '@/lib/utils';
 import bs58 from 'bs58';
 
 export interface PumpCoin {
@@ -155,7 +157,7 @@ export async function fetchPumpCoin(mint: string): Promise<PumpCoin | null> {
           virtual_sol_reserves: solReserves,
           virtual_token_reserves: tokenReserves,
           total_supply: 1000000000000000,
-          market_cap: p.fdv ? p.fdv / 145 : (solReserves / 1e9) * 1.5,
+          market_cap: p.fdv ? p.fdv / (getRealMarketBasePrice('SOL') || 145) : (solReserves / 1e9) * 1.5,
           reply_count: 10
         };
       }
@@ -787,7 +789,7 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   
   // Calculate Market Cap & Liquidity
   const solReserves = (coin.virtual_sol_reserves || 0) / 1e9;
-  const solPriceUsd = 145.5; // Sol live reference
+  const solPriceUsd = getRealMarketBasePrice('SOL') || 145.5; // Sol live market price from API
   const marketCapUsd = coin.usd_market_cap || Math.round((coin.market_cap || 0) * solPriceUsd) || Math.round(solReserves * solPriceUsd * 2.5);
   const liquiditySol = solReserves;
   

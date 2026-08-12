@@ -1,5 +1,6 @@
 
 import { fetchCoinMarketCapQuotes } from './coinmarketcapService';
+import { updateLiveMarketPrice } from '@/lib/utils';
 
 export interface Candle {
   time: number; // timestamp in seconds
@@ -71,6 +72,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
       if (cmcData && cmcData[cleanSymbol] && cmcData[cleanSymbol].quote?.USD) {
         const quote = cmcData[cleanSymbol].quote.USD;
         const livePrice = quote.price;
+        updateLiveMarketPrice(cleanSymbol, livePrice);
         const volume = quote.volume_24h || 10000;
 
         const candles: Candle[] = [];
@@ -123,6 +125,10 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
             volume: parseFloat(k[5] || '0')
           }));
 
+          if (candles.length > 0) {
+            updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
+          }
+
           candleCache[cacheKey] = { candles, timestamp: Date.now() };
           return candles;
         }
@@ -172,9 +178,11 @@ function buildCandlesFromRates(rates: Record<string, any>, cleanSymbol: string, 
   else if (cleanSymbol === 'EURGBP' || cleanSymbol === 'EUR/GBP') livePrice = (rates.EUR && rates.GBP) ? (parseFloat(rates.GBP) / parseFloat(rates.EUR)) : 0.8520;
   else if (cleanSymbol === 'EURJPY' || cleanSymbol === 'EUR/JPY') livePrice = rates.EUR ? (parseFloat(rates.JPY) / parseFloat(rates.EUR)) : 167.50;
   else if (cleanSymbol === 'GBPJPY' || cleanSymbol === 'GBP/JPY') livePrice = rates.GBP ? (parseFloat(rates.JPY) / parseFloat(rates.GBP)) : 196.50;
-  else if (cleanSymbol === 'GOLD') livePrice = 2415.00;
-  else if (cleanSymbol === 'SILVER') livePrice = 28.50;
+  else if (cleanSymbol === 'GOLD') livePrice = rates.XAU ? (1 / parseFloat(rates.XAU)) : 2415.00;
+  else if (cleanSymbol === 'SILVER') livePrice = rates.XAG ? (1 / parseFloat(rates.XAG)) : 28.50;
   else if (cleanSymbol === 'OIL') livePrice = 78.50;
+
+  updateLiveMarketPrice(cleanSymbol, livePrice);
 
   const candles: Candle[] = [];
   const nowSec = Math.floor(Date.now() / 1000);

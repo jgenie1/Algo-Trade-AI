@@ -13,6 +13,7 @@ import {
 import { AlertOctagon, ShieldAlert, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
 import { dispatchAlert } from '@/services/notificationService';
+import { getRealMarketBasePrice } from '@/lib/utils';
 
 export default function PanicKillSwitch() {
   const { 
@@ -42,7 +43,7 @@ export default function PanicKillSwitch() {
     const safePositions = Array.isArray(activePositions) ? activePositions : [];
     const positionsToClose = safePositions.map(pos => {
       const margin = typeof pos.amount === 'number' && !isNaN(pos.amount) ? pos.amount : 0;
-      const entry = typeof pos.entryPrice === 'number' && !isNaN(pos.entryPrice) && pos.entryPrice > 0 ? pos.entryPrice : 145.50;
+      const entry = typeof pos.entryPrice === 'number' && !isNaN(pos.entryPrice) && pos.entryPrice > 0 ? pos.entryPrice : getRealMarketBasePrice(pos.pair);
       const current = pos.currentPrice || entry;
       const priceDiff = current - entry;
       const pctDiff = entry > 0 ? (priceDiff / entry) : 0;

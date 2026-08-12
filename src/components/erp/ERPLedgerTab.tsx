@@ -15,7 +15,7 @@ import {
   ExternalLink,
   Download
 } from 'lucide-react';
-import { cn, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 
 interface TransactionItem {
   id: string;
@@ -42,7 +42,7 @@ export default function ERPLedgerTab({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
 
-  const solPriceUsd = 145.0;
+  const solPriceUsd = getRealMarketBasePrice('SOL') || 145.0;
 
   // Filter transactions
   const filteredTxs = transactions.filter(tx => {
