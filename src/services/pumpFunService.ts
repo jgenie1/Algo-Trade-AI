@@ -1104,7 +1104,7 @@ export interface SweepResult {
 function privateKeyToKeypair(privateKey: string): Keypair {
   const value = privateKey.trim();
 
-  // Base58 private key
+  // Base58 private key (standard Solana format)
   try {
     const decoded = bs58.decode(value);
 
@@ -1125,6 +1125,20 @@ function privateKeyToKeypair(privateKey: string): Keypair {
       if (bytes.length === 64) {
         return Keypair.fromSecretKey(bytes);
       }
+    }
+  } catch {
+    // Invalid format
+  }
+
+  // Base64 format (legacy: keys stored via btoa() before Base58 fix)
+  try {
+    const binaryStr = atob(value);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    if (bytes.length === 64) {
+      return Keypair.fromSecretKey(bytes);
     }
   } catch {
     // Invalid format

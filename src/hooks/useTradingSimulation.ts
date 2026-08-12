@@ -207,10 +207,11 @@ export function useTradingEngine() {
         import('@solana/web3.js').then(({ Keypair }) => {
           const defaultSubs = Array.from({ length: 5 }).map(() => {
             const kp = Keypair.generate();
-            const secretKeyBase64 = btoa(String.fromCharCode(...Array.from(kp.secretKey)));
+            // Store private key as Base58 (standard Solana format)
+            const secretKeyBase58 = bs58.encode(kp.secretKey);
             return {
               publicKey: kp.publicKey.toBase58(),
-              privateKey: secretKeyBase64,
+              privateKey: secretKeyBase58,
               balance: 0
             };
           });
