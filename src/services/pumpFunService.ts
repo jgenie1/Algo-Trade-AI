@@ -256,21 +256,10 @@ export async function executeRealPumpTrade(params: {
     if (solanaPrivateKey) {
       let signer: any;
       try {
-        if (customPrivateKey) {
-          const secretKeyUint8 = new Uint8Array(Buffer.from(customPrivateKey, 'base64'));
-          signer = Keypair.fromSecretKey(secretKeyUint8);
-        } else {
-          const trimmed = solanaPrivateKey.trim();
-          let keyBytes: Uint8Array;
-          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-            keyBytes = new Uint8Array(JSON.parse(trimmed));
-          } else {
-            keyBytes = bs58.decode(trimmed);
-          }
-          signer = Keypair.fromSecretKey(keyBytes);
-        }
+        // Use unified privateKeyToKeypair that supports Base58, Base64, and JSON array
+        signer = privateKeyToKeypair(customPrivateKey || solanaPrivateKey);
       } catch (err) {
-        throw new Error("Format de la clé privée invalide (BS58 ou Array JSON requis).");
+        throw new Error("Format de la clé privée invalide (BS58, Base64 ou Array JSON requis).");
       }
       const publicKeyStr = signer.publicKey.toBase58();
 
@@ -1147,6 +1136,139 @@ function privateKeyToKeypair(privateKey: string): Keypair {
   throw new Error(
     'Clé privée invalide. Utilise une clé secrète Solana Base58 ou un tableau JSON de 64 octets.'
   );
+}
+
+// Mapping of major crypto symbols to their Solana token mint addresses (for Jupiter swaps)
+export const SOLANA_TOKEN_MINTS: Record<string, string> = {
+  'SOL':  'So11111111111111111111111111111111111111112',
+  'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  'USDT': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  'BTC':  '9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E', // wBTC on Solana
+  'ETH':  '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', // wETH on Solana
+  'BNB':  '9gP2kCy3wA1ctvYWQk75guqXuzoJGLrwMJfz92sGxAJi', // wBNB on Solana
+  'LINK': 'CWE8jPTUYhdCTZYWPTe1o5DFqfdjzWKc9WKz6rSjnUdR', // LINK on Solana
+  'AVAX': 'KgV1GvrHQmRBY8sHQQeUKwTm2r2h8t4C8qt12Cw1HVE',  // wAVAX on Solana
+  'DOGE': '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', // DOGE on Solana
+  'XRP':  'Ga7NszZsUnVcQgbMKpCBQPdKFJUb5BCXS9hSYJtnFkx7',  // wXRP on Solana
+  'ADA':  '9f9sE7BqFXmMRYFnLSFLALhLBgSSfHK17v9sBpFJLbTS',  // wADA on Solana
+  'BONK': 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+  'WIF':  'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+};
+
+/**
+ * Execute a real on-chain Jupiter swap for major Solana tokens.
+ * Used by AI bots trading BTC, ETH, SOL, LINK etc. in REAL mode.
+ */
+export async function executeJupiterSwap(params: {
+  action: 'buy' | 'sell';
+  symbol: string;           // e.g. 'BTC', 'ETH', 'LINK'
+  amountSol: number;        // SOL amount to spend (buy) or receive (sell)
+  customPrivateKey?: string;
+  slippageBps?: number;
+}): Promise<{ success: boolean; txHash?: string; error?: string; walletUsed?: string }> {
+  const { action, symbol, amountSol, customPrivateKey, slippageBps = 100 } = params;
+
+  const tokenMint = SOLANA_TOKEN_MINTS[symbol.toUpperCase()];
+  if (!tokenMint) {
+    return { success: false, error: `Aucun mint Solana trouvé pour ${symbol}. Paire non supportée on-chain.` };
+  }
+
+  const SOL_MINT = SOLANA_TOKEN_MINTS['SOL'];
+
+  // Determine input/output mints based on action
+  const inputMint  = action === 'buy'  ? SOL_MINT : tokenMint;
+  const outputMint = action === 'buy'  ? tokenMint : SOL_MINT;
+
+  try {
+    const { Keypair, VersionedTransaction, Connection } = await import('@solana/web3.js');
+    const { default: bs58 } = await import('bs58');
+
+    // Resolve private key
+    let privKeyStr = customPrivateKey || '';
+    if (!privKeyStr && typeof window !== 'undefined') {
+      privKeyStr = localStorage.getItem('settings_solana_private_key') || '';
+    }
+    if (!privKeyStr) privKeyStr = process.env.SOLANA_PRIVATE_KEY || '';
+
+    if (!privKeyStr) {
+      return { success: false, error: 'Aucune clé privée Solana configurée pour les swaps Jupiter.' };
+    }
+
+    const signer = privateKeyToKeypair(privKeyStr);
+    const publicKeyStr = signer.publicKey.toBase58();
+
+    // Calculate lamports
+    const amountLamports = Math.floor(amountSol * 1_000_000_000);
+    if (amountLamports < 1000) {
+      return { success: false, error: 'Montant trop faible pour un swap Jupiter (minimum ~0.000001 SOL).' };
+    }
+
+    // 1. Get Jupiter quote
+    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${slippageBps}`;
+    const quoteRes = await fetch(quoteUrl, { cache: 'no-store' });
+    if (!quoteRes.ok) {
+      const txt = await quoteRes.text();
+      return { success: false, error: `Jupiter quote échoué: ${txt}` };
+    }
+    const quoteData = await quoteRes.json();
+
+    // 2. Get swap transaction from Jupiter
+    const swapRes = await fetch('https://quote-api.jup.ag/v6/swap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteResponse: quoteData,
+        userPublicKey: publicKeyStr,
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: 'auto'
+      })
+    });
+    if (!swapRes.ok) {
+      const txt = await swapRes.text();
+      return { success: false, error: `Jupiter swap tx échoué: ${txt}` };
+    }
+    const { swapTransaction } = await swapRes.json();
+
+    // 3. Deserialize, sign, and send transaction
+    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+      (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
+      'https://solana-rpc.publicnode.com';
+    const connection = new Connection(rpcUrl, { commitment: 'confirmed' });
+
+    const txBytes = Buffer.from(swapTransaction, 'base64');
+    const tx = VersionedTransaction.deserialize(txBytes);
+    tx.sign([signer]);
+
+    const signature = await connection.sendTransaction(tx, {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+      maxRetries: 3
+    });
+
+    // 4. Confirm transaction
+    try {
+      const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+      await connection.confirmTransaction({
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+      }, 'confirmed');
+      console.log(`[JUPITER SWAP CONFIRMED] ${action.toUpperCase()} ${symbol} | Sig: ${signature} | Wallet: ${publicKeyStr}`);
+    } catch (confErr) {
+      console.warn(`[JUPITER SWAP SENT] ${signature} - confirmation en cours...`);
+    }
+
+    return {
+      success: true,
+      txHash: signature,
+      walletUsed: publicKeyStr
+    };
+
+  } catch (err: any) {
+    console.error('[JUPITER SWAP ERROR]', err);
+    return { success: false, error: err?.message || 'Erreur Jupiter swap inconnue.' };
+  }
 }
 
 /**

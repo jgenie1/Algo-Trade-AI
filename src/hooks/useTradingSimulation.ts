@@ -12,6 +12,8 @@ import {
   fetchPumpCoin, 
   getPumpFunWsUrl, 
   executeRealPumpTrade, 
+  executeJupiterSwap,
+  SOLANA_TOKEN_MINTS,
   getRealSolanaBalance, 
   checkSolanaNetworkHealth, 
   getMultipleSolanaBalances, 
@@ -1278,10 +1280,44 @@ export function useTradingEngine() {
                   mode: bot.mode || tradingModeRef.current
                 };
 
-                setActivePositions(prev => {
-                  if (prev.some(x => x.id === newPos.id || (x.botId === bot.id && x.pair === newPos.pair))) return prev;
-                  return [...prev, newPos];
-                });
+                // Determine if this pair has a Solana on-chain token (crypto) or is Forex (virtual only)
+                const pairSymbol = currentPair.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
+                const isCryptoPair = !!SOLANA_TOKEN_MINTS[pairSymbol];
+                const isForexPair = currentPair.startsWith('FX:') || (!isCryptoPair && (currentPair.includes('USD') || currentPair.includes('JPY') || currentPair.includes('GBP') || currentPair.includes('EUR')));
+
+                if (isRealMode && isCryptoPair && signal === 'BUY') {
+                  // Execute real on-chain Jupiter swap for crypto pairs
+                  const botSubIdx = (bot.subWallet || 1) - 1;
+                  const botSubKey = subWalletsRef.current[botSubIdx]?.privateKey;
+                  addBotLogRef.current(bot.id, bot.strategy, `[JUPITER SWAP RÉEL] Achat on-chain ${pairSymbol} via Jupiter (${calculatedTradeAmt.toFixed(4)} SOL)...`, 'info');
+
+                  executeJupiterSwap({
+                    action: 'buy',
+                    symbol: pairSymbol,
+                    amountSol: calculatedTradeAmt,
+                    customPrivateKey: botSubKey,
+                    slippageBps: 150
+                  }).then(res => {
+                    if (res.success && res.txHash) {
+                      addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT RÉEL RÉUSSI] Hash: ${res.txHash.slice(0, 16)}... Wallet: ${res.walletUsed?.slice(0, 8) ?? ''}...`, 'trade');
+                      setActivePositions(prev => {
+                        if (prev.some(x => x.id === newPos.id)) return prev;
+                        return [...prev, { ...newPos, txHash: res.txHash }];
+                      });
+                    } else {
+                      addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT ÉCHOUÉ] ${res.error || 'Erreur réseau'}. Position non ouverte.`, 'error');
+                    }
+                  });
+                } else {
+                  // Virtual execution: DEMO mode OR Forex pair OR no on-chain support
+                  if (isRealMode && isForexPair) {
+                    addBotLogRef.current(bot.id, bot.strategy, `[FOREX VIRTUEL] ${cleanPair} non tradable on-chain Solana. Suivi virtuel sur prix réels.`, 'info');
+                  }
+                  setActivePositions(prev => {
+                    if (prev.some(x => x.id === newPos.id || (x.botId === bot.id && x.pair === newPos.pair))) return prev;
+                    return [...prev, newPos];
+                  });
+                }
 
                 addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
                 signalOpened = true;
@@ -1468,9 +1504,47 @@ export function useTradingEngine() {
     }
 
     const isRealSolanaPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && (mintAddress.length >= 32 && mintAddress.length <= 44 || !!p.txHash);
+
+    // Check if this is a Jupiter crypto position (has txHash from Jupiter buy, not a Pump.fun mint)
+    const pairSymbolForSell = (p.pair || '').replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
+    const isJupiterCryptoPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && !!SOLANA_TOKEN_MINTS[pairSymbolForSell] && !!p.txHash && !(mintAddress.length >= 32 && mintAddress.length <= 44);
+
     let sellTxHash: string | undefined = undefined;
 
-    if (isRealSolanaPos && mintAddress && !mintAddress.startsWith('ukhh')) {
+    if (isJupiterCryptoPos) {
+      // Sell via Jupiter for crypto positions bought on-chain
+      const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
+      const botSubIndex = (botConfig?.subWallet || 1) - 1;
+      const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey;
+      const sourceLabel = p.botId || 'manual';
+      const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
+
+      addBotLog(sourceLabel, botOrManualName, `[JUPITER VENTE RÉELLE] Vente on-chain ${pairSymbolForSell} via Jupiter...`, 'info');
+
+      try {
+        const res = await executeJupiterSwap({
+          action: 'sell',
+          symbol: pairSymbolForSell,
+          amountSol: p.amount,
+          customPrivateKey: botSubWalletKey,
+          slippageBps: 150
+        });
+
+        if (res && res.success && res.txHash) {
+          sellTxHash = res.txHash;
+          addBotLog(sourceLabel, botOrManualName, `[JUPITER VENTE RÉUSSIE] Hash: ${res.txHash.slice(0, 16)}... SOL reçus.`, 'trade');
+        } else {
+          addBotLog(sourceLabel, botOrManualName, `[JUPITER VENTE ÉCHOUÉE] ${res?.error || 'Erreur réseau.'}. Position reste ouverte.`, 'error');
+          if (typeof window !== 'undefined') {
+            alert(`⚠️ Vente Jupiter annulée : ${res?.error || 'Échec'}. La position reste active.`);
+          }
+          return;
+        }
+      } catch (sellErr: any) {
+        addBotLog(p.botId || 'manual', 'Bot', `[JUPITER VENTE ÉCHOUÉE] ${sellErr.message || 'Erreur inconnue'}. Position reste ouverte.`, 'error');
+        return;
+      }
+    } else if (isRealSolanaPos && mintAddress && !mintAddress.startsWith('ukhh')) {
       const parts = (p.pair || '').split(':');
       const cleanSymbol = parts[2] || parts[0] || 'TOKEN';
       const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
