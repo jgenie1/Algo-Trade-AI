@@ -920,6 +920,9 @@ export function useTradingEngine() {
               const isBotReal = tradingModeRef.current === 'REAL';
               if (isBotReal) {
                 const priority = bot.priorityFee || (typeof window !== 'undefined' ? parseFloat(localStorage.getItem('settings_priority_fee') || '0.001') : 0.001);
+                const botSubIndex = (bot.subWallet || 1) - 1;
+                const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey;
+
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${matchingCoin.symbol}...`, 'info');
                 
                 executeRealPumpTrade({
@@ -928,7 +931,8 @@ export function useTradingEngine() {
                   amount: bot.capital,
                   denominatedInSol: true,
                   slippage: 5,
-                  priorityFee: priority
+                  priorityFee: priority,
+                  customPrivateKey: botSubWalletKey
                 }).then((res) => {
                   if (res && res.success && res.txHash) {
                     addBotLogRef.current(bot.id, bot.strategy, `[ACHAT RÉEL RÉUSSI] Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
