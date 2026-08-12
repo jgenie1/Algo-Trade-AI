@@ -13,6 +13,7 @@ import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCr
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
 import { sweepSubWalletProfitToMaster } from '@/services/pumpFunService';
+import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -270,8 +271,18 @@ export default function TradingBotsManager({
       return;
     }
 
-    const amountToMaster =
-      profitToClaim * 0.90;
+    // Check if pair is Forex (USD quote) needing conversion to SOL
+    const isForexPair = targetBot.pair.startsWith('FX:') || targetBot.pair.includes('USD') && !['BTC', 'ETH', 'SOL', 'BNB', 'LINK'].includes(targetBot.pair);
+    let realProfitSol = profitToClaim;
+
+    if (isForexPair) {
+      // Fetch live SOL price from CoinMarketCap Pro API
+      const cmcRes = await fetchCoinMarketCapQuotes(['SOL']);
+      const cmcSolPrice = cmcRes?.['SOL']?.quote?.USD?.price || 145;
+      realProfitSol = profitToClaim / cmcSolPrice;
+    }
+
+    const amountToMaster = realProfitSol * 0.90;
 
     if (amountToMaster <= 0) {
       alert(
@@ -285,13 +296,11 @@ export default function TradingBotsManager({
         `Transférer réellement ${amountToMaster.toFixed(
           6
         )} SOL vers votre portefeuille connecté ?\n\n` +
-          `Profit: ${profitToClaim.toFixed(
-            6
-          )} SOL\n` +
+          `Profit: ${isForexPair ? `$${profitToClaim.toFixed(2)} USD (CoinMarketCap ➔ ${realProfitSol.toFixed(6)} SOL)` : `${profitToClaim.toFixed(6)} SOL`}\n` +
           `Part transférée: ${amountToMaster.toFixed(
             6
           )} SOL\n` +
-          `Réserve interne: ${(profitToClaim * 0.10).toFixed(
+          `Réserve interne: ${(realProfitSol * 0.10).toFixed(
             6
           )} SOL`
       )

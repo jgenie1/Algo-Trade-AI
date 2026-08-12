@@ -5,6 +5,7 @@ import { useAppState } from '@/context/AppContext';
 import { saveFullState, saveBotLearnings } from '@/lib/firebase';
 import { formatSmartPnl } from '@/lib/utils';
 import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
+import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
 import { 
   fetchLatestPumpCoins, 
@@ -490,7 +491,7 @@ export function useTradingEngine() {
                 }
               } catch (e) {}
             }
-          } else if (!['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'LINK', 'AVAX'].includes(pairVal)) {
+          } else {
             try {
               const candles = await fetchLiveMarketData(pairVal, '15');
               if (candles.length > 0) {
@@ -505,6 +506,16 @@ export function useTradingEngine() {
           }
         })
       );
+
+      // Always fetch live SOL quote directly from CoinMarketCap Pro API
+      try {
+        const cmcSol = await fetchCoinMarketCapQuotes(['SOL']);
+        if (cmcSol && cmcSol['SOL']?.quote?.USD?.price) {
+          const solCmcPrice = cmcSol['SOL'].quote.USD.price;
+          newPrices['SOL-USD'] = solCmcPrice;
+          newPrices['SOL'] = solCmcPrice;
+        }
+      } catch (e) {}
 
       if (Object.keys(newPrices).length > 0) {
         setLivePrices(prev => ({ ...prev, ...newPrices }));
@@ -1630,13 +1641,16 @@ export function useTradingEngine() {
           let netProfitSol: number;
 
           if (isForex) {
-            // Convert USD profit → SOL using live price
-            const rawSolPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL/USD'] ?? 145;
-            const solPrice = typeof rawSolPrice === 'number' && rawSolPrice > 1 ? rawSolPrice : 145;
+            // Convert USD profit → SOL using live CoinMarketCap price
+            let solPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'];
+            if (!solPrice || solPrice <= 1) {
+              const cmcData = await fetchCoinMarketCapQuotes(['SOL']);
+              solPrice = cmcData?.['SOL']?.quote?.USD?.price || 145;
+            }
             const profitUsd = profit; // profit is in quote currency (USD-like for Forex)
             netProfitSol = (profitUsd / solPrice) * 0.90;
             addBotLog(p.botId, botObj?.strategy || 'Bot',
-              `[CONVERSION FOREX→SOL] Gain: ${profitUsd.toFixed(4)} USD ÷ ${solPrice.toFixed(2)} $/SOL = ${netProfitSol.toFixed(6)} SOL net. Transfert vers ${masterPubKey.slice(0, 8)}...`,
+              `[CONVERSION FOREX→SOL (CoinMarketCap API)] Gain: $${profitUsd.toFixed(4)} ÷ ${solPrice.toFixed(2)} $/SOL (CMC) = ${netProfitSol.toFixed(6)} SOL net. Transfert vers ${masterPubKey.slice(0, 8)}...`,
               'info'
             );
           } else {
