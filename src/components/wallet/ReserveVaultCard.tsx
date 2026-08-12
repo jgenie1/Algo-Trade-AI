@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAppState } from '@/context/AppContext';
-import { formatSolToUsdAndHtg, formatUsdToHtg, cn } from '@/lib/utils';
+import { formatSolToUsdAndHtg, formatUsdToHtg, cn, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { getBscProfitVaultStatus, depositProfitToBscVault, withdrawProfitFromBscVault, BscProfitVaultStatus } from '@/services/pancakeSwapService';
 import { SupportedChain, SUPPORTED_CHAINS, getCrossChainRoutes, executeCrossChainTransfer } from '@/services/crossChainRouterService';
@@ -315,7 +315,7 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
             </div>
             <div className="text-right">
               <div className="text-2xl font-black text-amber-300 font-headline tracking-tight">
-                {isReal ? `${vaultAmount.toFixed(4)} SOL` : `$${vaultAmount.toFixed(2)}`}
+                {isReal ? formatSmartCrypto(vaultAmount, 'SOL') : `$${(vaultAmount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
               <div className="text-[11px] text-white/40 font-mono font-medium">
                 {isReal ? formatSolToUsdAndHtg(vaultAmount).combinedLabel : `≈ ${formatUsdToHtg(vaultAmount)}`}
@@ -360,7 +360,7 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
                     Mettre en Réserve
                   </span>
                   <span className="text-[10px] text-white/40 font-mono">
-                    Dispo: {isReal ? `${activeBalance.toFixed(4)} SOL` : `$${activeBalance.toFixed(2)}`}
+                    Dispo: {isReal ? formatSmartCrypto(activeBalance, 'SOL') : `$${(activeBalance || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </span>
                 </div>
 
@@ -420,7 +420,7 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
                     Débloquer au Solde Principal
                   </span>
                   <span className="text-[10px] text-amber-300/80 font-mono font-bold">
-                    Coffre: {isReal ? `${vaultAmount.toFixed(4)} SOL` : `$${vaultAmount.toFixed(2)}`}
+                    Coffre: {isReal ? formatSmartCrypto(vaultAmount, 'SOL') : `$${(vaultAmount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </span>
                 </div>
 

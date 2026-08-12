@@ -9,7 +9,7 @@ import {
   History,
   RotateCcw
 } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
 import { sweepSubWalletProfitToMaster } from '@/services/pumpFunService';
@@ -1035,8 +1035,8 @@ export default function TradingBotsManager({
               </label>
               <span className="text-xs text-emerald-400 font-mono font-bold">
                 {tradingMode === 'REAL'
-                  ? `Allocable: ${allocatableBalance.toFixed(3)} SOL (Hors Coffre ${currentReserveVault.toFixed(3)} SOL)`
-                  : `Allocable: $${allocatableBalance.toFixed(2)} (Hors Coffre $${currentReserveVault.toFixed(2)})`}
+                  ? `Allocable: ${formatSmartCrypto(allocatableBalance, 'SOL')} (Hors Coffre ${formatSmartCrypto(currentReserveVault, 'SOL')})`
+                  : `Allocable: ${formatSmartNumber(allocatableBalance, '$')} (Hors Coffre ${formatSmartNumber(currentReserveVault, '$')})`}
               </span>
             </div>
             <Input
@@ -1092,7 +1092,7 @@ export default function TradingBotsManager({
                     title="Encaisser tous les gains accumulés par les robots vers votre solde / Wallet Phantom."
                     className="h-7 px-2.5 text-[10px] font-extrabold uppercase rounded-lg bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90 flex items-center gap-1 font-headline shadow-[0_0_12px_rgba(194,255,12,0.35)]"
                   >
-                    💰 Tout Encaisser (+{totalClaimableProfits.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'})
+                    💰 Tout Encaisser ({formatSmartPnl(totalClaimableProfits, tradingMode === 'REAL')} {tradingMode === 'REAL' ? 'SOL' : '$'})
                   </Button>
                 )}
                 {tradingMode === 'DEMO' && (
@@ -1163,7 +1163,7 @@ export default function TradingBotsManager({
                           )}
                         </div>
                         <div className="text-xs font-extrabold text-slate-200 font-mono mt-1">
-                          Capital: {((b.mode || tradingMode) === 'REAL' && (b.capital || 0) > 50 ? 0.5 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000)).toFixed(2)} {(b.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}
+                          Capital: {formatSmartCrypto(((b.mode || tradingMode) === 'REAL' && (b.capital || 0) > 50 ? 0.5 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000)), (b.mode || tradingMode) === 'REAL' ? 'SOL' : '$')}
                         </div>
                       </div>
 
@@ -1172,7 +1172,7 @@ export default function TradingBotsManager({
                           "font-extrabold font-mono text-sm block",
                           (b.netProfit || 0) >= 0 ? "text-[#c2ff0c]" : "text-rose-400"
                         )}>
-                          {(b.netProfit || 0) >= 0 ? '+' : ''}{(b.netProfit || 0).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                          {formatSmartPnl(b.netProfit || 0, tradingMode === 'REAL')} {tradingMode === 'REAL' ? 'SOL' : '$'}
                         </span>
                         <span className="text-xs text-slate-300 font-extrabold font-mono block">PnL Net</span>
                       </div>
@@ -1186,7 +1186,7 @@ export default function TradingBotsManager({
                         onClick={() => handleClaimBotProfit(b.id)}
                         className="w-full h-8 text-[11px] font-extrabold uppercase rounded-lg bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black border border-[#c2ff0c]/50 shadow-[0_0_15px_rgba(194,255,12,0.3)] hover:shadow-[0_0_20px_rgba(194,255,12,0.5)] flex items-center justify-center gap-1.5 transition-all font-headline"
                       >
-                        💰 Encaisser +{(b.netProfit || b.pnl || 0).toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'} vers Wallet Phantom
+                        💰 Encaisser {formatSmartPnl(b.netProfit || b.pnl || 0, tradingMode === 'REAL')} {tradingMode === 'REAL' ? 'SOL' : '$'} vers Wallet Phantom
                       </Button>
                     )}
 

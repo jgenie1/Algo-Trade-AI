@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { RefreshCw, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatSmartCrypto } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -145,7 +145,7 @@ export default function MultiWalletsManager({
                   </TableCell>
                   <TableCell className="py-2.5 text-right pr-3 font-bold text-purple-300 font-body text-xs border-none">
                     {w.balance !== null ? (
-                      `${w.balance.toFixed(4)} SOL`
+                      formatSmartCrypto(w.balance, 'SOL')
                     ) : (
                       <span className="text-white/30 text-[10px] animate-pulse">Chargement RPC...</span>
                     )}

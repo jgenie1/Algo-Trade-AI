@@ -40,7 +40,7 @@ import {
   type SwapToken 
 } from '@/services/dexSwapService';
 import { useAppState } from '@/context/AppContext';
-import { cn, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatUsdToHtg, formatSmartPrice, formatSmartCrypto } from '@/lib/utils';
 
 interface WalletTokenPortfolioProps {
   solanaPubKey: string | null;
@@ -337,7 +337,7 @@ export default function WalletTokenPortfolio({
 
                         <div className="text-right shrink-0">
                           <span className="text-[10px] text-white/50 block font-mono">
-                            ${token.priceUsd < 0.01 ? token.priceUsd.toFixed(6) : token.priceUsd.toFixed(2)}
+                            ${formatSmartPrice(token.priceUsd, token.symbol)}
                           </span>
                           <span className="text-sm font-black text-[#c2ff0c] font-headline block">
                             ${token.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -456,7 +456,7 @@ export default function WalletTokenPortfolio({
                           </TableCell>
 
                           <TableCell className="py-3.5 text-right font-mono text-xs text-white/70 border-none">
-                            ${token.priceUsd < 0.01 ? token.priceUsd.toFixed(6) : token.priceUsd.toFixed(2)}
+                            ${formatSmartPrice(token.priceUsd, token.symbol)}
                           </TableCell>
 
                           <TableCell className="py-3.5 text-right font-headline text-xs font-bold text-[#c2ff0c] border-none">

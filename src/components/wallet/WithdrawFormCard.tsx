@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Wallet, DollarSign, Coins } from 'lucide-react';
-import { formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto } from '@/lib/utils';
 
 interface WithdrawFormCardProps {
   tradingMode: 'DEMO' | 'REAL';
@@ -42,7 +42,7 @@ export default function WithdrawFormCard({
 }: WithdrawFormCardProps) {
   const isReal = tradingMode === 'REAL';
   const availableLabel = isReal 
-    ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL`
+    ? formatSmartCrypto(solanaBalance, 'SOL')
     : `${(balance || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`;
 
   const availableConverted = isReal

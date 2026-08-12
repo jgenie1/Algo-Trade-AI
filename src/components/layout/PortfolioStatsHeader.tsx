@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { RotateCcw, ShieldCheck, Zap, Lock, Activity, Wallet } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAppState } from '@/context/AppContext';
 
@@ -77,8 +77,8 @@ export default function PortfolioStatsHeader({
   const realEquity = (realBalance || 0) + realVaultVal + realAllocatedSol + realUnrealizedPnL + realBotsPnL;
 
   const realBalanceDisplay = realBalance !== null
-    ? `${realBalance.toFixed(4)} ${realCurrency}`
-    : `0.0000 ${isEvmWallet ? evmCurrencyLabel : 'SOL'}`;
+    ? formatSmartCrypto(realBalance, realCurrency)
+    : `0,00 ${isEvmWallet ? evmCurrencyLabel : 'SOL'}`;
 
   const getApproxUsd = () => {
     if (realBalance === null) return null;
@@ -243,7 +243,7 @@ export default function PortfolioStatsHeader({
                 Coffre-Fort (10%)
               </div>
               <div className="text-base sm:text-lg font-black text-amber-300 font-headline tracking-tight">
-                {realVaultVal.toFixed(4)} SOL
+                {formatSmartCrypto(realVaultVal, 'SOL')}
               </div>
               <div className="text-[10px] text-amber-200/80 font-mono font-bold">
                 {formatSolToUsdAndHtg(realVaultVal).combinedLabel}
@@ -257,7 +257,7 @@ export default function PortfolioStatsHeader({
                 Equity Réelle
               </div>
               <div className="text-base sm:text-lg font-black text-white font-headline tracking-tight">
-                {realEquity.toFixed(4)} {realCurrency}
+                {formatSmartCrypto(realEquity, realCurrency)}
               </div>
               {!isEvmWallet && (
                 <div className="text-[10px] text-emerald-400 font-mono font-bold">
@@ -273,7 +273,7 @@ export default function PortfolioStatsHeader({
                 Allocations
               </div>
               <div className="text-base sm:text-lg font-black text-violet-200 font-headline tracking-tight">
-                {realAllocatedSol.toFixed(3)} {realCurrency}
+                {formatSmartCrypto(realAllocatedSol, realCurrency)}
               </div>
               {!isEvmWallet && (
                 <div className="text-[10px] text-white/40 font-mono">

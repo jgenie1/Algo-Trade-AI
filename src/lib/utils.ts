@@ -122,46 +122,159 @@ export function formatUsdToHtg(usdAmount: number | null | undefined, customUsdHt
 }
 
 /**
- * Formate un montant de manière intelligente avec 2, 3 ou 4+ chiffres après la virgule selon la valeur.
- * Élimine les décimales superflues et s'adapte à la précision requise.
+ * Formate un nombre de manière intelligente en adaptant dynamiquement le nombre de décimales.
+ * - Valeurs >= 100 : 2 décimales (ex: 1 250,50)
+ * - Valeurs 1..100 : 2 à 3 décimales (ex: 14,52)
+ * - Valeurs 0.01..1 : 2 à 4 décimales (ex: 0,045)
+ * - Micro-valeurs < 0.001 (Meme Coins, micro SOL) : 4 à 8 décimales sans zéros inutiles (ex: 0,000456)
  */
 export function formatSmartNumber(value: number | undefined | null, symbol?: string): string {
   const val = typeof value === 'number' && !isNaN(value) ? value : 0;
   if (val === 0) return symbol ? `0,00 ${symbol}` : '0,00';
 
   const absVal = Math.abs(val);
-  let formatted = '';
+  let maxDigits = 2;
+  let minDigits = 2;
 
   if (absVal >= 100) {
-    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    minDigits = 2;
+    maxDigits = 2;
   } else if (absVal >= 1) {
-    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  } else if (absVal >= 0.001) {
-    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 4 });
+    minDigits = 2;
+    maxDigits = 3;
+  } else if (absVal >= 0.01) {
+    minDigits = 2;
+    maxDigits = 4;
+  } else if (absVal >= 0.0001) {
+    minDigits = 3;
+    maxDigits = 5;
   } else {
-    formatted = val.toLocaleString('fr-FR', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+    minDigits = 4;
+    maxDigits = 8;
   }
+
+  const formatted = val.toLocaleString('fr-FR', {
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits
+  });
 
   return symbol ? `${formatted} ${symbol}` : formatted;
 }
 
 /**
- * Formate un PnL/Profit avec adaptation automatique intelligente des décimales (2, 3 ou 4+ chiffres).
+ * Formate un solde / montant Crypto (SOL, BNB, ETH, Meme Coins) de manière intelligente.
+ */
+export function formatSmartCrypto(value: number | undefined | null, symbol: string = 'SOL'): string {
+  const val = typeof value === 'number' && !isNaN(value) ? value : 0;
+  if (val === 0) return `0,00 ${symbol}`;
+  const absVal = Math.abs(val);
+
+  let minDigits = 2;
+  let maxDigits = 2;
+
+  if (absVal >= 100) {
+    minDigits = 2;
+    maxDigits = 2;
+  } else if (absVal >= 1) {
+    minDigits = 2;
+    maxDigits = 3;
+  } else if (absVal >= 0.01) {
+    minDigits = 3;
+    maxDigits = 4;
+  } else if (absVal >= 0.0001) {
+    minDigits = 4;
+    maxDigits = 6;
+  } else {
+    minDigits = 4;
+    maxDigits = 8;
+  }
+
+  const formatted = val.toLocaleString('fr-FR', {
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits
+  });
+
+  return `${formatted} ${symbol}`;
+}
+
+/**
+ * Formate un Prix de Marché intelligemment selon la classe d'actif (Forex, JPY, Crypto Majeures, Meme Coins).
+ */
+export function formatSmartPrice(price: number | undefined | null, pair?: string): string {
+  const val = typeof price === 'number' && !isNaN(price) ? price : 0;
+  if (val === 0) return '0,00';
+  const absVal = Math.abs(val);
+
+  const pairUpper = (pair || '').toUpperCase();
+  const isJpy = pairUpper.includes('JPY');
+  const isForex = pairUpper.startsWith('FX:') || pairUpper.includes('EURUSD') || pairUpper.includes('GBPUSD') || pairUpper.includes('AUDUSD') || pairUpper.includes('USDCAD') || pairUpper.includes('USDCHF');
+
+  let minDigits = 2;
+  let maxDigits = 2;
+
+  if (isForex && !isJpy) {
+    minDigits = 4;
+    maxDigits = 5;
+  } else if (isJpy) {
+    minDigits = 2;
+    maxDigits = 3;
+  } else if (absVal >= 1000) {
+    minDigits = 2;
+    maxDigits = 2;
+  } else if (absVal >= 1) {
+    minDigits = 2;
+    maxDigits = 4;
+  } else if (absVal >= 0.0001) {
+    minDigits = 4;
+    maxDigits = 6;
+  } else {
+    minDigits = 4;
+    maxDigits = 8;
+  }
+
+  return val.toLocaleString('fr-FR', {
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits
+  });
+}
+
+/**
+ * Formate un PnL/Profit/Perte avec adaptation automatique intelligente des décimales (2 à 8 chiffres).
  */
 export function formatSmartPnl(value: number | undefined | null, isSol: boolean = false): string {
   const val = typeof value === 'number' && !isNaN(value) ? value : 0;
   if (val === 0) return '0,00';
   const absVal = Math.abs(val);
-  
+
+  let minDigits = 2;
+  let maxDigits = 2;
+
   if (isSol || absVal < 1) {
-    return val.toLocaleString('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: absVal < 0.001 ? 6 : (absVal < 0.1 ? 4 : 3)
-    });
+    if (absVal >= 100) {
+      minDigits = 2;
+      maxDigits = 2;
+    } else if (absVal >= 1) {
+      minDigits = 2;
+      maxDigits = 3;
+    } else if (absVal >= 0.01) {
+      minDigits = 2;
+      maxDigits = 4;
+    } else if (absVal >= 0.0001) {
+      minDigits = 3;
+      maxDigits = 5;
+    } else {
+      minDigits = 4;
+      maxDigits = 7;
+    }
+  } else {
+    minDigits = 2;
+    maxDigits = 2;
   }
-  
-  return val.toLocaleString('fr-FR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4
+
+  const formatted = val.toLocaleString('fr-FR', {
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits
   });
+
+  return val > 0 ? `+${formatted}` : formatted;
 }
