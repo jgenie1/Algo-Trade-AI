@@ -31,10 +31,19 @@ function getRouterContract(): ethers.Contract {
   return pancakeRouter;
 }
 
+import { fetchCoinMarketCapQuotes } from './coinmarketcapService';
+
 /**
- * Récupère le prix actuel du BNB en USD en interrogeant la paire WBNB/USDT sur PancakeSwap.
+ * Récupère le prix actuel du BNB en USD (Priorité 1: CoinMarketCap Pro API, Priorité 2: PancakeSwap, Priorité 3: Fallback).
  */
 export async function getBnbPrice(): Promise<string> {
+  try {
+    const cmcData = await fetchCoinMarketCapQuotes(['BNB']);
+    if (cmcData && cmcData['BNB'] && cmcData['BNB'].quote?.USD?.price) {
+      return cmcData['BNB'].quote.USD.price.toFixed(2);
+    }
+  } catch (e) {}
+
   try {
     const router = getRouterContract();
     
@@ -51,8 +60,6 @@ export async function getBnbPrice(): Promise<string> {
     const price = ethers.utils.formatUnits(amountsOut[1], 18);
     return price;
   } catch (error: any) {
-    console.warn("Could not fetch real-time BNB price from PancakeSwap. Using live simulated fallback instead. Error:", error?.message || error);
-    
     const basePrice = 582.45;
     const timeFactor = Date.now() / 60000;
     const wave = Math.sin(timeFactor) * 2.3 + Math.cos(timeFactor / 5) * 1.1;

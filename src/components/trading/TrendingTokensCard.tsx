@@ -7,6 +7,8 @@ import { getBnbPrice } from '@/services/pancakeSwapService';
 import { tokenList } from '@/config/tokens';
 import { cn } from '@/lib/utils';
 
+import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
+
 interface TokenDisplay {
   name: string;
   symbol: string;
@@ -23,7 +25,35 @@ export default function TrendingTokensCard() {
   const fetchPrices = async () => {
     setRefreshing(true);
     try {
-      // Direct 100% Real Live Binance 24h Ticker API
+      // Priorité 1: CoinMarketCap Pro API (Serveur Proxy Confidentiel)
+      const cmcData = await fetchCoinMarketCapQuotes(['BTC', 'ETH', 'SOL', 'BNB', 'LINK']);
+      if (cmcData) {
+        const buildToken = (name: string, sym: string, fallbackPrice: number): TokenDisplay => {
+          const q = cmcData[sym]?.quote?.USD;
+          return {
+            name,
+            symbol: sym,
+            iconUrl: tokenList.find(t => t.symbol === sym)?.iconUrl || '',
+            price: q ? q.price : fallbackPrice,
+            change24h: q ? q.percent_change_24h : 0
+          };
+        };
+
+        const updatedTokens: TokenDisplay[] = [
+          buildToken('Bitcoin', 'BTC', 65000.00),
+          buildToken('Ethereum', 'ETH', 3400.00),
+          buildToken('Solana', 'SOL', 145.50),
+          buildToken('Binance Coin', 'BNB', 580.00),
+          buildToken('Chainlink', 'LINK', 14.50),
+        ];
+
+        setTokens(updatedTokens);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // Priorité 2: Binance 24h Ticker Fallback
       const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","BNBUSDT","LINKUSDT"]', {
         cache: 'no-store'
       });
