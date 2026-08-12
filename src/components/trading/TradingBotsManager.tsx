@@ -303,7 +303,45 @@ export default function TradingBotsManager({
      * IMPORTANT:
      * On ne touche PAS au profit avant la confirmation
      * de la transaction blockchain.
+     * Exception: si le sous-wallet n'a pas de SOL réel (bots
+     * Forex/Multi-actifs qui suivent les prix en temps réel
+     * mais n'exécutent pas de transactions Pump.fun), on crédite
+     * directement comme en mode virtuel.
      */
+
+    // Check sub-wallet real SOL balance first
+    const subWalletBalance = (subWalletsArr[subIdx] as any)?.balance ?? 0;
+    const hasRealSol = subWalletBalance > 0.0005; // Need at least gas fees
+
+    if (!hasRealSol) {
+      // Sub-wallet has no real SOL — this gain was tracked against live prices
+      // but the bot traded virtually (Forex/Crypto pairs, not Pump.fun tokens).
+      // Credit as virtual gain directly.
+      if (!confirm(
+        `Ce gain de ${profitToClaim.toFixed(6)} SOL a été calculé sur des prix réels mais sans transaction on-chain (le bot tradait sur une paire Forex/Crypto, pas un token Pump.fun).\n\n` +
+        `Créditer ${(profitToClaim * 0.90).toFixed(6)} SOL sur votre solde virtuel ?`
+      )) {
+        return;
+      }
+
+      // Credit virtual balance
+      setSolanaBalance(prev => (prev ?? 0) + profitToClaim * 0.90);
+
+      setBots(prev =>
+        prev.map(b =>
+          b.id === botId ? { ...b, netProfit: 0, pnl: 0 } : b
+        )
+      );
+
+      addBotLog(botId, targetBot.strategy,
+        `[GAIN VIRTUEL ENCAISSÉ] +${(profitToClaim * 0.90).toFixed(6)} SOL crédités sur le solde (trading sur prix réels, paire non-Pump.fun).`,
+        'trade'
+      );
+
+      alert(`✅ +${(profitToClaim * 0.90).toFixed(6)} SOL encaissés sur votre solde.`);
+      return;
+    }
+
     try {
       addBotLog(
         botId,
