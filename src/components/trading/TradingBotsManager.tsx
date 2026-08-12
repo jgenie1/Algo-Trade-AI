@@ -323,10 +323,12 @@ export default function TradingBotsManager({
             amountToMaster,
         });
 
-      if (!result.success || !result.signature) {
+      const txHash = result.txHash || result.signature;
+
+      if (!result.success || !txHash) {
         throw new Error(
           result.error ||
-            "La transaction n'a pas été confirmée."
+            "La transaction n'a pas été confirmée sur le réseau Solana."
         );
       }
 
@@ -1257,6 +1259,9 @@ export default function TradingBotsManager({
               ) : (
                 safeBotLearnings.map((l, idx) => {
                   const isWinRule = (l.gainAmount || 0) > 0 || (l.learningEffect && (l.learningEffect.includes('Gagnant') || l.learningEffect.includes('Gagnante')));
+                  const isRealModeItem = l.mode === 'REAL';
+                  const currencySymbol = isRealModeItem ? 'SOL' : '$';
+
                   return (
                     <div
                       key={l.id ? `${l.id}_${idx}` : `lrn_${idx}`}
@@ -1268,28 +1273,39 @@ export default function TradingBotsManager({
                       )}
                     >
                       <div className="space-y-1">
-                        <div className="text-xs font-headline uppercase font-extrabold flex items-center gap-2">
+                        <div className="text-xs font-headline uppercase font-extrabold flex items-center gap-2 flex-wrap">
                           <span className={isWinRule ? "text-emerald-300" : "text-purple-300"}>
                             {isWinRule ? '🚀 Motif Gagnant' : '🛡️ Règle de Protection'} #{(l.id || '').replace('lrn_', '').replace('win_', '')}
                           </span>
                           <span className="text-white/20">•</span>
                           <span className="text-slate-200 font-body normal-case font-bold">
                             {isWinRule
-                              ? `Gain analysé: ${formatSmartPnl(l.gainAmount || 0, (l.mode || tradingMode) === 'REAL')} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`
-                              : `Perte analysée: ${formatSmartPnl(l.lossAmount || 0, (l.mode || tradingMode) === 'REAL')} ${(l.mode || tradingMode) === 'REAL' ? 'SOL' : '$'}`}
+                              ? `Gain analysé: ${formatSmartPnl(l.gainAmount || 0, isRealModeItem)} ${currencySymbol}`
+                              : `Perte analysée: ${formatSmartPnl(l.lossAmount || 0, isRealModeItem)} ${currencySymbol}`}
+                          </span>
+                          <span className="text-white/20">•</span>
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase",
+                            isRealModeItem ? "bg-purple-500/20 text-purple-300 border border-purple-500/40" : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          )}>
+                            {isRealModeItem ? '⚡ Mode Réel' : '🧪 Simulation Démo'}
                           </span>
                         </div>
                         <p className="text-xs text-white font-body font-medium leading-relaxed">{l.learningEffect}</p>
-                        {l.txHash && (
+                        {l.txHash ? (
                           <a
                             href={`https://solscan.io/tx/${l.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 underline font-mono mt-1"
                           >
-                            🔗 Tx Solscan: {l.txHash.slice(0, 10)}...{l.txHash.slice(-6)}
+                            🔗 Confirmé sur Solscan: {l.txHash.slice(0, 10)}...{l.txHash.slice(-6)}
                           </a>
-                        )}
+                        ) : isRealModeItem && isWinRule ? (
+                          <span className="text-[10px] text-amber-400/80 font-mono block mt-0.5">
+                            💡 Cliquez &quot;💰 Encaisser&quot; pour transférer vers votre Wallet.
+                          </span>
+                        ) : null}
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="text-xs text-slate-300 font-body block">
