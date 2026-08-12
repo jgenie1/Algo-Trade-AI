@@ -1622,20 +1622,50 @@ export function useTradingEngine() {
         const masterPubKey = getDerivedMasterPublicKey();
 
         if (subWalletKey && masterPubKey && masterPubKey.length >= 32) {
-          const netProfitSol = profit * 0.90; // 90% net profit to master wallet
-          sweepSubWalletProfitToMaster({
-            subWalletPrivateKey: subWalletKey,
-            masterPublicKey: masterPubKey,
-            netProfitSol
-          }).then(sweepRes => {
-            if (sweepRes && sweepRes.success && sweepRes.txHash) {
-              addBotLog(p.botId!, botObj?.strategy || 'Bot', `[PROFIT SWEEP SOLANA RÉUSSI - GAIN CRÉDITÉ MASTER WALLET] ${netProfitSol.toFixed(4)} SOL transférés vers ${masterPubKey.slice(0, 8)}... Tx: ${sweepRes.txHash.slice(0, 16)}...`, 'trade');
-            } else if (sweepRes && sweepRes.error) {
-              console.warn("[SOLANA PROFIT SWEEP WARNING]", sweepRes.error);
-            }
-          }).catch(err => {
-            console.warn("[SOLANA PROFIT SWEEP ERROR]", err);
-          });
+          // Determine if this is a Forex pair (needs USD → SOL conversion) or a crypto/Pump.fun pair
+          const pairForSweep = p.pair || '';
+          const pairSym = pairForSweep.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
+          const isForex = pairForSweep.startsWith('FX:') || (!SOLANA_TOKEN_MINTS[pairSym] && !p.txHash && !(mintAddress.length >= 32 && mintAddress.length <= 44));
+
+          let netProfitSol: number;
+
+          if (isForex) {
+            // Convert USD profit → SOL using live price
+            const rawSolPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL/USD'] ?? 145;
+            const solPrice = typeof rawSolPrice === 'number' && rawSolPrice > 1 ? rawSolPrice : 145;
+            const profitUsd = profit; // profit is in quote currency (USD-like for Forex)
+            netProfitSol = (profitUsd / solPrice) * 0.90;
+            addBotLog(p.botId, botObj?.strategy || 'Bot',
+              `[CONVERSION FOREX→SOL] Gain: ${profitUsd.toFixed(4)} USD ÷ ${solPrice.toFixed(2)} $/SOL = ${netProfitSol.toFixed(6)} SOL net. Transfert vers ${masterPubKey.slice(0, 8)}...`,
+              'info'
+            );
+          } else {
+            // Crypto/Pump.fun: profit already in SOL
+            netProfitSol = profit * 0.90;
+          }
+
+          if (netProfitSol > 0.000001) {
+            sweepSubWalletProfitToMaster({
+              subWalletPrivateKey: subWalletKey,
+              masterPublicKey: masterPubKey,
+              netProfitSol
+            }).then(sweepRes => {
+              if (sweepRes && sweepRes.success && sweepRes.txHash) {
+                addBotLog(p.botId!, botObj?.strategy || 'Bot',
+                  `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL${isForex ? ` (= ${profit.toFixed(4)} USD Forex)` : ''} → ${masterPubKey.slice(0, 8)}... Tx: ${sweepRes.txHash.slice(0, 16)}...`,
+                  'trade'
+                );
+                if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
+              } else if (sweepRes && sweepRes.error) {
+                addBotLog(p.botId!, botObj?.strategy || 'Bot',
+                  `[⚠️ PROFIT EN ATTENTE] Sweep échoué: ${sweepRes.error}. Financer le sous-wallet ${subWalletsRef.current[subIndex]?.publicKey?.slice(0, 8)}... avec du SOL.`,
+                  'error'
+                );
+              }
+            }).catch(err => {
+              console.warn("[SOLANA PROFIT SWEEP ERROR]", err);
+            });
+          }
         }
       }
     }
