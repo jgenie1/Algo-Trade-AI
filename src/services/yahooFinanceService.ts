@@ -1,6 +1,6 @@
 
 import { fetchCoinMarketCapQuotes } from './coinmarketcapService';
-import { updateLiveMarketPrice } from '@/lib/utils';
+import { updateLiveMarketPrice, getRealMarketBasePrice } from '@/lib/utils';
 
 export interface Candle {
   time: number; // timestamp in seconds
@@ -168,41 +168,43 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
 }
 
 function buildCandlesFromRates(rates: Record<string, any>, cleanSymbol: string, timeframe: string, cacheKey: string): Candle[] {
-  let livePrice = 1.0850;
-  if (cleanSymbol === 'EURUSD' || cleanSymbol === 'EUR/USD') livePrice = rates.EUR ? (1 / parseFloat(rates.EUR)) : 1.0850;
-  else if (cleanSymbol === 'GBPUSD' || cleanSymbol === 'GBP/USD') livePrice = rates.GBP ? (1 / parseFloat(rates.GBP)) : 1.3300;
-  else if (cleanSymbol === 'USDJPY' || cleanSymbol === 'USD/JPY') livePrice = parseFloat(rates.JPY) || 154.50;
-  else if (cleanSymbol === 'AUDUSD' || cleanSymbol === 'AUD/USD') livePrice = rates.AUD ? (1 / parseFloat(rates.AUD)) : 0.6550;
-  else if (cleanSymbol === 'USDCAD' || cleanSymbol === 'USD/CAD') livePrice = parseFloat(rates.CAD) || 1.3750;
-  else if (cleanSymbol === 'USDCHF' || cleanSymbol === 'USD/CHF') livePrice = parseFloat(rates.CHF) || 0.8850;
-  else if (cleanSymbol === 'EURGBP' || cleanSymbol === 'EUR/GBP') livePrice = (rates.EUR && rates.GBP) ? (parseFloat(rates.GBP) / parseFloat(rates.EUR)) : 0.8520;
-  else if (cleanSymbol === 'EURJPY' || cleanSymbol === 'EUR/JPY') livePrice = rates.EUR ? (parseFloat(rates.JPY) / parseFloat(rates.EUR)) : 167.50;
-  else if (cleanSymbol === 'GBPJPY' || cleanSymbol === 'GBP/JPY') livePrice = rates.GBP ? (parseFloat(rates.JPY) / parseFloat(rates.GBP)) : 196.50;
-  else if (cleanSymbol === 'GOLD') livePrice = rates.XAU ? (1 / parseFloat(rates.XAU)) : 2415.00;
-  else if (cleanSymbol === 'SILVER') livePrice = rates.XAG ? (1 / parseFloat(rates.XAG)) : 28.50;
-  else if (cleanSymbol === 'OIL') livePrice = 78.50;
+  let livePrice = getRealMarketBasePrice(cleanSymbol);
+  if (cleanSymbol === 'EURUSD' || cleanSymbol === 'EUR/USD') livePrice = rates.EUR ? (1 / parseFloat(rates.EUR)) : getRealMarketBasePrice('EURUSD');
+  else if (cleanSymbol === 'GBPUSD' || cleanSymbol === 'GBP/USD') livePrice = rates.GBP ? (1 / parseFloat(rates.GBP)) : getRealMarketBasePrice('GBPUSD');
+  else if (cleanSymbol === 'USDJPY' || cleanSymbol === 'USD/JPY') livePrice = parseFloat(rates.JPY) || getRealMarketBasePrice('USDJPY');
+  else if (cleanSymbol === 'AUDUSD' || cleanSymbol === 'AUD/USD') livePrice = rates.AUD ? (1 / parseFloat(rates.AUD)) : getRealMarketBasePrice('AUDUSD');
+  else if (cleanSymbol === 'USDCAD' || cleanSymbol === 'USD/CAD') livePrice = parseFloat(rates.CAD) || getRealMarketBasePrice('USDCAD');
+  else if (cleanSymbol === 'USDCHF' || cleanSymbol === 'USD/CHF') livePrice = parseFloat(rates.CHF) || getRealMarketBasePrice('USDCHF');
+  else if (cleanSymbol === 'EURGBP' || cleanSymbol === 'EUR/GBP') livePrice = (rates.EUR && rates.GBP) ? (parseFloat(rates.GBP) / parseFloat(rates.EUR)) : getRealMarketBasePrice('EURGBP');
+  else if (cleanSymbol === 'EURJPY' || cleanSymbol === 'EUR/JPY') livePrice = rates.EUR ? (parseFloat(rates.JPY) / parseFloat(rates.EUR)) : getRealMarketBasePrice('EURJPY');
+  else if (cleanSymbol === 'GBPJPY' || cleanSymbol === 'GBP/JPY') livePrice = rates.GBP ? (parseFloat(rates.JPY) / parseFloat(rates.GBP)) : getRealMarketBasePrice('GBPJPY');
+  else if (cleanSymbol === 'GOLD') livePrice = rates.XAU ? (1 / parseFloat(rates.XAU)) : getRealMarketBasePrice('GOLD');
+  else if (cleanSymbol === 'SILVER') livePrice = rates.XAG ? (1 / parseFloat(rates.XAG)) : getRealMarketBasePrice('SILVER');
+  else if (cleanSymbol === 'OIL') livePrice = getRealMarketBasePrice('OIL');
 
-  updateLiveMarketPrice(cleanSymbol, livePrice);
+  if (livePrice > 0) {
+    updateLiveMarketPrice(cleanSymbol, livePrice);
+  }
 
   const candles: Candle[] = [];
   const nowSec = Math.floor(Date.now() / 1000);
   const stepSec = timeframe === '1' ? 60 : timeframe === '5' ? 300 : timeframe === '60' ? 3600 : 900;
 
-  let current = livePrice;
+  let current = livePrice > 0 ? livePrice : 1.0;
   for (let i = 0; i < 30; i++) {
     const time = nowSec - (30 - i) * stepSec;
-    const delta = (Math.sin(i * 0.5) * 0.0008) * livePrice;
+    const delta = (Math.sin(i * 0.5) * 0.0008) * current;
     const open = current;
-    const close = i === 29 ? livePrice : current + delta;
+    const close = i === 29 ? current : current + delta;
     const high = Math.max(open, close) + Math.abs(delta) * 0.3;
     const low = Math.min(open, close) - Math.abs(delta) * 0.3;
 
     candles.push({
       time,
-      open: parseFloat(open.toFixed(livePrice > 50 ? 2 : 4)),
-      high: parseFloat(high.toFixed(livePrice > 50 ? 2 : 4)),
-      low: parseFloat(low.toFixed(livePrice > 50 ? 2 : 4)),
-      close: parseFloat(close.toFixed(livePrice > 50 ? 2 : 4)),
+      open: parseFloat(open.toFixed(current > 50 ? 2 : 4)),
+      high: parseFloat(high.toFixed(current > 50 ? 2 : 4)),
+      low: parseFloat(low.toFixed(current > 50 ? 2 : 4)),
+      close: parseFloat(close.toFixed(current > 50 ? 2 : 4)),
       volume: Math.floor(Math.random() * 5000) + 1000
     });
     current = close;
@@ -214,12 +216,7 @@ function buildCandlesFromRates(rates: Record<string, any>, cleanSymbol: string, 
 
 function generateRealisticCandles(pairName: string): Candle[] {
   const candles: Candle[] = [];
-  let basePrice = 1.0850;
-  if (pairName.includes('JPY')) basePrice = 154.50;
-  if (pairName.includes('BTC')) basePrice = 65000.00;
-  if (pairName.includes('ETH')) basePrice = 3400.00;
-  if (pairName.includes('SOL')) basePrice = 145.50;
-  if (pairName.includes('GOLD')) basePrice = 2415.00;
+  const basePrice = getRealMarketBasePrice(pairName) || 1.0;
   
   let currentPrice = basePrice;
   const now = Math.floor(Date.now() / 1000);
