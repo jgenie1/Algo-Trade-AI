@@ -68,7 +68,7 @@ export default function ActivePositionsTable({
                 <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isTotalProfit ? "bg-emerald-400" : "bg-rose-400")}></span>
                 <span className={cn("relative inline-flex rounded-full h-2 w-2", isTotalProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
               </span>
-              <span>PnL Direct Total : {isTotalProfit ? '+' : ''}{formatSmartPnl(totalLiveProfit, isSolMode)} {isSolMode ? 'SOL' : '$'}</span>
+              <span>PnL Direct Total : {formatSmartPnl(totalLiveProfit, isSolMode)} {isSolMode ? 'SOL' : '$'}</span>
             </div>
           )}
         </CardTitle>
@@ -130,7 +130,7 @@ export default function ActivePositionsTable({
                             <span className={cn("relative inline-flex rounded-full h-2 w-2", isProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
                           </span>
                           <span className={cn("text-base font-extrabold font-mono", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                            {isProfit ? '+' : ''}{formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
+                            {formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
                           </span>
                         </div>
                         <span className={cn("text-xs font-mono font-bold block text-right", isProfit ? "text-emerald-400" : "text-rose-400")}>
@@ -232,7 +232,7 @@ export default function ActivePositionsTable({
                               <span className={cn("relative inline-flex rounded-full h-2 w-2", isProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
                             </span>
                             <span className={cn("font-mono font-extrabold text-sm", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                              {isProfit ? '+' : ''}{formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
+                              {formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
                             </span>
                           </div>
                           <span className={cn("text-xs font-mono font-bold block opacity-90", isProfit ? "text-emerald-400" : "text-rose-400")}>

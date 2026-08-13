@@ -136,7 +136,7 @@ export default function PositionDetailsModal({
               "text-xl font-bold font-body block",
               isProfit ? "text-emerald-400" : "text-rose-400"
             )}>
-              {isProfit ? '+' : ''}{formatSmartPnl(profit, isSol)} {isSol ? 'SOL' : '$'}
+              {formatSmartPnl(profit, isSol)} {isSol ? 'SOL' : '$'}
             </span>
             <span className="text-[10px] text-white/50 font-mono font-semibold block mt-0.5">
               {isSol ? formatSolToUsdAndHtg(profit).combinedLabel : `≈ ${formatUsdToHtg(profit)}`}

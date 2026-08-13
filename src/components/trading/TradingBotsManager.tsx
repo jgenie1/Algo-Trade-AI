@@ -1506,7 +1506,7 @@ export default function TradingBotsManager({
                           "font-extrabold text-sm block font-mono",
                           isProfit ? "text-[#c2ff0c]" : "text-rose-400"
                         )}>
-                          {isProfit ? '+' : ''}{formatSmartPnl(profitVal, tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')))} {tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')) ? 'SOL' : '$'}
+                          {formatSmartPnl(profitVal, tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')))} {tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')) ? 'SOL' : '$'}
                         </span>
                         <span className="text-xs text-slate-400 block font-body">
                           {h.timestamp ? new Date(h.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}
