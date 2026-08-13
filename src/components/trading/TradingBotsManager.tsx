@@ -98,6 +98,28 @@ export default function TradingBotsManager({
     isLoading 
   } = useAppState();
 
+  /**
+   * Returns true if the bot trades Pump.fun tokens natively on Solana.
+   * Pump.fun bots accumulate profit in SOL; all other bots (Forex, CMC Crypto) accumulate in USD.
+   */
+  const isPumpFunBot = (bot: any): boolean =>
+    (bot.strategy || '').toLowerCase().includes('pump.fun') ||
+    (bot.pair || '').startsWith('SOL:');
+
+  /**
+   * Returns true if the bot's netProfit is denominated in USD (not SOL).
+   * Covers: Forex pairs (FX:, EUR, GBP, JPY, XAU, GOLD, etc.) and CMC crypto bots.
+   */
+  const isUsdProfitBot = (bot: any): boolean => {
+    if (isPumpFunBot(bot)) return false;
+    const pair = (bot.pair || '').toUpperCase();
+    // Forex indicators
+    if (pair.startsWith('FX:')) return true;
+    if (['EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'XAU', 'GOLD', 'SILVER', 'OIL'].some(k => pair.includes(k))) return true;
+    // Default: all non-Pump.fun bots earn in USD
+    return true;
+  };
+
   const handleClaimBotProfit = async (botId: string) => {
     const targetBot = bots.find((b) => b.id === botId);
 
@@ -271,15 +293,23 @@ export default function TradingBotsManager({
       return;
     }
 
-    // Check if pair is Forex (USD quote) needing conversion to SOL
-    const isForexPair = targetBot.pair.startsWith('FX:') || targetBot.pair.includes('USD') && !['BTC', 'ETH', 'SOL', 'BNB', 'LINK'].includes(targetBot.pair);
+    // Determine if profit is in USD (Forex/Crypto bots) or SOL (Pump.fun bots)
+    const botIsUsdProfit = isUsdProfitBot(targetBot);
     let realProfitSol = profitToClaim;
 
-    if (isForexPair) {
-      // Fetch live SOL price from CoinMarketCap Pro API
+    if (botIsUsdProfit) {
+      // Fetch live SOL/USD price from CoinMarketCap Pro API — NO hardcoded fallback
       const cmcRes = await fetchCoinMarketCapQuotes(['SOL']);
-      const cmcSolPrice = cmcRes?.['SOL']?.quote?.USD?.price || 145;
+      const cmcSolPrice = cmcRes?.['SOL']?.quote?.USD?.price ?? 0;
+      if (!cmcSolPrice || cmcSolPrice <= 0) {
+        alert('Impossible de récupérer le prix SOL en direct depuis CoinMarketCap. Réessayez dans quelques secondes.');
+        return;
+      }
       realProfitSol = profitToClaim / cmcSolPrice;
+      addBotLog(botId, targetBot.strategy,
+        `[CONVERSION] $${profitToClaim.toFixed(2)} USD ÷ $${cmcSolPrice.toFixed(2)}/SOL (CMC Live) = ${realProfitSol.toFixed(6)} SOL`,
+        'info'
+      );
     }
 
     const amountToMaster = realProfitSol * 0.90;
@@ -296,7 +326,7 @@ export default function TradingBotsManager({
         `Transférer réellement ${amountToMaster.toFixed(
           6
         )} SOL vers votre portefeuille connecté ?\n\n` +
-          `Profit: ${isForexPair ? `$${profitToClaim.toFixed(2)} USD (CoinMarketCap ➔ ${realProfitSol.toFixed(6)} SOL)` : `${profitToClaim.toFixed(6)} SOL`}\n` +
+          `Profit: ${botIsUsdProfit ? `$${profitToClaim.toFixed(2)} USD (CoinMarketCap ➔ ${realProfitSol.toFixed(6)} SOL)` : `${profitToClaim.toFixed(6)} SOL`}\n` +
           `Part transférée: ${amountToMaster.toFixed(
             6
           )} SOL\n` +
@@ -641,95 +671,103 @@ export default function TradingBotsManager({
 
     const successfulBotIds: string[] = [];
 
-    for (const bot of botsWithProfits) {
-      const profit =
-        Number(
-          bot.netProfit || bot.pnl || 0
-        );
+    // ─────────────────────────────────────────────────────────────
+    // Separate bots by profit currency:
+    //   • Pump.fun bots  → netProfit already in SOL (native on-chain)
+    //   • Forex/Crypto bots → netProfit in USD (must convert to SOL)
+    // ─────────────────────────────────────────────────────────────
+    const pumpFunBotsWithProfits = botsWithProfits.filter(b => isPumpFunBot(b));
+    const usdProfitBotsWithProfits = botsWithProfits.filter(b => isUsdProfitBot(b));
 
-      if (!Number.isFinite(profit) || profit <= 0) {
+    // Fetch SOL price once upfront for all USD→SOL conversions
+    let liveSolUsdPrice = 0;
+    if (usdProfitBotsWithProfits.length > 0) {
+      const cmcRes = await fetchCoinMarketCapQuotes(['SOL']);
+      liveSolUsdPrice = cmcRes?.['SOL']?.quote?.USD?.price ?? 0;
+      if (!liveSolUsdPrice || liveSolUsdPrice <= 0) {
+        alert(
+          `❌ Impossible de récupérer le prix SOL en direct depuis CoinMarketCap.\n\n` +
+          `Les gains des bots Forex/Crypto (${usdProfitBotsWithProfits.length} bot(s)) ne peuvent pas être convertis.\n` +
+          `Les Pump.fun bots (${pumpFunBotsWithProfits.length} bot(s)) vont continuer normalement.`
+        );
+        // Continue with only Pump.fun bots
+        usdProfitBotsWithProfits.length = 0;
+      }
+    }
+
+    const allBotsToProcess = [
+      ...pumpFunBotsWithProfits.map(b => ({ bot: b, isPumpFun: true })),
+      ...usdProfitBotsWithProfits.map(b => ({ bot: b, isPumpFun: false })),
+    ];
+
+    for (const { bot, isPumpFun } of allBotsToProcess) {
+      const rawProfit = Number(bot.netProfit || bot.pnl || 0);
+
+      if (!Number.isFinite(rawProfit) || rawProfit <= 0) {
         continue;
       }
 
-      const subIdx =
-        ((bot as any).subWallet || 1) - 1;
+      // Convert USD to SOL for Forex/Crypto bots
+      const profitSol = isPumpFun
+        ? rawProfit
+        : rawProfit / liveSolUsdPrice;
 
-      const subWallet =
-        subWalletsArr[subIdx];
+      const subIdx = ((bot as any).subWallet || 1) - 1;
+      const subWallet = subWalletsArr[subIdx];
 
       if (!subWallet?.privateKey) {
         failedCount++;
-
         addBotLog(
           bot.id,
           bot.strategy,
-          `[ÉCHEC] Sous-wallet #${
-            subIdx + 1
-          } introuvable.`,
+          `[ÉCHEC] Sous-wallet #${subIdx + 1} introuvable.`,
           'error'
         );
-
         continue;
       }
 
-      const amountToMaster =
-        profit * 0.90;
+      const amountToMaster = profitSol * 0.90;
 
       try {
+        const logPrefix = isPumpFun
+          ? `[PUMP.FUN → CHAIN] ${profitSol.toFixed(6)} SOL`
+          : `[FOREX → CHAIN] $${rawProfit.toFixed(2)} USD ÷ $${liveSolUsdPrice.toFixed(2)}/SOL = ${profitSol.toFixed(6)} SOL`;
+
         addBotLog(
           bot.id,
           bot.strategy,
-          `[TRANSFERT] ${amountToMaster.toFixed(
-            6
-          )} SOL vers le Master Wallet...`,
+          `[TRANSFERT] ${logPrefix} → ${amountToMaster.toFixed(6)} SOL vers Master Wallet...`,
           'info'
         );
 
-        const result =
-          await sweepSubWalletProfitToMaster({
-            subWalletPrivateKey:
-              subWallet.privateKey,
-            masterPublicKey: masterPubKey,
-            netProfitSol:
-              amountToMaster,
-          });
+        const result = await sweepSubWalletProfitToMaster({
+          subWalletPrivateKey: subWallet.privateKey,
+          masterPublicKey: masterPubKey,
+          netProfitSol: amountToMaster,
+        });
 
-        if (
-          !result.success ||
-          !result.signature
-        ) {
-          throw new Error(
-            result.error ||
-              'Transaction non confirmée.'
-          );
+        if (!result.success || !result.signature) {
+          throw new Error(result.error || 'Transaction non confirmée.');
         }
 
         successCount++;
         totalSent += result.sentSol;
         successfulBotIds.push(bot.id);
 
-        setReserveVaultSol?.(
-          (prev) =>
-            (Number(prev) || 0) +
-            profit * 0.10
-        );
+        setReserveVaultSol?.((prev) => (Number(prev) || 0) + profitSol * 0.10);
 
         setTransactions?.((prev) => [
           {
-            id:
-              'tx_claim_' +
-              Math.random()
-                .toString(36)
-                .substring(2, 9),
+            id: 'tx_claim_' + Math.random().toString(36).substring(2, 9),
             type: 'CLAIM',
             amount: result.sentSol,
             currency: 'SOL',
             status: 'COMPLETED',
             timestamp: Date.now(),
-            description:
-              `Transfert blockchain du bot ${bot.strategy}`,
-            signature:
-              result.signature,
+            description: isPumpFun
+              ? `Pump.fun → Blockchain: bot ${bot.strategy}`
+              : `Forex/Crypto → Blockchain: bot ${bot.strategy} ($${rawProfit.toFixed(2)} → ${profitSol.toFixed(6)} SOL)`,
+            signature: result.signature,
           },
           ...(prev || []),
         ]);
@@ -737,19 +775,12 @@ export default function TradingBotsManager({
         addBotLog(
           bot.id,
           bot.strategy,
-          `[BLOCKCHAIN CONFIRMÉE] ${result.sentSol.toFixed(
-            6
-          )} SOL transférés. TX: ${result.signature}`,
+          `[BLOCKCHAIN CONFIRMÉE ✅] ${result.sentSol.toFixed(6)} SOL transférés. TX: ${result.signature}`,
           'trade'
         );
       } catch (error) {
         failedCount++;
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Erreur inconnue';
-
+        const message = error instanceof Error ? error.message : 'Erreur inconnue';
         addBotLog(
           bot.id,
           bot.strategy,
