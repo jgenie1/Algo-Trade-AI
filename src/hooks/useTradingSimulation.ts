@@ -1641,15 +1641,24 @@ export function useTradingEngine() {
           let netProfitSol: number;
 
           if (isForex) {
-            // Convert USD profit → SOL using live CoinMarketCap price
+            // Convert USD profit → SOL using live CoinMarketCap price — NO hardcoded fallback
             let solPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'];
             if (!solPrice || solPrice <= 1) {
               const cmcData = await fetchCoinMarketCapQuotes(['SOL']);
-              solPrice = cmcData?.['SOL']?.quote?.USD?.price || 145;
+              solPrice = cmcData?.['SOL']?.quote?.USD?.price ?? 0;
+            }
+            if (!solPrice || solPrice <= 1) {
+              // Cannot convert without a live SOL price — abort sweep, keep netProfit for manual claim
+              addBotLog(p.botId!, botObj?.strategy || 'Bot',
+                `[⚠️ SWEEP DIFFÉRÉ] Prix SOL non disponible (CMC + livePrices). Le gain $${profit.toFixed(4)} USD sera encaissé manuellement.`,
+                'error'
+              );
+              // Still accumulate netProfit on the bot so user can claim manually later
+              return;
             }
             const profitUsd = profit; // profit is in quote currency (USD-like for Forex)
             netProfitSol = (profitUsd / solPrice) * 0.90;
-            addBotLog(p.botId, botObj?.strategy || 'Bot',
+            addBotLog(p.botId!, botObj?.strategy || 'Bot',
               `[CONVERSION FOREX→SOL (CoinMarketCap API)] Gain: $${profitUsd.toFixed(4)} ÷ ${solPrice.toFixed(2)} $/SOL (CMC) = ${netProfitSol.toFixed(6)} SOL net. Transfert vers ${masterPubKey.slice(0, 8)}...`,
               'info'
             );
