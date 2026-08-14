@@ -1678,6 +1678,10 @@ export function useTradingEngine() {
                   `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL${isForex ? ` (= ${profit.toFixed(4)} USD Forex)` : ''} → ${masterPubKey.slice(0, 8)}... Tx: ${sweepRes.txHash.slice(0, 16)}...`,
                   'trade'
                 );
+                // Auto-reset netProfit on bot after successful on-chain sweep — no manual "Encaisser" needed
+                setBots(prev => prev.map(b =>
+                  b.id === p.botId ? { ...b, netProfit: 0, pnl: 0 } : b
+                ));
                 if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
               } else if (sweepRes && sweepRes.error) {
                 addBotLog(p.botId!, botObj?.strategy || 'Bot',

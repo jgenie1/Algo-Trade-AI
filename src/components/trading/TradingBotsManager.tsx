@@ -1164,16 +1164,11 @@ export default function TradingBotsManager({
                 <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-bold border-none uppercase font-headline">
                   {filteredBots.filter(b => b.status === 'RUNNING').length} En Cours
                 </Badge>
-                {totalClaimableProfits > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClaimAllProfits}
-                    title="Encaisser tous les gains accumulés par les robots vers votre solde / Wallet Phantom."
-                    className="h-7 px-2.5 text-[10px] font-extrabold uppercase rounded-lg bg-[#c2ff0c] text-black hover:bg-[#c2ff0c]/90 flex items-center gap-1 font-headline shadow-[0_0_12px_rgba(194,255,12,0.35)]"
-                  >
-                    💰 Tout Encaisser ({formatSmartPnl(totalClaimableProfits, tradingMode === 'REAL')} {tradingMode === 'REAL' ? 'SOL' : '$'})
-                  </Button>
+                {totalClaimableProfits > 0 && tradingMode === 'REAL' && (
+                  <div className="h-7 px-2.5 flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold font-headline uppercase">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    ⏳ Sweep en cours…
+                  </div>
                 )}
                 {tradingMode === 'DEMO' && (
                   <Button
@@ -1258,16 +1253,18 @@ export default function TradingBotsManager({
                       </div>
                     </div>
 
-                    {/* Claim Profit Button for Individual Bot */}
-                    {(b.netProfit || b.pnl || 0) > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleClaimBotProfit(b.id)}
-                        className="w-full h-8 text-[11px] font-extrabold uppercase rounded-lg bg-[#c2ff0c] hover:bg-[#c2ff0c]/90 text-black border border-[#c2ff0c]/50 shadow-[0_0_15px_rgba(194,255,12,0.3)] hover:shadow-[0_0_20px_rgba(194,255,12,0.5)] flex items-center justify-center gap-1.5 transition-all font-headline"
-                      >
-                        💰 Encaisser {formatSmartPnl(b.netProfit || b.pnl || 0, tradingMode === 'REAL')} {tradingMode === 'REAL' ? 'SOL' : '$'} vers Wallet Phantom
-                      </Button>
+                    {/* Auto-transfer status indicator — no manual action needed */}
+                    {tradingMode === 'REAL' && (b.netProfit || b.pnl || 0) > 0.000001 && (
+                      <div className="w-full h-8 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center gap-2 text-[11px] font-bold font-headline text-amber-300 uppercase">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        ⏳ Sweep on-chain en attente — financer le sous-wallet pour activer
+                      </div>
+                    )}
+                    {tradingMode === 'REAL' && (b.netProfit || b.pnl || 0) === 0 && (b.totalTrades || 0) > 0 && (
+                      <div className="w-full h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center gap-2 text-[11px] font-bold font-headline text-emerald-400 uppercase">
+                        <span className="text-emerald-400">✅</span>
+                        Gains transférés automatiquement on-chain
+                      </div>
                     )}
 
                     <div className="flex gap-2 pt-2 border-t border-white/10">
