@@ -182,13 +182,13 @@ export async function getWorkingConnection(): Promise<any> {
   const customRpc = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || '';
   const envRpc = process.env.SOLANA_RPC_URL || '';
 
-  // Ordered fallback list — most reliable free endpoints first
+  // Ordered fallback list — most reliable working endpoints first
   const candidates = [
     customRpc,
+    'https://api.mainnet-beta.solana.com',
+    'https://solana-rpc.publicnode.com',
     envRpc,
     'https://rpc.ankr.com/solana',
-    'https://solana-mainnet.rpc.extrnode.com',
-    'https://solana-rpc.publicnode.com',
   ].filter(Boolean) as string[];
 
   // Deduplicate while preserving order
@@ -207,8 +207,8 @@ export async function getWorkingConnection(): Promise<any> {
     } catch (err: any) {}
   }
 
-  // Fallback to default Ankr connection if all checks fail
-  return new Connection('https://rpc.ankr.com/solana', 'confirmed');
+  // Fallback to official Solana mainnet connection if all checks fail
+  return new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
 }
 
 export async function executeRealPumpTrade(params: {
