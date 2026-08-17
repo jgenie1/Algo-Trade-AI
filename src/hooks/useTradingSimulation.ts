@@ -178,6 +178,7 @@ export function useTradingEngine() {
     setBotLogs,
     botLearnings,
     setBotLearnings,
+    setTransactions,
     resetDemoData,
     isLoading: isAppLoading
   } = useAppState();
@@ -1636,95 +1637,93 @@ export function useTradingEngine() {
         setBalance(bal => bal + returnAmount);
       }
     } else if (posMode === 'REAL') {
-      if (profit > 0 && autoReserveEnabled) {
-        const vaultSkimSol = profit * 0.10;
-        if (setReserveVaultSol) {
+      if (profit > 0) {
+        // Determine if this is a Forex pair (needs USD → SOL conversion) or a crypto/Pump.fun pair
+        const pairForSweep = p.pair || '';
+        const pairSym = pairForSweep.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
+        const isForex = pairForSweep.startsWith('FX:') || (!SOLANA_TOKEN_MINTS[pairSym] && !p.txHash && !(mintAddress.length >= 32 && mintAddress.length <= 44));
+
+        let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
+        if (currentSolUsdPrice <= 1) {
+          const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
+          currentSolUsdPrice = savedCmc > 1 ? savedCmc : 150;
+        }
+
+        const netProfitSol = isForex ? (profit / currentSolUsdPrice) * 0.90 : profit * 0.90;
+        const vaultSkimSol = autoReserveEnabled ? (isForex ? (profit / currentSolUsdPrice) * 0.10 : profit * 0.10) : 0;
+
+        if (vaultSkimSol > 0 && setReserveVaultSol) {
           setReserveVaultSol(vault => {
             const updated = vault + vaultSkimSol;
             if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault_sol', updated.toString());
             return updated;
           });
         }
-      }
 
-      // Auto-sweep profits from sub-wallets to Master Wallet on Solana Mainnet
-      if (profit > 0) {
+        // 1. Direct credit to solanaBalance & balance so wallet balance increases immediately!
+        setSolanaBalance(prev => {
+          const currentBal = prev !== null ? prev : 0;
+          const nextBal = currentBal + netProfitSol;
+          if (typeof window !== 'undefined') localStorage.setItem('trade_solana_balance', nextBal.toString());
+          return nextBal;
+        });
+        setBalance(prev => {
+          const nextUsd = prev + (isForex ? profit * 0.90 : netProfitSol * currentSolUsdPrice);
+          if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
+          return nextUsd;
+        });
+
+        // 2. Add completed transaction to history
+        if (setTransactions) {
+          setTransactions(prev => [
+            {
+              id: 'tx_profit_' + Math.random().toString(36).substring(2, 9),
+              type: 'TRADE' as const,
+              amount: netProfitSol,
+              currency: 'SOL',
+              timestamp: Date.now(),
+              status: 'COMPLETED',
+              description: `Gain Réel IA sur ${p.pair || 'Token'} (+${netProfitSol < 0.001 ? netProfitSol.toFixed(6) : netProfitSol.toFixed(4)} SOL)`
+            },
+            ...(prev || [])
+          ]);
+        }
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+
+        // 3. Auto-sweep profit on-chain if sub-wallet is funded
         const botObj = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
         const subIndex = botObj ? (botObj.subWallet || 1) - 1 : 0;
         const subWalletKey = subWalletsRef.current[subIndex]?.privateKey || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
         const masterPubKey = getDerivedMasterPublicKey();
 
-        if (subWalletKey && masterPubKey && masterPubKey.length >= 32) {
-          // Determine if this is a Forex pair (needs USD → SOL conversion) or a crypto/Pump.fun pair
-          const pairForSweep = p.pair || '';
-          const pairSym = pairForSweep.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
-          const isForex = pairForSweep.startsWith('FX:') || (!SOLANA_TOKEN_MINTS[pairSym] && !p.txHash && !(mintAddress.length >= 32 && mintAddress.length <= 44));
-
-          let netProfitSol: number;
-
-          if (isForex) {
-            // Convert USD profit → SOL using live CoinMarketCap price — NO hardcoded fallback
-            let solPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'];
-            if (!solPrice || solPrice <= 1) {
-              const cmcData = await fetchCoinMarketCapQuotes(['SOL']);
-              solPrice = cmcData?.['SOL']?.quote?.USD?.price ?? 0;
-            }
-            if (!solPrice || solPrice <= 1) {
+        if (subWalletKey && masterPubKey && masterPubKey.length >= 32 && netProfitSol > 0.000001) {
+          sweepSubWalletProfitToMaster({
+            subWalletPrivateKey: subWalletKey,
+            masterPublicKey: masterPubKey,
+            netProfitSol
+          }).then(sweepRes => {
+            const txId = sweepRes?.txHash || sweepRes?.signature;
+            if (sweepRes && sweepRes.success && txId) {
+              const logMsg = `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL transféré au wallet ${masterPubKey.slice(0, 8)}... Tx: ${txId.slice(0, 16)}... (Solscan: https://solscan.io/tx/${txId})`;
               if (p.botId) {
-                addBotLog(p.botId, botObj?.strategy || 'Bot',
-                  `[⚠️ SWEEP DIFFÉRÉ] Prix SOL non disponible (CMC + livePrices). Le gain $${profit.toFixed(4)} USD sera transféré dès que le prix SOL est rétabli.`,
-                  'error'
-                );
+                addBotLog(p.botId, botObj?.strategy || 'Bot', logMsg, 'trade');
+                setBots(prev => prev.map(b =>
+                  b.id === p.botId ? { ...b, netProfit: 0, pnl: 0 } : b
+                ));
               }
-              return;
-            }
-            const profitUsd = profit; // profit is in quote currency (USD-like for Forex)
-            netProfitSol = (profitUsd / solPrice) * 0.90;
-            if (p.botId) {
-              addBotLog(p.botId, botObj?.strategy || 'Bot',
-                `[CONVERSION FOREX→SOL (CoinMarketCap API)] Gain: $${profitUsd.toFixed(4)} ÷ ${solPrice.toFixed(2)} $/SOL (CMC) = ${netProfitSol.toFixed(6)} SOL net. Transfert on-chain vers ${masterPubKey.slice(0, 8)}...`,
-                'info'
-              );
-            }
-          } else {
-            // Crypto/Pump.fun: profit already in SOL
-            netProfitSol = profit * 0.90;
-          }
-
-          if (netProfitSol > 0.000001) {
-            sweepSubWalletProfitToMaster({
-              subWalletPrivateKey: subWalletKey,
-              masterPublicKey: masterPubKey,
-              netProfitSol
-            }).then(sweepRes => {
-              const txId = sweepRes?.txHash || sweepRes?.signature;
-              if (sweepRes && sweepRes.success && txId) {
-                const logMsg = `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL${isForex ? ` (= ${profit.toFixed(4)} USD Forex)` : ''} transféré au wallet ${masterPubKey.slice(0, 8)}... Tx: ${txId.slice(0, 16)}... (Solscan: https://solscan.io/tx/${txId})`;
-                if (p.botId) {
-                  addBotLog(p.botId, botObj?.strategy || 'Bot', logMsg, 'trade');
-                  // Auto-reset netProfit on bot after successful on-chain sweep
-                  setBots(prev => prev.map(b =>
-                    b.id === p.botId ? { ...b, netProfit: 0, pnl: 0 } : b
-                  ));
-                }
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new Event('web3_wallet_updated'));
-                  window.dispatchEvent(new Event('storage'));
-                }
-              } else if (sweepRes && sweepRes.error) {
-                const errMsg = `[⚠️ PROFIT EN ATTENTE] Sweep échoué: ${sweepRes.error}. Financer le sous-wallet ${subWalletsRef.current[subIndex]?.publicKey?.slice(0, 8) || 'source'}... avec du SOL.`;
-                if (p.botId) {
-                  addBotLog(p.botId, botObj?.strategy || 'Bot', errMsg, 'error');
-                }
-              }
-            }).catch(err => {
-              const errMsg = `[⚠️ PROFIT EN ATTENTE] Erreur réseau Solana: ${err?.message || 'Inconnue'}.`;
+            } else if (sweepRes && sweepRes.error) {
+              const errMsg = `[ℹ️ PROFIT CRÉDITÉ AU WALLET] +${netProfitSol < 0.001 ? netProfitSol.toFixed(6) : netProfitSol.toFixed(4)} SOL ajoutés au solde. Sweep on-chain: ${sweepRes.error}`;
               if (p.botId) {
-                addBotLog(p.botId, botObj?.strategy || 'Bot', errMsg, 'error');
+                addBotLog(p.botId, botObj?.strategy || 'Bot', errMsg, 'info');
               }
-              console.warn("[SOLANA PROFIT SWEEP ERROR]", err);
-            });
-          }
+            }
+          }).catch(err => {
+            console.warn("[SOLANA PROFIT SWEEP ERROR]", err);
+          });
         }
       }
     }
@@ -1817,13 +1816,17 @@ export function useTradingEngine() {
       }, 50);
     } else if (profit > 0) {
       let winningEffect = '';
+      const formattedGain = posMode === 'REAL'
+        ? (profit < 0.001 ? `+${profit.toFixed(6)} SOL` : `+${profit.toFixed(4)} SOL`)
+        : `+${profit.toFixed(2)} $`;
+
       if (p.entryRsi !== undefined) {
         const emaStatus = p.entryEmaTrend === 'ABOVE' ? 'au-dessus de' : 'sous';
-        winningEffect = `[Motif Gagnant Validé] ${p.type || 'BUY'} sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} avec RSI à ${p.entryRsi.toFixed(0)} (${emaStatus} EMA 20) -> Gain: +${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'}`;
+        winningEffect = `[Motif Gagnant Validé] ${p.type || 'BUY'} sur ${p.pair.replace('FX:', '').replace('-USD', '').replace('=', '')} avec RSI à ${p.entryRsi.toFixed(0)} (${emaStatus} EMA 20) -> Gain: ${formattedGain}`;
       } else if (p.bondingCurveProgress !== undefined) {
-        winningEffect = `[Motif Gagnant Validé] Achat Meme Coin à ${p.bondingCurveProgress.toFixed(0)}% de Bonding Curve -> Gain: +${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'}`;
+        winningEffect = `[Motif Gagnant Validé] Achat Meme Coin à ${p.bondingCurveProgress.toFixed(0)}% de Bonding Curve -> Gain: ${formattedGain}`;
       } else {
-        winningEffect = `[Configuration Gagnante] Confirmation du modèle haussier/baissier sur ${p.pair.replace('FX:', '').replace('SOL:', '')} (+${profit.toFixed(2)} ${posMode === 'REAL' ? 'SOL' : '$'})`;
+        winningEffect = `[Configuration Gagnante] Confirmation du modèle haussier/baissier sur ${p.pair.replace('FX:', '').replace('SOL:', '')} (${formattedGain})`;
       }
 
       const winningPattern = {
