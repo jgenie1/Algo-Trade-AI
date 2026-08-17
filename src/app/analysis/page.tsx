@@ -196,7 +196,7 @@ export default function ForexAnalysisPage() {
 
       {/* Main Interactive Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <Card className="xl:col-span-2 glass-panel border-white/5 shadow-xl h-[520px] flex flex-col overflow-hidden">
+        <Card className="xl:col-span-2 glass-panel border-white/5 shadow-xl min-h-[380px] sm:min-h-[460px] h-[380px] sm:h-[480px] lg:h-[520px] flex flex-col overflow-hidden">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div>
               <CardTitle className="font-headline text-lg text-white">Graphique Direct</CardTitle>

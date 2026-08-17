@@ -95,12 +95,12 @@ export default function PortfolioStatsHeader({
     : 'Mode Réel (Solana)';
 
   return (
-    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 bg-[#120b1c]/90 border border-white/10 rounded-2xl p-3.5 sm:p-5 w-full shadow-2xl relative overflow-hidden backdrop-blur-2xl">
-      {/* Top Accent Line */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/50 via-purple-500/60 to-[#c2ff0c]/60" />
+    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4 bg-[#120b1c]/90 border border-white/12 rounded-2xl p-3 sm:p-4 lg:p-5 w-full shadow-2xl relative overflow-hidden backdrop-blur-2xl">
+      {/* Top Ambient Gradient Accent Line */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500/50 via-purple-500/60 to-[#c2ff0c]/70" />
 
       {/* Mode Switch Controls Segment */}
-      <div className="flex items-center justify-between sm:justify-start bg-black/50 border border-white/10 p-1.5 rounded-xl gap-1 shrink-0 w-full sm:w-auto">
+      <div className="flex items-center justify-between sm:justify-start bg-black/50 border border-white/10 p-1 sm:p-1.5 rounded-xl gap-1 shrink-0 w-full sm:w-auto">
         <Button
           variant="ghost"
           onClick={() => {
@@ -108,14 +108,14 @@ export default function PortfolioStatsHeader({
             onSelectTab('manual');
           }}
           className={cn(
-            "flex-1 sm:flex-initial px-3 sm:px-4 py-2 h-9 text-[11px] sm:text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1.5 border-none cursor-pointer select-none",
+            "flex-1 sm:flex-initial px-2.5 sm:px-4 py-2 h-9 text-[10px] sm:text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1.5 border-none cursor-pointer select-none active:scale-95",
             isDemo
               ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)] font-black"
               : "text-slate-400 hover:text-white hover:bg-white/5"
           )}
         >
-          <span className="h-2 w-2 rounded-full bg-amber-400" />
-          Mode Démo (USD)
+          <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+          <span>Mode Démo (USD)</span>
         </Button>
 
         <Button
@@ -125,14 +125,14 @@ export default function PortfolioStatsHeader({
             onSelectTab('manual');
           }}
           className={cn(
-            "flex-1 sm:flex-initial px-3 sm:px-4 py-2 h-9 text-[11px] sm:text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1.5 border-none cursor-pointer select-none",
+            "flex-1 sm:flex-initial px-2.5 sm:px-4 py-2 h-9 text-[10px] sm:text-xs font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1.5 border-none cursor-pointer select-none active:scale-95",
             !isDemo
               ? "bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.3)] font-black"
               : "text-slate-400 hover:text-white hover:bg-white/5"
           )}
         >
-          <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
-          {modeLabel}
+          <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse shrink-0" />
+          <span>{modeLabel}</span>
         </Button>
 
         {isDemo && (
@@ -140,7 +140,7 @@ export default function PortfolioStatsHeader({
             variant="ghost"
             onClick={handleResetDemo}
             title="Réinitialiser le solde à 10 000 $, effacer les bots & positions démo."
-            className="px-2.5 sm:px-3 py-2 h-9 text-[10px] sm:text-[11px] font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1 bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 ml-1 cursor-pointer select-none shrink-0"
+            className="px-2 sm:px-3 py-2 h-9 text-[10px] sm:text-[11px] font-extrabold uppercase rounded-lg transition-all duration-200 font-headline flex items-center justify-center gap-1 bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 ml-0.5 cursor-pointer select-none shrink-0 active:scale-95"
           >
             <RotateCcw className="h-3.5 w-3.5 text-rose-400" />
             <span className="hidden xs:inline">Reset</span>
@@ -149,61 +149,61 @@ export default function PortfolioStatsHeader({
       </div>
 
       {/* Portfolio Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 flex-1 justify-end">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 flex-1 justify-end">
         {isDemo ? (
           <>
             {/* Card 1: Solde Démo */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-white/20 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm">
               <div className="text-[10px] uppercase font-bold text-amber-400/90 font-headline tracking-wide flex items-center gap-1">
                 <Wallet className="h-3 w-3 text-amber-400" />
                 Solde Démo
               </div>
-              <div className="text-base sm:text-lg font-black text-amber-300 font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-amber-300 font-headline tracking-tight tabular-nums truncate">
                 {balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
               </div>
-              <div className="text-[10px] text-white/40 font-mono font-medium">
+              <div className="text-[10px] text-white/40 font-mono font-medium truncate">
                 ≈ {formatUsdToHtg(balance)}
               </div>
             </div>
 
             {/* Card 2: Coffre-Fort (Vault) */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-[#c2ff0c]/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm">
               <div className="text-[10px] uppercase font-bold text-[#c2ff0c] font-headline flex items-center gap-1 tracking-wide">
                 <Lock className="h-3 w-3 text-[#c2ff0c]" />
                 Coffre-Fort (10%)
               </div>
-              <div className="text-base sm:text-lg font-black text-[#c2ff0c] font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-[#c2ff0c] font-headline tracking-tight tabular-nums truncate">
                 ${(Number(reserveVault) || 0).toFixed(2)}
               </div>
-              <div className="text-[10px] text-white/40 font-mono font-medium">
+              <div className="text-[10px] text-white/40 font-mono font-medium truncate">
                 ≈ {formatUsdToHtg(Number(reserveVault) || 0)}
               </div>
             </div>
 
             {/* Card 3: Equity */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
-              <div className="text-[10px] uppercase font-bold text-white/60 font-headline tracking-wide flex items-center gap-1">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-purple-500/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm">
+              <div className="text-[10px] uppercase font-bold text-purple-300 font-headline tracking-wide flex items-center gap-1">
                 <ShieldCheck className="h-3 w-3 text-purple-400" />
                 Equity
               </div>
-              <div className="text-base sm:text-lg font-black text-white font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-white font-headline tracking-tight tabular-nums truncate">
                 {equity.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
               </div>
-              <div className="text-[10px] text-white/40 font-mono font-medium">
+              <div className="text-[10px] text-white/40 font-mono font-medium truncate">
                 ≈ {formatUsdToHtg(equity)}
               </div>
             </div>
 
             {/* Card 4: Trades Actifs */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all col-span-2 sm:col-span-1">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm col-span-2 sm:col-span-1">
               <div className="text-[10px] uppercase font-bold text-cyan-400 font-headline tracking-wide flex items-center gap-1">
                 <Activity className="h-3 w-3 text-cyan-400" />
                 Positions
               </div>
-              <div className="text-base sm:text-lg font-black text-cyan-300 font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-cyan-300 font-headline tracking-tight tabular-nums">
                 {demoPositionsCount} actives
               </div>
-              <div className="text-[10px] text-white/40 font-body">
+              <div className="text-[10px] text-white/40 font-body truncate">
                 Mode simulation
               </div>
             </div>
@@ -211,9 +211,9 @@ export default function PortfolioStatsHeader({
         ) : (
           <>
             {/* Card 1: Solde Réel */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-purple-500/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm">
               <div className="text-[10px] uppercase font-bold text-purple-300 font-headline flex items-center gap-1 tracking-wide">
-                <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse inline-block" />
+                <span className="h-2 w-2 rounded-full bg-purple-400 animate-pulse inline-block shrink-0" />
                 Solde Réel
                 {walletChain && (
                   <span className="ml-0.5 text-[8px] text-purple-300 font-mono font-bold bg-purple-500/20 px-1 rounded">
@@ -221,74 +221,74 @@ export default function PortfolioStatsHeader({
                   </span>
                 )}
               </div>
-              <div className="text-base sm:text-lg font-black text-purple-200 font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-purple-200 font-headline tracking-tight tabular-nums truncate">
                 {realBalanceDisplay}
               </div>
               {!isEvmWallet && solanaBalance !== null && (
-                <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                <div className="text-[10px] text-emerald-400 font-mono font-bold truncate">
                   {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
                 </div>
               )}
               {isEvmWallet && approxUsd && (
-                <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                <div className="text-[10px] text-emerald-400 font-mono font-bold truncate">
                   ≈ ${Number(approxUsd).toLocaleString('fr-FR')} USD
                 </div>
               )}
             </div>
 
             {/* Card 2: Coffre-Fort SOL Réel */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-amber-500/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm">
               <div className="text-[10px] uppercase font-bold text-amber-400 font-headline flex items-center gap-1 tracking-wide">
                 <Lock className="h-3 w-3 text-amber-400" />
                 Coffre-Fort (10%)
               </div>
-              <div className="text-base sm:text-lg font-black text-amber-300 font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-amber-300 font-headline tracking-tight tabular-nums truncate">
                 {formatSmartCrypto(realVaultVal, 'SOL')}
               </div>
-              <div className="text-[10px] text-amber-200/80 font-mono font-bold">
+              <div className="text-[10px] text-amber-200/80 font-mono font-bold truncate">
                 {formatSolToUsdAndHtg(realVaultVal).combinedLabel}
               </div>
             </div>
 
             {/* Card 3: Equity Réelle */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
-              <div className="text-[10px] uppercase font-bold text-white/60 font-headline tracking-wide flex items-center gap-1">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-emerald-500/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm">
+              <div className="text-[10px] uppercase font-bold text-emerald-300 font-headline tracking-wide flex items-center gap-1">
                 <ShieldCheck className="h-3 w-3 text-emerald-400" />
                 Equity Réelle
               </div>
-              <div className="text-base sm:text-lg font-black text-white font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-white font-headline tracking-tight tabular-nums truncate">
                 {formatSmartCrypto(realEquity, realCurrency)}
               </div>
               {!isEvmWallet && (
-                <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                <div className="text-[10px] text-emerald-400 font-mono font-bold truncate">
                   {formatSolToUsdAndHtg(realEquity).combinedLabel}
                 </div>
               )}
             </div>
 
             {/* Card 4: Allocations */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-violet-500/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm">
               <div className="text-[10px] uppercase font-bold text-violet-300 font-headline tracking-wide flex items-center gap-1">
                 <Zap className="h-3 w-3 text-violet-400" />
                 Allocations
               </div>
-              <div className="text-base sm:text-lg font-black text-violet-200 font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-violet-200 font-headline tracking-tight tabular-nums truncate">
                 {formatSmartCrypto(realAllocatedSol, realCurrency)}
               </div>
               {!isEvmWallet && (
-                <div className="text-[10px] text-white/40 font-mono">
+                <div className="text-[10px] text-white/40 font-mono truncate">
                   {formatSolToUsdAndHtg(realAllocatedSol).combinedLabel}
                 </div>
               )}
             </div>
 
             {/* Card 5: RPC Latency */}
-            <div className="p-3 bg-white/[0.02] border border-white/10 rounded-xl space-y-0.5 hover:border-white/20 transition-all col-span-2 sm:col-span-1">
+            <div className="p-2.5 sm:p-3 bg-white/[0.025] hover:bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 rounded-xl space-y-0.5 transition-all duration-200 shadow-sm col-span-2 sm:col-span-1">
               <div className="text-[10px] uppercase font-bold text-cyan-400 font-headline tracking-wide flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse inline-block" />
                 Latency RPC
               </div>
-              <div className="text-base sm:text-lg font-black text-cyan-300 font-headline tracking-tight">
+              <div className="text-base sm:text-lg font-black text-cyan-300 font-headline tracking-tight tabular-nums">
                 {rpcLatency !== null ? `${rpcLatency} ms` : 'Connecté'}
               </div>
               <div className="text-[10px] text-emerald-400 font-mono font-bold">

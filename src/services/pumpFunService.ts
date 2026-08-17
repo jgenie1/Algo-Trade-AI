@@ -1323,160 +1323,120 @@ export async function sweepSubWalletProfitToMaster({
   try {
     destination = new PublicKey(masterPublicKey);
   } catch {
-    return fallbackResult('Adresse du Master Wallet invalide.');
+    return fallbackResult('Adresse du Master Wallet invalide (format Base58 requis).');
   }
 
   const sourceAddress = sourceKeypair.publicKey.toBase58();
   const destinationAddress = destination.toBase58();
 
   if (sourceAddress === destinationAddress) {
-    throw new Error(
-      'Le sous-wallet et le Master Wallet sont identiques.'
-    );
+    return fallbackResult('Le sous-wallet et le Master Wallet sont identiques.');
   }
 
-  const RPC_URL =
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-    (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
-    'https://solana-rpc.publicnode.com';
+  try {
+    const RPC_URL =
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+      (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) ||
+      'https://solana-rpc.publicnode.com';
 
-  const connection = new Connection(RPC_URL, {
-    commitment: 'confirmed',
-  });
+    const connection = new Connection(RPC_URL, {
+      commitment: 'confirmed',
+    });
 
-  // Solde réel du sous-wallet
-  const balanceLamports = await connection.getBalance(
-    sourceKeypair.publicKey,
-    'confirmed'
-  );
-
-  const balanceSol = balanceLamports / 1_000_000_000;
-
-  if (balanceLamports <= 0) {
-    throw new Error(
-      `Le sous-wallet ${sourceAddress} ne possède aucun SOL.`
-    );
-  }
-
-  /*
-   * On garde une petite réserve pour payer les frais de transaction.
-   * Le montant exact des frais est calculé avant l'envoi.
-   */
-  const requestedLamports = Math.floor(
-    netProfitSol * 1_000_000_000
-  );
-
-  const latestBlockhash =
-    await connection.getLatestBlockhash('confirmed');
-
-  const testTransaction = new Transaction({
-    feePayer: sourceKeypair.publicKey,
-    recentBlockhash: latestBlockhash.blockhash,
-  }).add(
-    SystemProgram.transfer({
-      fromPubkey: sourceKeypair.publicKey,
-      toPubkey: destination,
-      lamports: requestedLamports,
-    })
-  );
-
-  const message = testTransaction.compileMessage();
-  const feeResult = await connection.getFeeForMessage(
-    message,
-    'confirmed'
-  );
-
-  const estimatedFeeLamports = feeResult.value ?? 5000;
-
-  /*
-   * Ne jamais envoyer plus que le solde réel.
-   */
-  const maxTransferLamports = Math.max(
-    0,
-    balanceLamports - estimatedFeeLamports
-  );
-
-  const transferLamports = Math.min(
-    requestedLamports,
-    maxTransferLamports
-  );
-
-  if (transferLamports <= 0) {
-    throw new Error(
-      `Solde insuffisant pour payer le transfert et les frais. Solde: ${balanceSol.toFixed(
-        6
-      )} SOL`
-    );
-  }
-
-  /*
-   * Protection contre les arrondis.
-   */
-  if (transferLamports < 1) {
-    throw new Error('Montant de transfert trop faible.');
-  }
-
-  const finalTransaction = new Transaction({
-    feePayer: sourceKeypair.publicKey,
-    recentBlockhash: latestBlockhash.blockhash,
-  }).add(
-    SystemProgram.transfer({
-      fromPubkey: sourceKeypair.publicKey,
-      toPubkey: destination,
-      lamports: transferLamports,
-    })
-  );
-
-  finalTransaction.sign(sourceKeypair);
-
-  // Envoi réel sur Solana
-  const signature = await connection.sendRawTransaction(
-    finalTransaction.serialize(),
-    {
-      skipPreflight: false,
-      preflightCommitment: 'confirmed',
-    }
-  );
-
-  // Confirmation réelle
-  const confirmation =
-    await connection.confirmTransaction(
-      {
-        signature,
-        blockhash: latestBlockhash.blockhash,
-        lastValidBlockHeight:
-          latestBlockhash.lastValidBlockHeight,
-      },
-      'confirmed'
-    );
-
-  if (confirmation.value.err) {
-    throw new Error(
-      `La transaction Solana a échoué: ${JSON.stringify(
-        confirmation.value.err
-      )}`
-    );
-  }
-
-  const sentSol = transferLamports / 1_000_000_000;
-
-  const remainingLamports =
-    await connection.getBalance(
+    // Solde réel du sous-wallet
+    const balanceLamports = await connection.getBalance(
       sourceKeypair.publicKey,
       'confirmed'
     );
 
-  return {
-    success: true,
-    signature,
-    sourceAddress,
-    destinationAddress,
-    requestedSol: netProfitSol,
-    sentSol,
-    remainingSol:
-      remainingLamports / 1_000_000_000,
-    explorerUrl:
-      `https://solscan.io/tx/${signature}`,
-  };
+    const balanceSol = balanceLamports / 1_000_000_000;
+
+    if (balanceLamports <= 0) {
+      return fallbackResult(`Le sous-wallet ${sourceAddress.slice(0, 8)}... ne possède aucun SOL pour exécuter le transfert.`);
+    }
+
+    const requestedLamports = Math.floor(netProfitSol * 1_000_000_000);
+    const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+
+    const testTransaction = new Transaction({
+      feePayer: sourceKeypair.publicKey,
+      recentBlockhash: latestBlockhash.blockhash,
+    }).add(
+      SystemProgram.transfer({
+        fromPubkey: sourceKeypair.publicKey,
+        toPubkey: destination,
+        lamports: requestedLamports,
+      })
+    );
+
+    const message = testTransaction.compileMessage();
+    const feeResult = await connection.getFeeForMessage(message, 'confirmed');
+    const estimatedFeeLamports = feeResult.value ?? 5000;
+
+    // Ne jamais envoyer plus que le solde réel moins les frais
+    const maxTransferLamports = Math.max(0, balanceLamports - estimatedFeeLamports);
+    const transferLamports = Math.min(requestedLamports, maxTransferLamports);
+
+    if (transferLamports <= 0) {
+      return fallbackResult(`Solde insuffisant pour payer le transfert et les frais de gaz. Solde actuel: ${balanceSol.toFixed(6)} SOL.`);
+    }
+
+    if (transferLamports < 1) {
+      return fallbackResult('Montant de transfert trop faible.');
+    }
+
+    const finalTransaction = new Transaction({
+      feePayer: sourceKeypair.publicKey,
+      recentBlockhash: latestBlockhash.blockhash,
+    }).add(
+      SystemProgram.transfer({
+        fromPubkey: sourceKeypair.publicKey,
+        toPubkey: destination,
+        lamports: transferLamports,
+      })
+    );
+
+    finalTransaction.sign(sourceKeypair);
+
+    // Envoi réel sur Solana Mainnet
+    const signature = await connection.sendRawTransaction(
+      finalTransaction.serialize(),
+      {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      }
+    );
+
+    // Confirmation réelle sur la blockchain
+    const confirmation = await connection.confirmTransaction(
+      {
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+      },
+      'confirmed'
+    );
+
+    if (confirmation.value.err) {
+      return fallbackResult(`La transaction Solana a échoué: ${JSON.stringify(confirmation.value.err)}`);
+    }
+
+    const sentSol = transferLamports / 1_000_000_000;
+    const remainingLamports = await connection.getBalance(sourceKeypair.publicKey, 'confirmed');
+
+    return {
+      success: true,
+      signature,
+      txHash: signature,
+      sourceAddress,
+      destinationAddress,
+      requestedSol: netProfitSol,
+      sentSol,
+      remainingSol: remainingLamports / 1_000_000_000,
+      explorerUrl: `https://solscan.io/tx/${signature}`,
+    };
+  } catch (err: any) {
+    return fallbackResult(err?.message || 'Erreur inconnue lors du sweep on-chain.');
+  }
 }
 

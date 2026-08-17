@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppState } from '@/context/AppContext';
 import { saveFullState, saveBotLearnings } from '@/lib/firebase';
-import { formatSmartPnl } from '@/lib/utils';
+import { formatSmartPnl, getRealMarketBasePrice } from '@/lib/utils';
 import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
@@ -32,8 +32,17 @@ function getDerivedMasterPublicKey(): string {
     const stored = localStorage.getItem('connected_web3_wallet');
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (parsed?.address && parsed.address.length >= 32) return parsed.address;
-      if (parsed?.publicKey && parsed.publicKey.length >= 32) return parsed.publicKey;
+      const candidate = parsed?.address || parsed?.publicKey || '';
+      if (candidate && candidate.length >= 32 && candidate.length <= 44 && !candidate.startsWith('0x')) {
+        return candidate;
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const manualAddr = localStorage.getItem('manual_solana_deposit_address');
+    if (manualAddr && manualAddr.length >= 32 && manualAddr.length <= 44 && !manualAddr.startsWith('0x')) {
+      return manualAddr;
     }
   } catch (e) {}
 
@@ -1483,7 +1492,7 @@ export function useTradingEngine() {
     const p = activePositionsRef.current.find(x => x.id === posId);
     if (!p) return;
 
-    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+    const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : (getRealMarketBasePrice(p.pair || '') || exitPrice);
     const priceDiff = exitPrice - entry;
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
@@ -1626,10 +1635,10 @@ export function useTradingEngine() {
       }
 
       // Auto-sweep profits from sub-wallets to Master Wallet on Solana Mainnet
-      if (profit > 0 && p.botId) {
-        const botObj = botsRef.current.find(b => b.id === p.botId);
-        const subIndex = (botObj?.subWallet || 1) - 1;
-        const subWalletKey = subWalletsRef.current[subIndex]?.privateKey;
+      if (profit > 0) {
+        const botObj = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
+        const subIndex = botObj ? (botObj.subWallet || 1) - 1 : 0;
+        const subWalletKey = subWalletsRef.current[subIndex]?.privateKey || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
         const masterPubKey = getDerivedMasterPublicKey();
 
         if (subWalletKey && masterPubKey && masterPubKey.length >= 32) {
@@ -1648,20 +1657,22 @@ export function useTradingEngine() {
               solPrice = cmcData?.['SOL']?.quote?.USD?.price ?? 0;
             }
             if (!solPrice || solPrice <= 1) {
-              // Cannot convert without a live SOL price — abort sweep, keep netProfit for manual claim
-              addBotLog(p.botId!, botObj?.strategy || 'Bot',
-                `[⚠️ SWEEP DIFFÉRÉ] Prix SOL non disponible (CMC + livePrices). Le gain $${profit.toFixed(4)} USD sera encaissé manuellement.`,
-                'error'
-              );
-              // Still accumulate netProfit on the bot so user can claim manually later
+              if (p.botId) {
+                addBotLog(p.botId, botObj?.strategy || 'Bot',
+                  `[⚠️ SWEEP DIFFÉRÉ] Prix SOL non disponible (CMC + livePrices). Le gain $${profit.toFixed(4)} USD sera transféré dès que le prix SOL est rétabli.`,
+                  'error'
+                );
+              }
               return;
             }
             const profitUsd = profit; // profit is in quote currency (USD-like for Forex)
             netProfitSol = (profitUsd / solPrice) * 0.90;
-            addBotLog(p.botId!, botObj?.strategy || 'Bot',
-              `[CONVERSION FOREX→SOL (CoinMarketCap API)] Gain: $${profitUsd.toFixed(4)} ÷ ${solPrice.toFixed(2)} $/SOL (CMC) = ${netProfitSol.toFixed(6)} SOL net. Transfert vers ${masterPubKey.slice(0, 8)}...`,
-              'info'
-            );
+            if (p.botId) {
+              addBotLog(p.botId, botObj?.strategy || 'Bot',
+                `[CONVERSION FOREX→SOL (CoinMarketCap API)] Gain: $${profitUsd.toFixed(4)} ÷ ${solPrice.toFixed(2)} $/SOL (CMC) = ${netProfitSol.toFixed(6)} SOL net. Transfert on-chain vers ${masterPubKey.slice(0, 8)}...`,
+                'info'
+              );
+            }
           } else {
             // Crypto/Pump.fun: profit already in SOL
             netProfitSol = profit * 0.90;
@@ -1673,23 +1684,31 @@ export function useTradingEngine() {
               masterPublicKey: masterPubKey,
               netProfitSol
             }).then(sweepRes => {
-              if (sweepRes && sweepRes.success && sweepRes.txHash) {
-                addBotLog(p.botId!, botObj?.strategy || 'Bot',
-                  `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL${isForex ? ` (= ${profit.toFixed(4)} USD Forex)` : ''} → ${masterPubKey.slice(0, 8)}... Tx: ${sweepRes.txHash.slice(0, 16)}...`,
-                  'trade'
-                );
-                // Auto-reset netProfit on bot after successful on-chain sweep — no manual "Encaisser" needed
-                setBots(prev => prev.map(b =>
-                  b.id === p.botId ? { ...b, netProfit: 0, pnl: 0 } : b
-                ));
-                if (typeof window !== 'undefined') window.dispatchEvent(new Event('web3_wallet_updated'));
+              const txId = sweepRes?.txHash || sweepRes?.signature;
+              if (sweepRes && sweepRes.success && txId) {
+                const logMsg = `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL${isForex ? ` (= ${profit.toFixed(4)} USD Forex)` : ''} transféré au wallet ${masterPubKey.slice(0, 8)}... Tx: ${txId.slice(0, 16)}... (Solscan: https://solscan.io/tx/${txId})`;
+                if (p.botId) {
+                  addBotLog(p.botId, botObj?.strategy || 'Bot', logMsg, 'trade');
+                  // Auto-reset netProfit on bot after successful on-chain sweep
+                  setBots(prev => prev.map(b =>
+                    b.id === p.botId ? { ...b, netProfit: 0, pnl: 0 } : b
+                  ));
+                }
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new Event('web3_wallet_updated'));
+                  window.dispatchEvent(new Event('storage'));
+                }
               } else if (sweepRes && sweepRes.error) {
-                addBotLog(p.botId!, botObj?.strategy || 'Bot',
-                  `[⚠️ PROFIT EN ATTENTE] Sweep échoué: ${sweepRes.error}. Financer le sous-wallet ${subWalletsRef.current[subIndex]?.publicKey?.slice(0, 8)}... avec du SOL.`,
-                  'error'
-                );
+                const errMsg = `[⚠️ PROFIT EN ATTENTE] Sweep échoué: ${sweepRes.error}. Financer le sous-wallet ${subWalletsRef.current[subIndex]?.publicKey?.slice(0, 8) || 'source'}... avec du SOL.`;
+                if (p.botId) {
+                  addBotLog(p.botId, botObj?.strategy || 'Bot', errMsg, 'error');
+                }
               }
             }).catch(err => {
+              const errMsg = `[⚠️ PROFIT EN ATTENTE] Erreur réseau Solana: ${err?.message || 'Inconnue'}.`;
+              if (p.botId) {
+                addBotLog(p.botId, botObj?.strategy || 'Bot', errMsg, 'error');
+              }
               console.warn("[SOLANA PROFIT SWEEP ERROR]", err);
             });
           }

@@ -147,10 +147,10 @@ export default function TradingTerminalPage() {
 
       {/* Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="w-full">
-        <TabsList className="flex w-full bg-[#120a1c]/90 border border-white/15 p-1.5 rounded-2xl gap-2 h-auto mb-6 overflow-x-auto no-scrollbar scrollbar-none snap-x whitespace-nowrap backdrop-blur-xl">
+        <TabsList className="flex w-full bg-[#120a1c]/90 border border-white/15 p-1.5 rounded-2xl gap-2 h-auto mb-6 overflow-x-auto no-scrollbar scrollbar-none snap-x whitespace-nowrap backdrop-blur-xl shadow-lg">
           <TabsTrigger
             value="manual"
-            className="flex-1 min-w-[160px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-amber-500/25 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/40 data-[state=active]:shadow-[0_0_12px_rgba(245,158,11,0.2)] text-slate-300 hover:text-white snap-start"
+            className="flex-1 min-w-[150px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-amber-500/25 data-[state=active]:text-amber-300 data-[state=active]:border data-[state=active]:border-amber-500/40 data-[state=active]:shadow-[0_0_12px_rgba(245,158,11,0.2)] text-slate-300 hover:text-white snap-start active:scale-95 cursor-pointer"
           >
             <Zap className="inline-block h-3.5 w-3.5 mr-1.5 text-amber-400" />
             Trading Manuel & Analyse
@@ -158,27 +158,32 @@ export default function TradingTerminalPage() {
 
           <TabsTrigger
             value="bots"
-            className="flex-1 min-w-[170px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/40 data-[state=active]:shadow-[0_0_12px_rgba(194,255,12,0.2)] text-slate-300 hover:text-white snap-start"
+            className="flex-1 min-w-[160px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-[#c2ff0c]/20 data-[state=active]:text-[#c2ff0c] data-[state=active]:border data-[state=active]:border-[#c2ff0c]/40 data-[state=active]:shadow-[0_0_12px_rgba(194,255,12,0.2)] text-slate-300 hover:text-white snap-start active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
           >
-            <Bot className="inline-block h-3.5 w-3.5 mr-1.5 text-[#c2ff0c]" />
-            Bots IA & Intelligence
+            <Bot className="inline-block h-3.5 w-3.5 text-[#c2ff0c]" />
+            <span>Bots IA & Intelligence</span>
+            {(bots || []).filter(b => b.status === 'RUNNING').length > 0 && (
+              <span className="bg-[#c2ff0c] text-black font-black text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_0_8px_rgba(194,255,12,0.8)] leading-none ml-1">
+                {(bots || []).filter(b => b.status === 'RUNNING').length}
+              </span>
+            )}
           </TabsTrigger>
 
           <TabsTrigger
             value="tokens"
-            className="flex-1 min-w-[160px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/40 data-[state=active]:shadow-[0_0_12px_rgba(168,85,247,0.3)] text-slate-300 hover:text-white flex items-center justify-center gap-1.5 snap-start"
+            className="flex-1 min-w-[150px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/40 data-[state=active]:shadow-[0_0_12px_rgba(168,85,247,0.3)] text-slate-300 hover:text-white flex items-center justify-center gap-1.5 snap-start active:scale-95 cursor-pointer"
           >
             <Coins className="inline-block h-3.5 w-3.5 text-purple-400" />
-            Mes Tokens & Vente
+            <span>Mes Tokens & Vente</span>
           </TabsTrigger>
 
           {tradingMode === 'REAL' && (
             <TabsTrigger
               value="wallets"
-              className="flex-1 min-w-[160px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/40 data-[state=active]:shadow-[0_0_12px_rgba(168,85,247,0.3)] text-slate-300 hover:text-white flex items-center justify-center gap-1.5 snap-start"
+              className="flex-1 min-w-[150px] sm:min-w-0 py-2.5 px-3 text-[11px] sm:text-xs font-extrabold uppercase rounded-xl transition-all duration-300 font-headline data-[state=active]:bg-purple-600/30 data-[state=active]:text-purple-200 data-[state=active]:border data-[state=active]:border-purple-500/40 data-[state=active]:shadow-[0_0_12px_rgba(168,85,247,0.3)] text-slate-300 hover:text-white flex items-center justify-center gap-1.5 snap-start active:scale-95 cursor-pointer"
             >
               <span className="text-xs">💳</span>
-              Multi-Wallets SOL
+              <span>Multi-Wallets SOL</span>
             </TabsTrigger>
           )}
         </TabsList>

@@ -310,17 +310,17 @@ export default function Header() {
 
   return (
     <header 
-      className="flex h-16 items-center justify-between gap-3 max-w-full bg-[#0b0814]/90 backdrop-blur-2xl border border-white/12 rounded-2xl px-3 sm:px-5 w-full mb-6 shrink-0 shadow-[0_15px_40px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(194,255,12,0.06)] overflow-x-auto no-scrollbar transition-all duration-300" 
+      className="flex h-16 items-center justify-between gap-2 sm:gap-3 max-w-full bg-[#0b0814]/90 backdrop-blur-2xl border border-white/12 rounded-2xl px-2.5 sm:px-5 w-full mb-6 shrink-0 shadow-[0_15px_40px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(194,255,12,0.06)] transition-all duration-300 relative z-30" 
       suppressHydrationWarning
     >
       {/* Left Zone: Brand Identity / Sidebar Toggle / Search / Live USD-HTG Market Rate */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
         {/* Explicit Sidebar Show/Hide Toggle Button */}
         <Button
           type="button"
           onClick={toggleSidebar}
           className={cn(
-            "h-10 px-3 font-headline font-bold text-xs rounded-xl flex items-center gap-2 transition-all shrink-0 shadow-sm border cursor-pointer",
+            "h-9 sm:h-10 px-2 sm:px-3 font-headline font-bold text-xs rounded-xl flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 shadow-sm border cursor-pointer active:scale-95",
             state === "expanded"
               ? "bg-white/5 hover:bg-white/10 border-white/10 text-white/80 hover:text-white"
               : "bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 border-[#c2ff0c]/50 text-[#c2ff0c] shadow-[0_0_15px_rgba(194,255,12,0.3)] animate-pulse"
@@ -333,16 +333,16 @@ export default function Header() {
           </span>
         </Button>
         
-        {/* Brand Cyber Identity (Dribbble Showcase) */}
-        <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/5 shrink-0">
-          <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
-            <Sparkles className="h-3.5 w-3.5" />
+        {/* Brand Cyber Identity (Desktop & Mobile Compact) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/5 shrink-0">
+          <div className="relative flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
+            <Sparkles className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
           </div>
           <div className="flex flex-col text-left leading-none">
-            <span className="font-headline font-black text-xs text-white tracking-wider flex items-center gap-1">
-              ALGOTRADE <span className="text-[#c2ff0c]">AI</span>
+            <span className="font-headline font-black text-[11px] sm:text-xs text-white tracking-wider flex items-center gap-0.5 sm:gap-1">
+              <span className="hidden xs:inline">ALGOTRADE</span> <span className="text-[#c2ff0c]">AI</span>
             </span>
-            <span className="text-[8px] font-mono text-purple-300 uppercase tracking-widest font-extrabold mt-0.5">
+            <span className="text-[7px] sm:text-[8px] font-mono text-purple-300 uppercase tracking-widest font-extrabold mt-0.5 hidden xs:block">
               PRO TERMINAL
             </span>
           </div>
@@ -362,20 +362,21 @@ export default function Header() {
       </div>
 
       {/* Center / Mode Switcher & Security Controls Zone */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Segmented Mode Switcher (DEMO vs REAL) */}
-        <div className="flex items-center p-1 bg-black/50 border border-white/10 rounded-xl shrink-0">
+        <div className="flex items-center p-0.5 sm:p-1 bg-black/50 border border-white/10 rounded-xl shrink-0">
           <button
             type="button"
             onClick={() => setTradingMode('DEMO')}
             className={cn(
-              "px-3 py-1 text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer",
+              "px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer active:scale-95",
               tradingMode === 'DEMO' 
                 ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]" 
                 : "text-white/40 hover:text-white"
             )}
           >
-            DEMO (Virtual)
+            <span className="sm:hidden">DEMO</span>
+            <span className="hidden sm:inline">DEMO (Virtual)</span>
           </button>
           <button
             type="button"
@@ -386,18 +387,21 @@ export default function Header() {
               setTradingMode('REAL');
             }}
             className={cn(
-              "px-3 py-1 text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer",
+              "px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer active:scale-95",
               tradingMode === 'REAL' 
                 ? "bg-purple-600/40 text-purple-200 border border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.35)]" 
                 : "text-white/40 hover:text-white"
             )}
           >
-            ⚡ REAL (On-Chain)
+            <span className="sm:hidden">⚡ REAL</span>
+            <span className="hidden sm:inline">⚡ REAL (On-Chain)</span>
           </button>
         </div>
 
-        {/* Panic Kill Switch 1-Clic */}
-        <PanicKillSwitch />
+        {/* Panic Kill Switch 1-Clic (Desktop only in header, also in mobile menu) */}
+        <div className="hidden sm:block">
+          <PanicKillSwitch />
+        </div>
 
         {/* Coffre-Fort Intouchable (10% des Gains) */}
         <div className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[#c2ff0c] font-headline text-xs shadow-sm shrink-0">
@@ -419,10 +423,10 @@ export default function Header() {
         {/* DEX Swap Quick Trigger Button */}
         <Button
           onClick={() => setIsSwapOpen(true)}
-          className="h-10 px-3.5 bg-gradient-to-r from-purple-950/70 to-indigo-950/70 hover:from-purple-900/90 hover:to-indigo-900/90 border border-purple-500/40 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0 cursor-pointer"
+          className="hidden md:flex h-10 px-3.5 bg-gradient-to-r from-purple-950/70 to-indigo-950/70 hover:from-purple-900/90 hover:to-indigo-900/90 border border-purple-500/40 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md items-center gap-2 transition-all shrink-0 cursor-pointer active:scale-95"
         >
           <ArrowDownUp className="h-4 w-4 text-[#c2ff0c]" />
-          <span className="hidden md:inline font-headline uppercase tracking-wide">Swap DEX</span>
+          <span className="font-headline uppercase tracking-wide">Swap DEX</span>
         </Button>
 
         {/* DEX Swap Modal */}
@@ -430,20 +434,20 @@ export default function Header() {
       </div>
 
       {/* Right Zone: Wallet / Language / Notifications / Settings / Profile */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Web3 Multi-Chain Connect Wallet Button */}
         <Dialog>
           <DialogTrigger asChild>
             {connectedWallet ? (
               <Button
-                className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-emerald-500/40 text-white font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] cursor-pointer"
+                className="h-9 sm:h-10 px-2 sm:px-3 bg-white/5 hover:bg-white/10 border border-emerald-500/40 text-white font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 sm:gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] cursor-pointer active:scale-95"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="font-mono text-xs font-semibold text-emerald-400">
-                  {connectedWallet.address.slice(0, 4)}...{connectedWallet.address.slice(-4)}
+                <span className="font-mono text-[11px] sm:text-xs font-semibold text-emerald-400">
+                  {connectedWallet.address.slice(0, 3)}..{connectedWallet.address.slice(-3)}
                 </span>
                 <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-headline uppercase font-bold hidden md:inline">
                   {connectedWallet.chain}
@@ -451,11 +455,11 @@ export default function Header() {
               </Button>
             ) : (
               <Button
-                className="h-10 px-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_20px_rgba(147,51,234,0.4)] hover:shadow-[0_0_28px_rgba(147,51,234,0.65)] flex items-center gap-2 border border-purple-400/40 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                className="h-9 sm:h-10 px-2.5 sm:px-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_20px_rgba(147,51,247,0.4)] hover:shadow-[0_0_28px_rgba(147,51,247,0.65)] flex items-center gap-1.5 sm:gap-2 border border-purple-400/40 transition-all cursor-pointer active:scale-95"
               >
-                <Wallet className="h-4 w-4 text-[#c2ff0c] animate-pulse" />
-                <span className="hidden sm:inline">Web3</span>
-                <span className="text-[9px] bg-black/40 text-[#c2ff0c] px-1.5 py-0.5 rounded font-mono font-normal">
+                <Wallet className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-[#c2ff0c] animate-pulse" />
+                <span className="text-[11px] sm:text-xs">Web3</span>
+                <span className="text-[9px] bg-black/40 text-[#c2ff0c] px-1 py-0.5 rounded font-mono font-normal hidden sm:inline">
                   Multi
                 </span>
               </Button>
@@ -600,17 +604,19 @@ export default function Header() {
           </DialogContent>
         </Dialog>
 
-        {/* Bouton d'Installation PWA App */}
-        <PWAInstallBanner />
+        {/* Bouton d'Installation PWA App (Desktop & Tablet) */}
+        <div className="hidden sm:block">
+          <PWAInstallBanner />
+        </div>
 
-        {/* Sélecteur Multi-Langues FR / HT / EN */}
+        {/* Sélecteur Multi-Langues FR / HT / EN (Desktop) */}
         <select
           value={getStoredLanguage()}
           onChange={(e) => {
             setStoredLanguage(e.target.value as Language);
             window.location.reload();
           }}
-          className="h-10 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-2 text-xs font-bold text-white font-headline shrink-0 transition-colors cursor-pointer focus:outline-none"
+          className="hidden md:block h-9 sm:h-10 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-2 text-xs font-bold text-white font-headline shrink-0 transition-colors cursor-pointer focus:outline-none"
         >
           <option value="FR" className="bg-[#14101a]">🇫🇷 FR</option>
           <option value="HT" className="bg-[#14101a]">🇭🇹 HT</option>
@@ -623,7 +629,7 @@ export default function Header() {
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 relative shrink-0 cursor-pointer"
+              className="h-9 sm:h-10 w-9 sm:w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 relative shrink-0 cursor-pointer active:scale-95"
             >
               <Bell className="h-4 w-4" />
               {activeNotificationsCount > 0 && (
@@ -663,13 +669,13 @@ export default function Header() {
           </PopoverContent>
         </Popover>
 
-        {/* 2. Settings Modal (Gear) */}
+        {/* 2. Settings Modal (Gear) - Desktop */}
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
           <DialogTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 shrink-0 cursor-pointer"
+              className="hidden sm:flex h-9 sm:h-10 w-9 sm:w-10 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-[#c2ff0c] transition-all duration-200 shrink-0 cursor-pointer active:scale-95"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -772,8 +778,8 @@ export default function Header() {
         {/* 3. User Profile Dropdown Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-3 p-1.5 pr-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors duration-200 cursor-pointer select-none">
-              <Avatar className="h-8 w-8 rounded-lg border border-white/15">
+            <div className="flex items-center gap-2 sm:gap-3 p-1 sm:p-1.5 sm:pr-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors duration-200 cursor-pointer select-none active:scale-95">
+              <Avatar className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg border border-white/15">
                 <AvatarImage src={profileAvatarUrl} />
                 <AvatarFallback className="bg-white/10 text-white text-xs font-bold">DO</AvatarFallback>
               </Avatar>
@@ -784,29 +790,47 @@ export default function Header() {
               <ChevronDown className="h-3.5 w-3.5 text-white/55 hidden lg:block ml-1" />
             </div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56 bg-[#14101a] border-white/10 text-white rounded-xl shadow-xl p-1 font-body">
+          <DropdownMenuContent className="w-60 bg-[#14101a] border-white/10 text-white rounded-xl shadow-2xl p-1.5 font-body z-50">
             <DropdownMenuLabel className="font-headline text-[10px] text-white/30 uppercase tracking-widest px-3.5 py-2">
-              Menu Utilisateur
+              Menu & Contrôles Rapides
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/5" />
             
-            <DropdownMenuItem asChild className="px-3.5 py-2 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2">
-              <Link href="/profile" className="flex items-center gap-2 w-full">
-                <User className="h-3.5 w-3.5 text-[#c2ff0c]" />
-                <span>Mon Profil</span>
+            <DropdownMenuItem asChild className="px-3.5 py-2.5 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2.5">
+              <Link href="/profile" className="flex items-center gap-2.5 w-full">
+                <User className="h-4 w-4 text-[#c2ff0c]" />
+                <span className="font-semibold">Mon Profil</span>
               </Link>
             </DropdownMenuItem>
 
-            <DropdownMenuItem asChild className="px-3.5 py-2 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2">
-              <Link href="/settings" className="flex items-center gap-2 w-full">
-                <Settings className="h-3.5 w-3.5 text-purple-400" />
+            <DropdownMenuItem asChild className="px-3.5 py-2.5 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2.5">
+              <Link href="/settings" className="flex items-center gap-2.5 w-full">
+                <Settings className="h-4 w-4 text-purple-400" />
                 <span>Paramètres Système</span>
               </Link>
             </DropdownMenuItem>
 
+            {/* Quick DEX Swap trigger on mobile */}
+            <DropdownMenuItem 
+              onClick={() => setIsSwapOpen(true)}
+              className="px-3.5 py-2.5 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2.5 md:hidden"
+            >
+              <ArrowDownUp className="h-4 w-4 text-sky-400" />
+              <span>Swap DEX Express</span>
+            </DropdownMenuItem>
+
+            {/* Quick Settings trigger on mobile */}
+            <DropdownMenuItem 
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-3.5 py-2.5 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2.5 sm:hidden"
+            >
+              <SlidersHorizontal className="h-4 w-4 text-[#c2ff0c]" />
+              <span>Config RPC & Slippage</span>
+            </DropdownMenuItem>
+
             <DropdownMenuSeparator className="bg-white/5" />
 
-            {/* Toggle Trading Mode directly */}
+            {/* Toggle Trading Mode */}
             <DropdownMenuItem 
               onClick={() => {
                 if (tradingMode === 'DEMO' && !connectedWallet) {
@@ -814,11 +838,11 @@ export default function Header() {
                 }
                 setTradingMode(prev => prev === 'DEMO' ? 'REAL' : 'DEMO');
               }}
-              className="px-3.5 py-2 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex justify-between items-center"
+              className="px-3.5 py-2.5 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex justify-between items-center"
             >
-              <span>Mode de Trading</span>
+              <span className="font-medium">Mode de Trading</span>
               <span className={cn(
-                "text-[8px] font-black uppercase px-2 py-0.5 rounded",
+                "text-[9px] font-black uppercase px-2 py-0.5 rounded",
                 tradingMode === 'REAL' ? "bg-purple-500/20 text-purple-300" : "bg-amber-500/20 text-amber-300"
               )}>
                 {tradingMode}
@@ -828,9 +852,9 @@ export default function Header() {
             {/* Reset Balance */}
             <DropdownMenuItem 
               onClick={handleResetBalance}
-              className="px-3.5 py-2 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2"
+              className="px-3.5 py-2.5 hover:bg-white/5 rounded-lg focus:bg-white/5 focus:text-[#c2ff0c] cursor-pointer text-xs flex items-center gap-2.5"
             >
-              <RotateCcw className="h-3.5 w-3.5 text-white/40" />
+              <RotateCcw className="h-4 w-4 text-white/40" />
               <span>Réinitialiser Solde Démo</span>
             </DropdownMenuItem>
 
@@ -839,9 +863,9 @@ export default function Header() {
             {/* Logout/Reset */}
             <DropdownMenuItem 
               onClick={handleLogout}
-              className="px-3.5 py-2 hover:bg-red-500/10 rounded-lg focus:bg-red-500/10 text-rose-400 focus:text-rose-300 cursor-pointer text-xs flex items-center gap-2"
+              className="px-3.5 py-2.5 hover:bg-red-500/10 rounded-lg focus:bg-red-500/10 text-rose-400 focus:text-rose-300 cursor-pointer text-xs flex items-center gap-2.5"
             >
-              <LogOut className="h-3.5 w-3.5 text-rose-400" />
+              <LogOut className="h-4 w-4 text-rose-400" />
               <span>Déconnexion Session</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
