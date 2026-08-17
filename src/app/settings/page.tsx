@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Settings, Check, RefreshCw, RotateCcw, Radio, SlidersHorizontal, Globe, Key, Eye, EyeOff } from 'lucide-react';
-import { SOL_USD_RATE, getUsdHtgRate, fetchLiveUsdHtgRate, cn } from '@/lib/utils';
+import { getUsdHtgRate, fetchLiveUsdHtgRate, cn, getSolUsdRate } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

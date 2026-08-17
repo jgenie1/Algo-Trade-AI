@@ -32,6 +32,8 @@ export interface CoinMarketCapQuote {
   };
 }
 
+import { updateLiveMarketPrice } from '@/lib/utils';
+
 export async function fetchCoinMarketCapQuotes(
   symbols: string[] = ['BTC', 'ETH', 'SOL', 'BNB'],
   convert: string = 'USD'
@@ -45,7 +47,18 @@ export async function fetchCoinMarketCapQuotes(
 
     const json = await res.json();
     if (json && json.success && json.data) {
-      return json.data as Record<string, CoinMarketCapQuote>;
+      const quotes = json.data as Record<string, CoinMarketCapQuote>;
+      for (const [sym, quoteObj] of Object.entries(quotes)) {
+        const p = quoteObj?.quote?.[convert]?.price;
+        if (typeof p === 'number' && !isNaN(p) && p > 0) {
+          updateLiveMarketPrice(sym, p);
+          if (sym.toUpperCase() === 'SOL' && typeof window !== 'undefined') {
+            localStorage.setItem('cmc_live_sol_price', p.toString());
+            window.dispatchEvent(new CustomEvent('live_sol_price_updated', { detail: p }));
+          }
+        }
+      }
+      return quotes;
     }
   } catch (error) {
     console.warn('[CoinMarketCap Service] Erreur lors de la récupération des prix:', error);

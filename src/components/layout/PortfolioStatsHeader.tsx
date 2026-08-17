@@ -1,8 +1,9 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { RotateCcw, ShieldCheck, Zap, Lock, Activity, Wallet } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto, formatSmartNumber, getSolUsdRate } from '@/lib/utils';
+import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Button } from '@/components/ui/button';
 import { useAppState } from '@/context/AppContext';
 
@@ -37,6 +38,40 @@ export default function PortfolioStatsHeader({
 }: PortfolioStatsHeaderProps) {
   const { reserveVaultSol, bots } = useAppState();
   const isDemo = tradingMode === 'DEMO';
+
+  // Live CoinMarketCap Price state
+  const [liveCmcPrices, setLiveCmcPrices] = useState<{ SOL?: number; ETH?: number; BNB?: number }>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchQuotes = async () => {
+      const quotes = await fetchCoinMarketCapQuotes(['SOL', 'ETH', 'BNB']);
+      if (quotes && isMounted) {
+        setLiveCmcPrices({
+          SOL: quotes['SOL']?.quote?.USD?.price,
+          ETH: quotes['ETH']?.quote?.USD?.price,
+          BNB: quotes['BNB']?.quote?.USD?.price
+        });
+      }
+    };
+    fetchQuotes();
+    const interval = setInterval(fetchQuotes, 4000);
+    const handlePriceUpdate = (e: any) => {
+      if (e?.detail && typeof e.detail === 'number') {
+        setLiveCmcPrices(prev => ({ ...prev, SOL: e.detail }));
+      }
+    };
+    window.addEventListener('live_sol_price_updated', handlePriceUpdate);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('live_sol_price_updated', handlePriceUpdate);
+    };
+  }, []);
+
+  const liveSolPrice = liveCmcPrices.SOL || getSolUsdRate() || 0;
+  const liveEthPrice = liveCmcPrices.ETH || 0;
+  const liveBnbPrice = liveCmcPrices.BNB || 0;
 
   const safeActivePositions = Array.isArray(activePositions) ? activePositions : [];
   const safeBots = Array.isArray(bots) ? bots : [];
@@ -82,8 +117,8 @@ export default function PortfolioStatsHeader({
 
   const getApproxUsd = () => {
     if (realBalance === null) return null;
-    if (walletChain === 'Ethereum') return (realBalance * 3000).toFixed(2);
-    if (walletChain === 'BSC') return (realBalance * 300).toFixed(2);
+    if (walletChain === 'Ethereum') return liveEthPrice > 0 ? (realBalance * liveEthPrice).toFixed(2) : null;
+    if (walletChain === 'BSC') return liveBnbPrice > 0 ? (realBalance * liveBnbPrice).toFixed(2) : null;
     return null;
   };
   const approxUsd = getApproxUsd();
@@ -226,7 +261,7 @@ export default function PortfolioStatsHeader({
               </div>
               {!isEvmWallet && solanaBalance !== null && (
                 <div className="text-[10px] text-emerald-400 font-mono font-bold truncate">
-                  {formatSolToUsdAndHtg(solanaBalance).combinedLabel}
+                  {formatSolToUsdAndHtg(solanaBalance, liveSolPrice).combinedLabel}
                 </div>
               )}
               {isEvmWallet && approxUsd && (
@@ -246,7 +281,7 @@ export default function PortfolioStatsHeader({
                 {formatSmartCrypto(realVaultVal, 'SOL')}
               </div>
               <div className="text-[10px] text-amber-200/80 font-mono font-bold truncate">
-                {formatSolToUsdAndHtg(realVaultVal).combinedLabel}
+                {formatSolToUsdAndHtg(realVaultVal, liveSolPrice).combinedLabel}
               </div>
             </div>
 
@@ -261,7 +296,7 @@ export default function PortfolioStatsHeader({
               </div>
               {!isEvmWallet && (
                 <div className="text-[10px] text-emerald-400 font-mono font-bold truncate">
-                  {formatSolToUsdAndHtg(realEquity).combinedLabel}
+                  {formatSolToUsdAndHtg(realEquity, liveSolPrice).combinedLabel}
                 </div>
               )}
             </div>
@@ -277,7 +312,7 @@ export default function PortfolioStatsHeader({
               </div>
               {!isEvmWallet && (
                 <div className="text-[10px] text-white/40 font-mono truncate">
-                  {formatSolToUsdAndHtg(realAllocatedSol).combinedLabel}
+                  {formatSolToUsdAndHtg(realAllocatedSol, liveSolPrice).combinedLabel}
                 </div>
               )}
             </div>

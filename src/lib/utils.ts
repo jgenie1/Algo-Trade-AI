@@ -38,13 +38,17 @@ export function getRealMarketBasePrice(pair: string): number {
 }
 
 /**
- * Returns the live SOL/USD price from real API feeds.
+ * Returns the live SOL/USD price from real CoinMarketCap / live API feeds.
  */
 export function getSolUsdRate(): number {
-  return liveMarketPricesStore['SOL'] || liveMarketPricesStore['SOL-USD'] || 0;
+  if (liveMarketPricesStore['SOL'] && liveMarketPricesStore['SOL'] > 0) return liveMarketPricesStore['SOL'];
+  if (liveMarketPricesStore['SOL-USD'] && liveMarketPricesStore['SOL-USD'] > 0) return liveMarketPricesStore['SOL-USD'];
+  if (typeof window !== 'undefined') {
+    const saved = parseFloat(localStorage.getItem('cmc_live_sol_price') || '0');
+    if (!isNaN(saved) && saved > 0) return saved;
+  }
+  return 0;
 }
-
-export const SOL_USD_RATE = 145.0; // Legacy fallback; live market API prices are used across app
 
 // IMPORTANT: This value must be STABLE between SSR and first client render.
 // It is only updated via setClientUsdHtgRate() after React hydration completes.
@@ -112,10 +116,21 @@ export async function fetchLiveUsdHtgRate(): Promise<number> {
 
 export function formatSolToUsdAndHtg(solAmount: number | null | undefined, customSolPriceUsd?: number, customUsdHtgRate?: number) {
   const amount = solAmount == null || isNaN(solAmount) ? 0 : solAmount;
-  const solPrice = customSolPriceUsd && customSolPriceUsd > 0 ? customSolPriceUsd : SOL_USD_RATE;
+  const liveRate = getSolUsdRate();
+  const solPrice = customSolPriceUsd && customSolPriceUsd > 0 ? customSolPriceUsd : (liveRate > 0 ? liveRate : 0);
   const htgRate = customUsdHtgRate && customUsdHtgRate > 0 ? customUsdHtgRate : getUsdHtgRate();
   const usdVal = amount * solPrice;
   const htgVal = usdVal * htgRate;
+
+  if (solPrice <= 0) {
+    return {
+      usd: `0,00 $`,
+      htg: `0 HTG`,
+      usdNum: 0,
+      htgNum: 0,
+      combinedLabel: `≈ Chargement CoinMarketCap...`
+    };
+  }
 
   return {
     usd: `${usdVal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`,
