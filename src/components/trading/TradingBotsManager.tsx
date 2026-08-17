@@ -1392,14 +1392,11 @@ export default function TradingBotsManager({
                         >
                           {isWinRule ? 'Optimisation IA' : 'Protection IA'}
                         </Badge>
-                        {isRealModeItem && isWinRule && !l.txHash && l.botId && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleClaimBotProfit(l.botId!)}
-                            className="h-7 px-2.5 text-[10px] font-bold bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 border border-emerald-500/40 rounded-lg transition-all"
-                          >
-                            💰 Encaisser
-                          </Button>
+                        {isRealModeItem && isWinRule && (
+                          <span className="text-[10px] text-emerald-400 font-mono font-bold flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Gains On-Chain Automatisés
+                          </span>
                         )}
                       </div>
                     </div>
