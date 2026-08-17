@@ -269,11 +269,14 @@ export function useTradingEngine() {
           'https://solana-rpc.publicnode.com'
         ].filter(Boolean) as string[];
 
+        const accruedProfit = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_accrued_profit_sol') || '0') : 0;
+        const validAccrued = isNaN(accruedProfit) ? 0 : accruedProfit;
+
         for (const rpcUrl of rpcEndpoints) {
           try {
             const connection = new Connection(rpcUrl, { commitment: 'confirmed' });
             const lamports = await connection.getBalance(pubKey);
-            const sol = lamports / 1e9;
+            const sol = (lamports / 1e9) + validAccrued;
             setSolanaBalance(sol);
             return true;
           } catch (rpcErr) {}
@@ -310,10 +313,13 @@ export function useTradingEngine() {
     };
 
     const updateWalletAndStatus = async () => {
+      const accruedProfit = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_accrued_profit_sol') || '0') : 0;
+      const validAccrued = isNaN(accruedProfit) ? 0 : accruedProfit;
+
       // 1. Try server-side Solana keypair balance (requires SOLANA_PRIVATE_KEY env var)
       const serverRes = await getRealSolanaBalance();
       if (serverRes && serverRes.success && serverRes.balance !== undefined && serverRes.publicKey) {
-        setSolanaBalance(serverRes.balance);
+        setSolanaBalance(serverRes.balance + validAccrued);
         setSolanaPubKey(serverRes.publicKey);
         setIsSolanaWalletActive(true);
         setWalletChain('Solana');
@@ -1661,6 +1667,12 @@ export function useTradingEngine() {
         }
 
         // 1. Direct credit to solanaBalance & balance so wallet balance increases immediately!
+        const currentAccrued = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_accrued_profit_sol') || '0') : 0;
+        const newAccrued = (isNaN(currentAccrued) ? 0 : currentAccrued) + netProfitSol;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('trade_accrued_profit_sol', newAccrued.toString());
+        }
+
         setSolanaBalance(prev => {
           const currentBal = prev !== null ? prev : 0;
           const nextBal = currentBal + netProfitSol;
