@@ -550,7 +550,7 @@ export function useTradingEngine() {
 
     const manualPositions = (Array.isArray(activePositions) ? activePositions : []).filter(p => p && !p.botId && (p.mode || 'DEMO') === tradingMode);
     manualPositions.forEach(p => {
-      const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : 145.50;
+      const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair || 'SOL');
       const current = livePrices[p.pair] || entry;
       const priceDiff = current - entry;
       const pctDiff = entry > 0 ? (priceDiff / entry) : 0;

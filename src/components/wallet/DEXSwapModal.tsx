@@ -119,7 +119,8 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
       if (solanaBalanceState !== null && solanaBalanceState > 0) {
         return solanaBalanceState;
       }
-      return tradingMode === 'DEMO' ? parseFloat((balance / 145.5).toFixed(4)) : 0;
+      const liveSol = getRealMarketBasePrice('SOL') || 1;
+      return tradingMode === 'DEMO' ? parseFloat((balance / liveSol).toFixed(4)) : 0;
     }
 
     if (token.symbol === 'USDC' || token.symbol === 'USDT') {
@@ -230,7 +231,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
 
     if (res.success) {
       const outQty = parseFloat(quote.outAmount) || 0;
-      const currentSolPrice = getRealMarketBasePrice('SOL') || 145.5;
+      const currentSolPrice = getRealMarketBasePrice('SOL') || 1;
       if (tradingMode === 'DEMO') {
         if (fromToken.symbol === 'SOL') {
           setSolanaBalanceState(prev => Math.max(0, (prev !== null ? prev : (balance / currentSolPrice)) - numAmount));

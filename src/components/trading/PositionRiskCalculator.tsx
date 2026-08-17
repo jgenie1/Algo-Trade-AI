@@ -23,7 +23,7 @@ export default function PositionRiskCalculator({ solanaBalance }: PositionRiskCa
 
   const [riskPercent, setRiskPercent] = useState<number>(1.0); // 1% par défaut
   const [stopLossPips, setStopLossPips] = useState<number>(20); // 20 pips/points par défaut
-  const [entryPrice, setEntryPrice] = useState<number>(getRealMarketBasePrice('SOL') || 145.50);
+  const [entryPrice, setEntryPrice] = useState<number>(getRealMarketBasePrice('SOL'));
 
   // Calculs de gestion de risque
   const maxRiskAmount = allocatableBalance * (riskPercent / 100); // Perte max tolérée
@@ -74,7 +74,7 @@ export default function PositionRiskCalculator({ solanaBalance }: PositionRiskCa
           <Input
             type="number"
             value={entryPrice}
-            onChange={(e) => setEntryPrice(parseFloat(e.target.value) || 145.50)}
+            onChange={(e) => setEntryPrice(parseFloat(e.target.value) || getRealMarketBasePrice('SOL'))}
             className="h-10 bg-white/5 border-white/10 rounded-xl text-xs font-mono text-white"
           />
         </div>
