@@ -246,22 +246,29 @@ export async function executeRealPumpTrade(params: {
 
     // Priority Order:
     // 1. Explicit Sub-Wallet key (customPrivateKey)
-    // 2. Connected Phantom Browser Wallet (if connected in UI and active in browser)
-    // 3. Saved Private Key (settings_solana_private_key / process.env)
+    // 2. Saved Settings Key (settings_solana_private_key)
+    // 3. Environment Key (process.env.SOLANA_PRIVATE_KEY)
+    // 4. Interactive Browser Wallet (Phantom / Solflare) as manual fallback
 
     let solanaPrivateKey = customPrivateKey || '';
-    if (!solanaPrivateKey && !isPhantomConnectedInUI) {
-      solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
+    if (!solanaPrivateKey) {
+      solanaPrivateKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.SOLANA_PRIVATE_KEY || '';
     }
 
-    // A. Programmatic local keypair signing (Sub-wallets or saved settings key without Phantom)
+    // A. Programmatic local keypair signing (Autonomous AI Bots & Saved Key)
     if (solanaPrivateKey) {
       let signer: any;
       try {
         // Use unified privateKeyToKeypair that supports Base58, Base64, and JSON array
-        signer = privateKeyToKeypair(customPrivateKey || solanaPrivateKey);
+        signer = privateKeyToKeypair(solanaPrivateKey);
       } catch (err) {
-        throw new Error("Format de la clé privée invalide (BS58, Base64 ou Array JSON requis).");
+        // If sub-wallet private key failed, try the environment / settings master private key
+        const masterFallback = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.SOLANA_PRIVATE_KEY || '';
+        if (masterFallback && masterFallback !== solanaPrivateKey) {
+          signer = privateKeyToKeypair(masterFallback);
+        } else {
+          throw new Error("Format de la clé privée invalide (BS58, Base64 ou Array JSON requis).");
+        }
       }
       const publicKeyStr = signer.publicKey.toBase58();
 

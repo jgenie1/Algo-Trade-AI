@@ -944,7 +944,10 @@ export function useTradingEngine() {
               if (isBotReal) {
                 const priority = bot.priorityFee || (typeof window !== 'undefined' ? parseFloat(localStorage.getItem('settings_priority_fee') || '0.001') : 0.001);
                 const botSubIndex = (bot.subWallet || 1) - 1;
-                const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey;
+                const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+                const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
+                  ? subWalletsRef.current[botSubIndex]?.privateKey
+                  : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
 
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${matchingCoin.symbol}...`, 'info');
                 
@@ -1308,7 +1311,11 @@ export function useTradingEngine() {
                 if (isRealMode && isCryptoPair && signal === 'BUY') {
                   // Execute real on-chain Jupiter swap for crypto pairs
                   const botSubIdx = (bot.subWallet || 1) - 1;
-                  const botSubKey = subWalletsRef.current[botSubIdx]?.privateKey;
+                  const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+                  const botSubKey = (subWalletsRef.current[botSubIdx]?.balance && subWalletsRef.current[botSubIdx]?.balance > 0.001)
+                    ? subWalletsRef.current[botSubIdx]?.privateKey
+                    : (masterKey || subWalletsRef.current[botSubIdx]?.privateKey);
+
                   addBotLogRef.current(bot.id, bot.strategy, `[JUPITER SWAP RÉEL] Achat on-chain ${pairSymbol} via Jupiter (${calculatedTradeAmt.toFixed(4)} SOL)...`, 'info');
 
                   executeJupiterSwap({
@@ -1535,7 +1542,10 @@ export function useTradingEngine() {
       // Sell via Jupiter for crypto positions bought on-chain
       const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
-      const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey;
+      const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+      const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
+        ? subWalletsRef.current[botSubIndex]?.privateKey
+        : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
       const sourceLabel = p.botId || 'manual';
       const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
 
@@ -1574,7 +1584,10 @@ export function useTradingEngine() {
       const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
 
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
-      const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey;
+      const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+      const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
+        ? subWalletsRef.current[botSubIndex]?.privateKey
+        : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
 
       addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Envoi de la transaction de vente sur Solana Mainnet pour $${cleanSymbol}...`, 'info');
 
