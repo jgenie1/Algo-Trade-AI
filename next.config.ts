@@ -1,9 +1,16 @@
-
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
+  serverExternalPackages: [
+    'genkit',
+    '@genkit-ai/googleai',
+    '@genkit-ai/next',
+    '@genkit-ai/core',
+    '@opentelemetry/sdk-node',
+    '@opentelemetry/exporter-jaeger'
+  ],
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -45,12 +52,23 @@ const nextConfig: NextConfig = {
       config.resolve.alias = {};
     }
     // Set the alias for 'ethers5' to resolve to 'ethers'
-    (config.resolve.alias as {[key: string]: string | false | string[]})['ethers5'] = require.resolve('ethers');
+    try {
+      (config.resolve.alias as Record<string, string | false | string[]>)['ethers5'] = require.resolve('ethers');
+    } catch {}
 
-    // Rule to handle .abi files
+    // Fallbacks for node-specific modules in browser bundle
+    if (!config.resolve.fallback) {
+      config.resolve.fallback = {};
+    }
+    config.resolve.fallback['@opentelemetry/exporter-jaeger'] = false;
+    config.resolve.fallback['fs'] = false;
+    config.resolve.fallback['net'] = false;
+    config.resolve.fallback['tls'] = false;
+
+    // Rule to handle .abi files natively in Webpack 5
     config.module.rules.push({
       test: /\.abi$/,
-      use: 'raw-loader',
+      type: 'asset/source',
     });
 
     return config;
