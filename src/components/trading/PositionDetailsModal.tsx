@@ -7,24 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-interface Position {
-  id: string;
-  pair: string;
-  type: 'BUY' | 'SELL';
-  entryPrice: number;
-  currentPrice: number;
-  amount: number;
-  leverage: number;
-  sl?: number;
-  tp?: number;
-  timestamp: number;
-  botId?: string;
-  txHash?: string;
-  entryRsi?: number;
-  entryEmaTrend?: 'ABOVE' | 'BELOW';
-  bondingCurveProgress?: number;
-  replyCount?: number;
-}
+import type { Position } from '@/types';
 
 interface PositionDetailsModalProps {
   position: Position;

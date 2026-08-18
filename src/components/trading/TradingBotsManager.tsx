@@ -7,8 +7,13 @@ import {
   Square, 
   Trash2, 
   History,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle,
+  Zap,
+  RefreshCw,
+  Wallet
 } from 'lucide-react';
+import type { SubWallet } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
@@ -68,6 +73,9 @@ interface TradingBotsManagerProps {
   handleToggleBot: (botId: string) => void;
   handleDeleteBot: (botId: string) => void;
   livePrices: { [key: string]: number };
+  subWallets?: SubWallet[];
+  handleDisperseSOL?: () => Promise<void>;
+  isDispersing?: boolean;
 }
 
 export default function TradingBotsManager({
@@ -77,7 +85,10 @@ export default function TradingBotsManager({
   addBotLog,
   handleToggleBot,
   handleDeleteBot,
-  livePrices
+  livePrices,
+  subWallets: propSubWallets,
+  handleDisperseSOL,
+  isDispersing = false
 }: TradingBotsManagerProps) {
   const { 
     tradingMode, 
@@ -103,11 +114,26 @@ export default function TradingBotsManager({
   const currentReserveVault = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
   const allocatableBalance = Math.max(0, rawBalance - currentReserveVault);
 
+  // Local sub-wallets fallback
+  const [localSubWallets, setLocalSubWallets] = useState<SubWallet[]>([]);
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('trade_sub_wallets');
+        if (stored) setLocalSubWallets(JSON.parse(stored));
+      } catch {}
+    }
+  }, []);
+
+  const effectiveSubWallets = (propSubWallets && propSubWallets.length > 0) ? propSubWallets : localSubWallets;
+  const totalSubWalletBalance = effectiveSubWallets.reduce((acc, w) => acc + (w.balance || 0), 0);
+
   // New Bot Form State
   const [botPair, setBotPair] = useState<string>('ALL');
   const [botStrategy, setBotStrategy] = useState<'RSI Pullback' | 'EMA Cross' | 'BB Mean Reversion' | 'SuperTrend Momentum' | 'VWAP Breakout' | 'AI Autopilot (Machine à Cash)' | 'Pump.fun Sniper Bot'>('AI Autopilot (Machine à Cash)');
   const [botTimeframe, setBotTimeframe] = useState<string>('15');
   const [botCapital, setBotCapital] = useState<number>(() => isReal ? 0.5 : 1000);
+  const [botSubWallet, setBotSubWallet] = useState<number>(1);
   const [botRiskProfile, setBotRiskProfile] = useState<'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'>('MODERATE');
   const [pumpSniperMode, setPumpSniperMode] = useState<'PRECOCE' | 'MOMENTUM' | 'RAYDIUM'>('PRECOCE');
   const [priorityFee, setPriorityFee] = useState<number>(0.005);
@@ -151,7 +177,7 @@ export default function TradingBotsManager({
       strategy: botStrategy,
       timeframe: botStrategy === 'Pump.fun Sniper Bot' ? '0' : botTimeframe,
       capital: botCapital,
-      status: 'RUNNING',
+      status: 'RUNNING' as const,
       createdAt: Date.now(),
       totalTrades: 0,
       winningTrades: 0,
@@ -161,7 +187,7 @@ export default function TradingBotsManager({
       riskProfile: botStrategy === 'AI Autopilot (Machine à Cash)' ? botRiskProfile : undefined,
       pumpMode: botStrategy === 'Pump.fun Sniper Bot' ? pumpSniperMode : undefined,
       priorityFee: botStrategy === 'Pump.fun Sniper Bot' ? priorityFee : undefined,
-      autoVolume: botStrategy === 'Pump.fun Sniper Bot' ? autoVolume : undefined,
+      subWallet: botSubWallet,
       mode: tradingMode,
       customRules: botCustomRules || undefined
     };
@@ -243,6 +269,60 @@ export default function TradingBotsManager({
             >
               🔑 Configurer Clé Privée ↗
             </a>
+          )}
+        </div>
+      )}
+
+      {/* Multi-Wallet Fleet Status Banner */}
+      {isReal && (
+        <div className={cn(
+          "p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-body shadow-xl transition-all",
+          totalSubWalletBalance < 0.005
+            ? "bg-amber-950/30 border-amber-500/40 text-amber-300"
+            : "bg-purple-950/30 border-purple-500/40 text-purple-300"
+        )}>
+          <div className="flex items-start gap-3">
+            {totalSubWalletBalance < 0.005 ? (
+              <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            ) : (
+              <Wallet className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />
+            )}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold uppercase tracking-wide font-headline text-white">
+                  Flotte Multi-Wallet Solana : {effectiveSubWallets.filter(w => (w.balance || 0) >= 0.005).length}/5 Wallets Actifs
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-white/10 text-white">
+                  Total Flotte: {totalSubWalletBalance.toFixed(3)} SOL
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                {totalSubWalletBalance < 0.005
+                  ? "Vos 5 sous-wallets sont actuellement vides (0.00 SOL). Distribuez du SOL pour activer l'exécution automatique des bots réels on-chain."
+                  : "Chaque bot utilise son sous-portefeuille dédié pour trader en parallèle sur Solana sans bloquer votre wallet principal."}
+              </p>
+            </div>
+          </div>
+
+          {handleDisperseSOL && (
+            <Button
+              type="button"
+              onClick={handleDisperseSOL}
+              disabled={isDispersing || !isSolanaWalletActive}
+              className="shrink-0 h-10 px-4 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white font-extrabold text-xs rounded-xl transition-all uppercase tracking-wider font-headline flex items-center gap-2 border border-purple-500/40"
+            >
+              {isDispersing ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Distribution...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-3.5 w-3.5 fill-white" />
+                  Distribuer SOL aux 5 Wallets
+                </>
+              )}
+            </Button>
           )}
         </div>
       )}
@@ -390,6 +470,36 @@ export default function TradingBotsManager({
             />
           </div>
 
+          {/* Multi-Wallet Sub-Wallet Selector */}
+          {tradingMode === 'REAL' && (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-extrabold text-slate-200 uppercase tracking-wider font-headline">
+                  Sous-Portefeuille Dédié au Bot (Multi-Wallet)
+                </label>
+                <span className="text-xs text-purple-300 font-mono font-bold">
+                  Solde: {formatSmartCrypto(effectiveSubWallets[botSubWallet - 1]?.balance || 0, 'SOL')}
+                </span>
+              </div>
+              <Select value={botSubWallet.toString()} onValueChange={(v) => setBotSubWallet(parseInt(v, 10))}>
+                <SelectTrigger className="w-full h-11 bg-black/40 border border-white/15 rounded-xl px-4 text-sm text-white font-bold font-body focus:ring-[#c2ff0c]">
+                  <SelectValue placeholder="Choisir le sous-wallet du bot" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#150f21] border-white/15 text-white">
+                  {[1, 2, 3, 4, 5].map((num) => {
+                    const bal = effectiveSubWallets[num - 1]?.balance || 0;
+                    const isFunded = bal >= 0.005;
+                    return (
+                      <SelectItem key={num} value={num.toString()} className="focus:bg-white/10 focus:text-white cursor-pointer font-semibold text-xs">
+                        Sous-Wallet #{num} — {formatSmartCrypto(bal, 'SOL')} {isFunded ? '✅ (Actif)' : '⚠️ (0.00 SOL - Non renfloué)'}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Start Button */}
           {botStrategy === 'AI Autopilot (Machine à Cash)' ? (
             <Button
@@ -502,6 +612,24 @@ export default function TradingBotsManager({
                         <div className="text-xs font-extrabold text-slate-200 font-mono mt-1">
                           Capital: {formatSmartCrypto(((b.mode || tradingMode) === 'REAL' && (b.capital || 0) > 50 ? 0.5 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000)), (b.mode || tradingMode) === 'REAL' ? 'SOL' : '$')}
                         </div>
+                        {tradingMode === 'REAL' && (
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-purple-950/40 border border-purple-500/30 text-purple-300 font-mono font-bold flex items-center gap-1">
+                              <Wallet className="h-2.5 w-2.5" />
+                              Sous-Wallet #{b.subWallet || 1}
+                            </span>
+                            {((effectiveSubWallets[(b.subWallet || 1) - 1]?.balance || 0) < 0.002) ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-headline font-bold uppercase flex items-center gap-1">
+                                <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+                                0.00 SOL (Non renfloué)
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold">
+                                {(effectiveSubWallets[(b.subWallet || 1) - 1]?.balance || 0).toFixed(3)} SOL (Actif)
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="text-right">
@@ -793,7 +921,7 @@ export default function TradingBotsManager({
                           "font-extrabold text-sm block font-mono",
                           isProfit ? "text-[#c2ff0c]" : "text-rose-400"
                         )}>
-                          {formatSmartPnl(profitVal, tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')))} {tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')) ? 'SOL' : '$'}
+                          {formatSmartPnl(profitVal, Boolean(tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:'))))} {tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')) ? 'SOL' : '$'}
                         </span>
                         <span className="text-xs text-slate-400 block font-body">
                           {h.timestamp ? new Date(h.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}

@@ -1,30 +1,8 @@
-// Moteur d'exécution automatique des bots et de gestion des alertes & positions
+import type { Position, ClosedPosition, BotInstance } from '@/types';
 import { dispatchAlert } from './notificationService';
 import { getRealMarketBasePrice } from '@/lib/utils';
+export type { BotInstance };
 
-export interface BotInstance {
-  id: string;
-  name?: string;
-  pair: string;
-  strategy: string;
-  status: 'RUNNING' | 'PAUSED' | 'STOPPED';
-  pnl?: number;
-  netProfit?: number;
-  pnlPercent?: number;
-  capital: number;
-  tradesCount?: number;
-  totalTrades?: number;
-  winningTrades?: number;
-  winRate?: number;
-  aiModel?: string;
-  mode: 'DEMO' | 'REAL';
-  stopLossPct?: number;
-  takeProfitPct?: number;
-  trailingStopPct?: number;
-  leverage?: number;
-  pumpMode?: string;
-  priorityFee?: number;
-}
 
 /**
  * VÉRIFICATIONS STRICTES DE SÉCURITÉ FINANCIÈRE DES BOTS :
@@ -35,12 +13,12 @@ export interface BotInstance {
  */
 export function processBotIteration(
   bots: BotInstance[],
-  activePositions: any[],
+  activePositions: Position[],
   availableBalance: number,
   solanaBalance: number | null,
   onUpdateBots: (updatedBots: BotInstance[]) => void,
-  onUpdatePositions: (updatedPositions: any[]) => void,
-  onUpdateClosedPositions?: React.Dispatch<React.SetStateAction<any[]>>,
+  onUpdatePositions: (updatedPositions: Position[]) => void,
+  onUpdateClosedPositions?: React.Dispatch<React.SetStateAction<ClosedPosition[]>>,
   onUpdateReserveVault?: (updater: (prev: number) => number) => void,
   onUpdateReserveVaultSol?: (updater: (prev: number) => number) => void
 ) {

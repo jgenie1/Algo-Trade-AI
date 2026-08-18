@@ -96,63 +96,17 @@ export const timeframes = [
   { value: '240', label: '4 heures (Tendance Majeure)' },
 ];
 
-interface Position {
-  id: string;
-  pair: string;
-  type: 'BUY' | 'SELL';
-  entryPrice: number;
-  currentPrice: number;
-  amount: number;
-  leverage: number;
-  sl?: number;
-  tp?: number;
-  timestamp: number;
-  botId?: string;
-  txHash?: string;
-  entryRsi?: number;
-  entryEmaTrend?: 'ABOVE' | 'BELOW';
-  bondingCurveProgress?: number;
-  replyCount?: number;
-  highestPrice?: number;
-  dcaCount?: number;
-  mode?: 'DEMO' | 'REAL';
-}
+import type { 
+  Position, 
+  ClosedPosition, 
+  BotLearning, 
+  BotLog, 
+  BotInstance, 
+  SubWallet 
+} from '@/types';
 
-interface ClosedPosition {
-  id: string;
-  pair: string;
-  type: 'BUY' | 'SELL';
-  entryPrice: number;
-  exitPrice: number;
-  amount: number;
-  leverage: number;
-  profit: number;
-  timestamp: number;
-  wasBot: boolean;
-  buyTxHash?: string;
-  sellTxHash?: string;
-  mode?: 'DEMO' | 'REAL';
-}
+export type { Position, ClosedPosition, BotLearning, BotLog, BotInstance, SubWallet };
 
-interface BotLearning {
-  id: string;
-  botId: string;
-  pair: string;
-  type: 'BUY' | 'SELL';
-  entryRsi?: number;
-  entryEmaTrend?: 'ABOVE' | 'BELOW';
-  bondingCurveProgress?: number;
-  replyCount?: number;
-  lossAmount: number;
-  timestamp: number;
-  learningEffect: string;
-}
-
-interface SubWallet {
-  publicKey: string;
-  privateKey: string;
-  balance: number | null;
-}
 
 /**
  * MOTEUR D'EXÉCUTION DU TRADING EN TEMPS RÉEL & REAL-TIME ON-CHAIN ENGINE
@@ -951,10 +905,23 @@ export function useTradingEngine() {
               if (isBotReal) {
                 const priority = bot.priorityFee || (typeof window !== 'undefined' ? parseFloat(localStorage.getItem('settings_priority_fee') || '0.001') : 0.001);
                 const botSubIndex = (bot.subWallet || 1) - 1;
+                const subWalletObj = subWalletsRef.current[botSubIndex];
+                const subWalletBal = subWalletObj?.balance || 0;
                 const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
-                const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
-                  ? subWalletsRef.current[botSubIndex]?.privateKey
-                  : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
+
+                if (subWalletBal < 0.002 && !masterKey) {
+                  addBotLogRef.current(
+                    bot.id,
+                    bot.strategy,
+                    `[⚠️ SOUS-WALLET #${bot.subWallet || 1} NON RENFLOUÉ] Solde: ${subWalletBal.toFixed(4)} SOL. Le Bot est en attente d'approvisionnement. Distribuez du SOL pour lancer les transactions réelles on-chain.`,
+                    'info'
+                  );
+                  continue;
+                }
+
+                const botSubWalletKey = (subWalletBal > 0.001)
+                  ? subWalletObj?.privateKey
+                  : (masterKey || subWalletObj?.privateKey);
 
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${matchingCoin.symbol}...`, 'info');
                 
@@ -1003,7 +970,7 @@ export function useTradingEngine() {
                 continue;
               }
 
-              const fetchedCandles = await fetchLiveMarketData(currentPair, bot.timeframe);
+              const fetchedCandles = await fetchLiveMarketData(currentPair, bot.timeframe || '15');
               if (!fetchedCandles || fetchedCandles.length < 15) continue;
               
               const indicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA']) || {};
@@ -1318,10 +1285,23 @@ export function useTradingEngine() {
                 if (isRealMode && isCryptoPair && signal === 'BUY') {
                   // Execute real on-chain Jupiter swap for crypto pairs
                   const botSubIdx = (bot.subWallet || 1) - 1;
+                  const subWalletObj = subWalletsRef.current[botSubIdx];
+                  const subWalletBal = subWalletObj?.balance || 0;
                   const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
-                  const botSubKey = (subWalletsRef.current[botSubIdx]?.balance && subWalletsRef.current[botSubIdx]?.balance > 0.001)
-                    ? subWalletsRef.current[botSubIdx]?.privateKey
-                    : (masterKey || subWalletsRef.current[botSubIdx]?.privateKey);
+
+                  if (subWalletBal < 0.002 && !masterKey) {
+                    addBotLogRef.current(
+                      bot.id,
+                      bot.strategy,
+                      `[⚠️ SOUS-WALLET #${bot.subWallet || 1} NON RENFLOUÉ] Solde: ${subWalletBal.toFixed(4)} SOL. Ordre ${pairSymbol} mis en attente. Distribuez du SOL pour lancer l'exécution on-chain.`,
+                      'info'
+                    );
+                    continue;
+                  }
+
+                  const botSubKey = (subWalletBal > 0.001)
+                    ? subWalletObj?.privateKey
+                    : (masterKey || subWalletObj?.privateKey);
 
                   addBotLogRef.current(bot.id, bot.strategy, `[JUPITER SWAP RÉEL] Achat on-chain ${pairSymbol} via Jupiter (${calculatedTradeAmt.toFixed(4)} SOL)...`, 'info');
 

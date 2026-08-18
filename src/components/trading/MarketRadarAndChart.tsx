@@ -23,27 +23,15 @@ import {
 import { currencyPairs, timeframes } from '@/hooks/useTradingSimulation';
 import TradingViewWidget from '@/components/trading/TradingViewWidget';
 
+import type { BotLog, BotInstance } from '@/types';
+
 interface MarketRadarAndChartProps {
   selectedPair: string;
   setSelectedPair: (pair: string) => void;
   livePrices: { [key: string]: number };
   priceDirections: { [key: string]: 'up' | 'down' | 'flat' };
-  botLogs: Array<{
-    id: string;
-    botId: string;
-    botName: string;
-    message: string;
-    type: 'info' | 'trade' | 'error';
-    timestamp: number;
-  }>;
-  bots: Array<{
-    id: string;
-    pair: string;
-    strategy: string;
-    status: string;
-    capital: number;
-    netProfit?: number;
-  }>;
+  botLogs: BotLog[];
+  bots: BotInstance[];
 }
 
 export default function MarketRadarAndChart({

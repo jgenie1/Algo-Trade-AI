@@ -172,6 +172,7 @@ export default function WalletTokenPortfolio({
         const remainingPos = safeActive.filter(p => p && !soldPosIds.has(p.id));
         const closedPos = safeActive.filter(p => p && soldPosIds.has(p.id)).map(p => ({
           ...p,
+          exitPrice: p.currentPrice || p.entryPrice,
           closedAt: Date.now(),
           status: 'CLOSED',
           profit: 0

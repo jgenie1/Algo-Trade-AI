@@ -13,16 +13,7 @@ import {
   TableCell
 } from '@/components/ui/table';
 
-interface Transaction {
-  id: string;
-  type: 'DEPOSIT' | 'WITHDRAW';
-  amount: number;
-  currency: string;
-  timestamp: number;
-  status: string;
-  txHash?: string;
-  address?: string;
-}
+import type { Transaction } from '@/types';
 
 interface TransactionHistoryTableProps {
   transactions: Transaction[];

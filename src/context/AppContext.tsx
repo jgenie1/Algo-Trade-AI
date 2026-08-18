@@ -1,35 +1,18 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db, DEFAULT_USER, saveFullState, AppState } from '@/lib/firebase';
+import { db, DEFAULT_USER, getActiveUserId, saveFullState, AppState } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-// firebase/auth anonymous signin not used (disabled)
 import { getRealMarketBasePrice, initClientUsdHtgRate, fetchLiveUsdHtgRate } from '@/lib/utils';
-
-interface AppContextType {
-  tradingMode: 'DEMO' | 'REAL';
-  setTradingMode: React.Dispatch<React.SetStateAction<'DEMO' | 'REAL'>>;
-  balance: number;
-  setBalance: React.Dispatch<React.SetStateAction<number>>;
-  reserveVault: number;
-  setReserveVault: React.Dispatch<React.SetStateAction<number>>;
-  reserveVaultSol: number;
-  setReserveVaultSol: React.Dispatch<React.SetStateAction<number>>;
-  activePositions: any[];
-  setActivePositions: React.Dispatch<React.SetStateAction<any[]>>;
-  closedPositions: any[];
-  setClosedPositions: React.Dispatch<React.SetStateAction<any[]>>;
-  bots: any[];
-  setBots: React.Dispatch<React.SetStateAction<any[]>>;
-  transactions: any[];
-  setTransactions: React.Dispatch<React.SetStateAction<any[]>>;
-  botLearnings: any[];
-  setBotLearnings: React.Dispatch<React.SetStateAction<any[]>>;
-  botLogs: any[];
-  setBotLogs: React.Dispatch<React.SetStateAction<any[]>>;
-  resetDemoData: () => void;
-  isLoading: boolean;
-}
+import type { 
+  AppContextType, 
+  Position, 
+  ClosedPosition, 
+  BotInstance, 
+  Transaction, 
+  BotLearning, 
+  BotLog 
+} from '@/types';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -38,13 +21,14 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const [balance, setBalance] = useState<number>(10000);
   const [reserveVault, setReserveVault] = useState<number>(0);
   const [reserveVaultSol, setReserveVaultSol] = useState<number>(0);
-  const [activePositions, setActivePositions] = useState<any[]>([]);
-  const [closedPositions, setClosedPositions] = useState<any[]>([]);
-  const [bots, setBots] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [botLearnings, setBotLearnings] = useState<any[]>([]);
-  const [botLogs, setBotLogs] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [activePositions, setActivePositions] = useState<Position[]>([]);
+  const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
+  const [bots, setBots] = useState<BotInstance[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [botLearnings, setBotLearnings] = useState<BotLearning[]>([]);
+  const [botLogs, setBotLogs] = useState<BotLog[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [currentUserId, setCurrentUserId] = useState<string>(DEFAULT_USER);
 
   // Prevents sending local updates to Firestore during an onSnapshot load
   const isIncomingSync = useRef(false);
@@ -53,17 +37,19 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   // Track last synced state string to break Firestore feedback loops
   const lastStateHashRef = useRef<string>('');
 
-  // Firebase Anonymous Authentication is disabled (not configured in this project)
-
   // 1b. Load persisted USD/HTG rate from localStorage AFTER hydration (avoids SSR mismatch)
   useEffect(() => {
-    // initClientUsdHtgRate reads localStorage — MUST be inside useEffect, never during render
     initClientUsdHtgRate();
-    // Then fetch live rate in background
     fetchLiveUsdHtgRate().catch(() => {});
+    
+    // Détecter l'utilisateur actif
+    if (typeof window !== 'undefined') {
+      const activeId = getActiveUserId();
+      setCurrentUserId(activeId);
+    }
   }, []);
 
-  // 2. Real-time Subscription to Firebase Firestore (primary source of truth)
+  // 2. Real-time Subscription to Firebase Firestore (scoped to active user / wallet)
   useEffect(() => {
     let unsubscribe: () => void = () => {};
 
@@ -83,18 +69,18 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (bal && !isNaN(parseFloat(bal))) setBalance(parseFloat(bal));
       if (vault && !isNaN(parseFloat(vault))) setReserveVault(parseFloat(vault));
       if (vaultSol && !isNaN(parseFloat(vaultSol))) setReserveVaultSol(parseFloat(vaultSol));
-      if (pos) { try { const p = JSON.parse(pos); setActivePositions(sanitizePositions(Array.isArray(p) ? p : [])); } catch(e) { setActivePositions([]); } }
-      if (closed) { try { const c = JSON.parse(closed); setClosedPositions(sanitizeClosed(Array.isArray(c) ? c : [])); } catch(e) { setClosedPositions([]); } }
-      if (runningBots) { try { const b = JSON.parse(runningBots); setBots(sanitizeBots(Array.isArray(b) ? b : [])); } catch(e) { setBots([]); } }
-      if (txs) { try { const t = JSON.parse(txs); setTransactions(Array.isArray(t) ? t : []); } catch(e) { setTransactions([]); } }
-      if (learnings) { try { const l = JSON.parse(learnings); setBotLearnings(Array.isArray(l) ? l : []); } catch(e) { setBotLearnings([]); } }
-      if (logs) { try { const lg = JSON.parse(logs); setBotLogs(Array.isArray(lg) ? lg : []); } catch(e) { setBotLogs([]); } }
+      if (pos) { try { const p = JSON.parse(pos); setActivePositions(sanitizePositions(Array.isArray(p) ? p : [])); } catch { setActivePositions([]); } }
+      if (closed) { try { const c = JSON.parse(closed); setClosedPositions(sanitizeClosed(Array.isArray(c) ? c : [])); } catch { setClosedPositions([]); } }
+      if (runningBots) { try { const b = JSON.parse(runningBots); setBots(sanitizeBots(Array.isArray(b) ? b : [])); } catch { setBots([]); } }
+      if (txs) { try { const t = JSON.parse(txs); setTransactions(Array.isArray(t) ? t : []); } catch { setTransactions([]); } }
+      if (learnings) { try { const l = JSON.parse(learnings); setBotLearnings(Array.isArray(l) ? l : []); } catch { setBotLearnings([]); } }
+      if (logs) { try { const lg = JSON.parse(logs); setBotLogs(Array.isArray(lg) ? lg : []); } catch { setBotLogs([]); } }
     };
 
-    const sanitizePositions = (arr: any[]) => {
+    const sanitizePositions = (arr: any[]): Position[] => {
       if (!Array.isArray(arr)) return [];
       const seenKeys = new Set<string>();
-      const cleaned: any[] = [];
+      const cleaned: Position[] = [];
 
       for (const p of arr) {
         if (!p || p.pair === 'ALL' || p.pair === 'SOLANA') continue;
@@ -109,13 +95,14 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
 
-        let calculatedMode = p.mode ? p.mode : 'DEMO';
+        const calculatedMode: 'DEMO' | 'REAL' = p.mode ? p.mode : 'DEMO';
 
         cleaned.push({
           ...p,
           pair: cleanPair,
           amount: amt,
           entryPrice: entry,
+          currentPrice: typeof p.currentPrice === 'number' ? p.currentPrice : entry,
           leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
           mode: calculatedMode
         });
@@ -124,14 +111,13 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       return cleaned;
     };
 
-    const sanitizeBots = (arr: any[]) => {
+    const sanitizeBots = (arr: any[]): BotInstance[] => {
       if (!Array.isArray(arr)) return [];
       return arr.map((b: any) => {
         if (!b) return null;
         const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000;
         const cleanCap = (rawCap > 100000 || rawCap <= 0) ? 1000 : parseFloat(rawCap.toFixed(2));
         const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
-        // Cap bot netProfit between -capital and capital * 10 to eliminate corrupted astronomical values
         const boundedProfit = Math.max(-cleanCap, Math.min(cleanCap * 10, rawProfit));
         const cleanProfit = parseFloat(boundedProfit.toFixed(2));
 
@@ -141,11 +127,11 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           netProfit: cleanProfit,
           pnl: cleanProfit,
           mode: b.mode ? b.mode : (b.strategy === 'Pump.fun Sniper Bot' && cleanCap < 100 ? 'REAL' : 'DEMO')
-        };
-      }).filter(Boolean);
+        } as BotInstance;
+      }).filter(Boolean) as BotInstance[];
     };
 
-    const sanitizeClosed = (arr: any[]) => {
+    const sanitizeClosed = (arr: any[]): ClosedPosition[] => {
       if (!Array.isArray(arr)) return [];
       return arr
         .filter((c: any) => c && c.pair !== 'ALL' && c.pair !== 'SOLANA')
@@ -156,7 +142,6 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           const amt = typeof c.amount === 'number' && !isNaN(c.amount) && c.amount > 0 ? c.amount : 1000;
           const lev = typeof c.leverage === 'number' && !isNaN(c.leverage) ? c.leverage : 1;
           
-          // Cap position profit between -amount and amount * leverage * 5
           const maxGain = amt * lev * 5;
           const maxLoss = -amt;
           const boundedVal = Math.max(maxLoss, Math.min(maxGain, rawVal));
@@ -167,14 +152,13 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
             profit: cleanVal,
             pnl: cleanVal,
             mode: c.mode ? c.mode : (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')
-          };
+          } as ClosedPosition;
         });
     };
 
     const safetyTimer = setTimeout(() => {
       if (!isInitialized.current) {
         console.log("Firebase Firestore unreachable — using localStorage.");
-        // Unsubscribe to stop Firestore SDK retry loops (e.g. blocked by Brave Shields)
         try { unsubscribe(); } catch (_) {}
         loadFromLocalStorage();
         isInitialized.current = true;
@@ -183,7 +167,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     }, 3000);
 
     try {
-      const docRef = doc(db, 'erp', DEFAULT_USER);
+      const activeId = getActiveUserId();
+      const docRef = doc(db, 'erp', activeId);
 
       unsubscribe = onSnapshot(
         docRef,
@@ -267,9 +252,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           isInitialized.current = true;
           setIsLoading(false);
         },
-        (error) => {
-          // Stop the subscription immediately to prevent the Firestore SDK from
-          // retrying in an infinite loop (e.g. ERR_BLOCKED_BY_CLIENT in Brave).
+        () => {
           try { unsubscribe(); } catch (_) {}
           console.log("Firestore blocked/unavailable — switching to localStorage fallback.");
           if (!isInitialized.current) {
@@ -304,7 +287,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     balanceRef.current = balance;
   }, [bots, activePositions, balance]);
 
-  // 2b. Boucle d'exécution continue des bots actifs & alertes automatiques Telegram/Discord
+  // 2b. Continuous execution loop for active bots & alerts
   useEffect(() => {
     if (!isInitialized.current) return;
 
@@ -324,7 +307,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           setReserveVault, 
           setReserveVaultSol
         );
-      }).catch(err => console.warn("Failed to load botExecutionEngine (network issue?):", err));
+      }).catch(err => console.warn("Failed to load botExecutionEngine:", err));
     }, 5000);
 
     return () => clearInterval(interval);
@@ -349,7 +332,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     const storedCex = localStorage.getItem('algo_trade_cex_keys');
     const storedNotif = localStorage.getItem('algo_trade_notification_settings');
 
-    const currentStateObj = {
+    const currentStateObj: AppState = {
       tradeMode: tradingMode,
       balance,
       reserveVault,
@@ -378,11 +361,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const resetDemoData = () => {
     setBalance(10000);
     setReserveVault(0);
-    setActivePositions(prev => (Array.isArray(prev) ? prev : []).filter((p: any) => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
-    setClosedPositions(prev => (Array.isArray(prev) ? prev : []).filter((c: any) => c && (c.mode || (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
-    setBots(prev => (Array.isArray(prev) ? prev : []).filter((b: any) => b && (b.mode || (b.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setActivePositions(prev => (Array.isArray(prev) ? prev : []).filter((p) => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setClosedPositions(prev => (Array.isArray(prev) ? prev : []).filter((c) => (c.mode || (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setBots(prev => (Array.isArray(prev) ? prev : []).filter((b) => (b.mode || (b.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
     setBotLogs([]);
-    // Note: botLearnings ARE INTENTIONALLY PRESERVED for Real mode usage!
   };
 
   return (
@@ -408,7 +390,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       botLogs,
       setBotLogs,
       resetDemoData,
-      isLoading
+      isLoading,
+      userId: currentUserId
     }}>
       {children}
     </AppContext.Provider>

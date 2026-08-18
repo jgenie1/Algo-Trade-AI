@@ -23,6 +23,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 
 import PositionRiskCalculator from '@/components/trading/PositionRiskCalculator';
+import type { Position } from '@/types';
 import { currencyPairs as allCurrencyPairs } from '@/hooks/useTradingSimulation';
 const currencyPairs = allCurrencyPairs.filter(c => c.value !== 'ALL');
 
@@ -124,7 +125,7 @@ export default function ManualOrderForm({
           if (res && res.success && res.txHash) {
             addBotLog("manual", "Manuel", `[ACHAT MANUEL RÉEL RÉUSSI] Transaction confirmée ! Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
             
-            const newRealPos = {
+            const newRealPos: Position = {
               id: 'pos_' + Math.random().toString(36).substring(2, 9),
               pair: selectedPair,
               type: 'BUY',
@@ -172,7 +173,7 @@ export default function ManualOrderForm({
     const sl = stopLoss ? parseFloat(stopLoss) : undefined;
     const tp = takeProfit ? parseFloat(takeProfit) : undefined;
 
-    const newPos = {
+    const newPos: Position = {
       id: 'pos_' + Math.random().toString(36).substring(2, 9),
       pair: selectedPair,
       type: orderType,

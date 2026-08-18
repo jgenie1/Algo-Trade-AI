@@ -135,7 +135,7 @@ export default function StrategyMarketplace() {
       name: `[Copie] ${strat.name}`,
       pair: strat.pairs[0] || 'SOL/USDC',
       strategy: strat.category === 'Sniper' ? 'Pump.fun Sniper Bot' : strat.name,
-      status: 'RUNNING',
+      status: 'RUNNING' as const,
       pnl: 0,
       pnlPercent: 0,
       capital: requiredCapital,

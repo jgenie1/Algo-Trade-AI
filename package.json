@@ -61,6 +61,7 @@
     "genkit-cli": "^1.8.0",
     "postcss": "^8.5.23",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

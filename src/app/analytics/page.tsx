@@ -59,7 +59,7 @@ export default function AnalyticsPage() {
 
   const tradesWithDuration = filteredClosed.filter(p => p.timestamp && p.closeTimestamp);
   const avgDurationMs = tradesWithDuration.length > 0
-    ? tradesWithDuration.reduce((s, p) => s + (p.closeTimestamp - p.timestamp), 0) / tradesWithDuration.length : 0;
+    ? tradesWithDuration.reduce((s, p) => s + ((p.closeTimestamp || p.timestamp) - p.timestamp), 0) / tradesWithDuration.length : 0;
   const avgDurationStr = avgDurationMs > 0
     ? avgDurationMs < 60000 ? `${Math.round(avgDurationMs / 1000)}s`
       : avgDurationMs < 3600000 ? `${Math.round(avgDurationMs / 60000)} min`

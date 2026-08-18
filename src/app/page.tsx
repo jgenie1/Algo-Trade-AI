@@ -244,6 +244,9 @@ export default function TradingTerminalPage() {
             handleToggleBot={handleToggleBot}
             handleDeleteBot={handleDeleteBot}
             livePrices={livePrices}
+            subWallets={subWallets}
+            handleDisperseSOL={handleDisperseSOL}
+            isDispersing={isDispersing}
           />
         </TabsContent>
 

@@ -88,7 +88,7 @@ export default function AIStrategyGeneratorForm() {
       strategy: 'AI Autopilot (Machine à Cash)',
       timeframe: compiledStrategy.timeframe,
       capital: compiledStrategy.capital,
-      status: 'RUNNING',
+      status: 'RUNNING' as const,
       createdAt: Date.now(),
       totalTrades: 0,
       winningTrades: 0,

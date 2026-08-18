@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeFirestore, setLogLevel, doc, setDoc, getDoc } from 'firebase/firestore';
-// firebase/auth not used in this project (anonymous auth disabled)
+import type { AppState, BotLearning } from '@/types';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDR7gRGxRFzRCXP0SB8Z0tPxVNOiJPDGP0",
@@ -25,19 +25,24 @@ export const db = initializeFirestore(app, {
 
 export const DEFAULT_USER = 'main_terminal';
 
-export interface AppState {
-  tradeMode: 'DEMO' | 'REAL';
-  balance: number;
-  reserveVault?: number;
-  reserveVaultSol?: number;
-  positions: Record<string, unknown>[];
-  closedPositions: Record<string, unknown>[];
-  bots: Record<string, unknown>[];
-  transactions?: Record<string, unknown>[];
-  botLearnings?: Record<string, unknown>[];
-  botLogs?: Record<string, unknown>[];
-  cexKeys?: Record<string, unknown> | null;
-  notificationSettings?: Record<string, unknown> | null;
+/**
+ * Récupère l'ID utilisateur actif basé sur le portefeuille Web3 connecté ou le terminal par défaut
+ */
+export function getActiveUserId(): string {
+  if (typeof window === 'undefined') return DEFAULT_USER;
+  try {
+    const stored = localStorage.getItem('connected_web3_wallet');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const addr = parsed?.address;
+      if (addr && typeof addr === 'string' && addr.length >= 10) {
+        // Nettoyer les caractères spéciaux pour Firestore doc ID
+        const clean = addr.replace(/[^a-zA-Z0-9_-]/g, '_');
+        return `user_${clean.slice(0, 32)}`;
+      }
+    }
+  } catch {}
+  return DEFAULT_USER;
 }
 
 export const defaultState: AppState = {
@@ -71,9 +76,10 @@ function sanitizeForFirestore(obj: any): any {
 }
 
 // Save partial state to Firestore (with sanitization for undefined values and error catching)
-export async function saveFullState(state: Partial<AppState>) {
+export async function saveFullState(state: Partial<AppState>, targetUserId?: string) {
   try {
-    const docRef = doc(db, 'erp', DEFAULT_USER);
+    const userId = targetUserId || getActiveUserId();
+    const docRef = doc(db, 'erp', userId);
     
     // Deeply sanitize state to ensure no undefined fields exist in arrays or nested objects
     const cleanState = sanitizeForFirestore(state);
@@ -87,9 +93,10 @@ export async function saveFullState(state: Partial<AppState>) {
 }
 
 // Explicit atomic save for AI Bot Learnings (gains & losses) to Firestore
-export async function saveBotLearnings(learnings: any[]) {
+export async function saveBotLearnings(learnings: BotLearning[], targetUserId?: string) {
   try {
-    const docRef = doc(db, 'erp', DEFAULT_USER);
+    const userId = targetUserId || getActiveUserId();
+    const docRef = doc(db, 'erp', userId);
     const cleanLearnings = sanitizeForFirestore(learnings);
     await setDoc(docRef, { botLearnings: cleanLearnings }, { merge: true });
   } catch (error) {
@@ -98,9 +105,10 @@ export async function saveBotLearnings(learnings: any[]) {
 }
 
 // Fetch state once
-export async function getFullState(): Promise<AppState> {
+export async function getFullState(targetUserId?: string): Promise<AppState> {
   try {
-    const docRef = doc(db, 'erp', DEFAULT_USER);
+    const userId = targetUserId || getActiveUserId();
+    const docRef = doc(db, 'erp', userId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       return { ...defaultState, ...snap.data() } as AppState;
@@ -110,3 +118,5 @@ export async function getFullState(): Promise<AppState> {
   }
   return defaultState;
 }
+
+export type { AppState };
