@@ -652,10 +652,7 @@ export function useTradingEngine() {
   // Bot ticking simulation loop
   useEffect(() => {
     const botTick = async () => {
-      const runningBots = botsRef.current.filter(b => 
-        b.status === 'RUNNING' && 
-        ((b.mode || 'DEMO') === tradingModeRef.current)
-      );
+      const runningBots = botsRef.current.filter(b => b.status === 'RUNNING');
       if (runningBots.length === 0) return;
 
       for (const bot of runningBots) {
@@ -1359,7 +1356,7 @@ export function useTradingEngine() {
     let timerId: NodeJS.Timeout;
     const runTick = async () => {
       await botTick();
-      timerId = setTimeout(runTick, 5000);
+      timerId = setTimeout(runTick, 2500);
     };
     runTick();
     return () => clearTimeout(timerId);
