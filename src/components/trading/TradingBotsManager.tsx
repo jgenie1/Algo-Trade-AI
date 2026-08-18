@@ -21,7 +21,7 @@ import type { SubWallet } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
-import { sweepSubWalletProfitToMaster, disperseSolToSubWallets } from '@/services/pumpFunService';
+import { sweepSubWalletProfitToMaster, disperseSolToSubWallets, getMultipleSolanaBalances } from '@/services/pumpFunService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -169,6 +169,33 @@ export default function TradingBotsManager({
     }
   };
 
+  const [isRefreshingBalances, setIsRefreshingBalances] = useState<boolean>(false);
+
+  const handleRefreshOnChainBalances = async () => {
+    if (effectiveSubWallets.length === 0) return;
+    setIsRefreshingBalances(true);
+    try {
+      const pubKeys = effectiveSubWallets.map((w: SubWallet) => w.publicKey);
+      const res = await getMultipleSolanaBalances(pubKeys);
+      if (res && res.success && res.balances) {
+        const updated: SubWallet[] = effectiveSubWallets.map((w: SubWallet) => ({
+          ...w,
+          balance: res.balances![w.publicKey] ?? w.balance ?? 0
+        }));
+        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+        setLocalSubWallets(updated);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+      }
+    } catch (e) {
+      console.warn("Could not refresh balances:", e);
+    } finally {
+      setIsRefreshingBalances(false);
+    }
+  };
+
   const handleExecuteRealDisperse = async () => {
     if (effectiveSubWallets.length === 0) return;
     setIsLocalDispersing(true);
@@ -186,13 +213,14 @@ export default function TradingBotsManager({
         setLocalDisperseTx(res.txHash);
         const updated: SubWallet[] = effectiveSubWallets.map((w: SubWallet) => ({
           ...w,
-          balance: (w.balance || 0) + customDisperseAmount
+          balance: res.balances ? (res.balances[w.publicKey] ?? (w.balance || 0) + customDisperseAmount) : ((w.balance || 0) + customDisperseAmount)
         }));
         localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
         setLocalSubWallets(updated);
         addBotLog('system', 'System', `[DISPERSE SOL CONFIRMÉ] ${customDisperseAmount} SOL distribué avec succès vers les 5 sous-portefeuilles ! Tx: ${res.txHash.slice(0, 12)}...`, 'trade');
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
+          window.dispatchEvent(new Event('storage'));
         }
       } else {
         setLocalDisperseError(res.error || 'Erreur lors de la distribution on-chain.');
@@ -1026,17 +1054,30 @@ export default function TradingBotsManager({
       <Dialog open={isDisperseModalOpen} onOpenChange={setIsDisperseModalOpen}>
         <DialogContent className="bg-[#150f21] border border-white/20 text-white max-w-xl rounded-2xl p-6 shadow-2xl space-y-4">
           <DialogHeader className="space-y-1.5 border-b border-white/10 pb-4">
-            <DialogTitle className="text-lg font-extrabold uppercase tracking-wide font-headline flex items-center gap-2 text-white">
-              <Wallet className="h-5 w-5 text-purple-400" />
-              <span>Flotte Multi-Wallet Solana ({effectiveSubWallets.filter((w: SubWallet) => (w.balance || 0) >= 0.005).length}/5 Actifs)</span>
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-extrabold uppercase tracking-wide font-headline flex items-center gap-2 text-white">
+                <Wallet className="h-5 w-5 text-purple-400" />
+                <span>Flotte Multi-Wallet Solana ({effectiveSubWallets.filter((w: SubWallet) => (w.balance || 0) >= 0.005).length}/5 Actifs)</span>
+              </DialogTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshOnChainBalances}
+                disabled={isRefreshingBalances}
+                className="h-8 px-2.5 text-xs text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 rounded-lg flex items-center gap-1.5 border border-purple-500/20"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", isRefreshingBalances && "animate-spin")} />
+                Actualiser
+              </Button>
+            </div>
             <DialogDescription className="text-xs text-slate-300 font-body leading-relaxed">
               Distribuez du SOL vers vos 5 sous-portefeuilles pour permettre aux robots de sniper, moyenner et prendre des profits en parallèle sans bloquer votre portefeuille principal.
             </DialogDescription>
           </DialogHeader>
 
           {/* TABLEAU DES 5 SOUS-WALLETS */}
-          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
             {effectiveSubWallets.map((w: SubWallet, idx: number) => {
               const num = idx + 1;
               const isFunded = (w.balance || 0) >= 0.005;
@@ -1045,7 +1086,7 @@ export default function TradingBotsManager({
               return (
                 <div 
                   key={w.publicKey ? `${w.publicKey}_${idx}` : `sw_${idx}`}
-                  className="p-3 bg-black/40 border border-white/10 rounded-xl flex items-center justify-between gap-2 text-xs font-mono"
+                  className="p-2.5 bg-black/40 border border-white/10 rounded-xl flex items-center justify-between gap-2 text-xs font-mono"
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="h-6 w-6 rounded-lg bg-purple-500/20 text-purple-300 font-bold flex items-center justify-center text-xs font-headline">
@@ -1086,32 +1127,69 @@ export default function TradingBotsManager({
             })}
           </div>
 
-          {/* FORMULAIRE DE MONTANT */}
-          <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-3 font-body">
-            <div className="flex justify-between items-center text-xs">
-              <label className="font-bold text-slate-200 uppercase font-headline tracking-wide">
-                Montant par Sous-Wallet (SOL)
-              </label>
-              <span className="font-mono text-purple-300 font-bold">
-                Total requis: {(customDisperseAmount * 5).toFixed(3)} SOL
-              </span>
-            </div>
-            <Input
-              type="number"
-              step="0.005"
-              min="0.001"
-              value={customDisperseAmount}
-              onChange={(e) => setCustomDisperseAmount(Math.max(0.001, parseFloat(e.target.value) || 0.001))}
-              className="w-full h-11 bg-black/50 border border-white/15 rounded-xl px-4 text-sm font-bold text-white font-mono focus:ring-[#c2ff0c]"
-            />
+          {/* FORMULAIRE DE MONTANT AVEC MAX AUTO */}
+          {(() => {
+            const totalRequired = customDisperseAmount * 5;
+            const availableSol = solanaBalance ?? 0;
+            const maxAutoPerWallet = Math.max(0.001, parseFloat(((Math.max(0, availableSol - 0.006)) / 5).toFixed(3)));
+            const isInsufficient = isReal && availableSol > 0 && availableSol < totalRequired + 0.001;
 
-            <div className="text-[11px] text-slate-400 flex justify-between">
-              <span>Portefeuille Principal Connecté :</span>
-              <span className="font-mono font-bold text-slate-200">
-                {solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : 'Non connecté'}
-              </span>
-            </div>
-          </div>
+            return (
+              <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-3 font-body">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="font-bold text-slate-200 uppercase font-headline tracking-wide">
+                    Montant par Sous-Wallet (SOL)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {availableSol > 0.008 && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomDisperseAmount(maxAutoPerWallet)}
+                        className="px-2 py-0.5 rounded bg-purple-500/30 hover:bg-purple-500/50 text-purple-200 text-[10px] font-bold uppercase tracking-wide font-headline transition-all"
+                      >
+                        ⚡ Max Auto ({maxAutoPerWallet.toFixed(3)}/w)
+                      </button>
+                    )}
+                    <span className="font-mono text-purple-300 font-bold">
+                      Total: {totalRequired.toFixed(3)} SOL
+                    </span>
+                  </div>
+                </div>
+
+                <Input
+                  type="number"
+                  step="0.005"
+                  min="0.001"
+                  value={customDisperseAmount}
+                  onChange={(e) => setCustomDisperseAmount(Math.max(0.001, parseFloat(e.target.value) || 0.001))}
+                  className="w-full h-11 bg-black/50 border border-white/15 rounded-xl px-4 text-sm font-bold text-white font-mono focus:ring-[#c2ff0c]"
+                />
+
+                <div className="text-[11px] text-slate-400 flex justify-between">
+                  <span>Solde de votre Wallet Connecté :</span>
+                  <span className="font-mono font-bold text-slate-200">
+                    {solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : 'Non connecté'}
+                  </span>
+                </div>
+
+                {isInsufficient && (
+                  <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300 font-body flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                    <div>
+                      <p><strong>Solde insuffisant :</strong> Vous avez <strong>{availableSol.toFixed(3)} SOL</strong> mais <strong>{totalRequired.toFixed(3)} SOL</strong> sont demandés.</p>
+                      <button
+                        type="button"
+                        onClick={() => setCustomDisperseAmount(maxAutoPerWallet)}
+                        className="underline text-purple-300 font-bold mt-1 block hover:text-white"
+                      >
+                        Ajuster automatiquement à {maxAutoPerWallet.toFixed(3)} SOL par wallet ({ (maxAutoPerWallet * 5).toFixed(3) } SOL au total)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* RETOUR ERREUR / SUCCÈS */}
           {localDisperseError && (
@@ -1155,7 +1233,7 @@ export default function TradingBotsManager({
             <Button
               type="button"
               onClick={handleExecuteRealDisperse}
-              disabled={isLocalDispersing}
+              disabled={isLocalDispersing || Boolean(isReal && solanaBalance !== null && solanaBalance < (customDisperseAmount * 5 + 0.001))}
               className="flex-1 h-11 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white text-xs font-extrabold uppercase tracking-wider font-headline flex items-center justify-center gap-2 border border-purple-500/40"
             >
               {isLocalDispersing ? (

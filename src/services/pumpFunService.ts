@@ -633,7 +633,7 @@ export async function getMultipleSolanaBalances(pubKeys: string[]): Promise<{ su
 export async function disperseSolToSubWallets(params: {
   subWalletPubKeys: string[];
   amountPerWallet: number;
-}): Promise<{ success: boolean; txHash?: string; error?: string }> {
+}): Promise<{ success: boolean; txHash?: string; balances?: Record<string, number>; error?: string }> {
   try {
     const { Keypair, SystemProgram, Transaction, PublicKey } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
@@ -642,6 +642,9 @@ export async function disperseSolToSubWallets(params: {
     // Resolve private key: .env → localStorage → browser wallet
     const rawKey = process.env.SOLANA_PRIVATE_KEY ||
       (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
+
+    const totalNeededSol = params.amountPerWallet * params.subWalletPubKeys.length;
+    const totalNeededLamports = Math.round(totalNeededSol * 1e9);
 
     if (rawKey) {
       let mainSigner: any;
@@ -658,6 +661,11 @@ export async function disperseSolToSubWallets(params: {
         throw new Error("Format de la clé privée invalide (BS58 ou Array JSON requis). Vérifiez vos Paramètres.");
       }
 
+      const senderBalanceLamports = await connection.getBalance(mainSigner.publicKey);
+      if (senderBalanceLamports < totalNeededLamports + 10000) {
+        throw new Error(`Solde insuffisant dans votre portefeuille principal (${(senderBalanceLamports / 1e9).toFixed(3)} SOL disponible). Montant requis: ${totalNeededSol.toFixed(3)} SOL pour les 5 wallets.`);
+      }
+
       const txFromMain = new Transaction();
       for (const pubKeyStr of params.subWalletPubKeys) {
         txFromMain.add(
@@ -669,11 +677,25 @@ export async function disperseSolToSubWallets(params: {
         );
       }
 
+      const latestBh = await connection.getLatestBlockhash('confirmed');
+      txFromMain.recentBlockhash = latestBh.blockhash;
+      txFromMain.feePayer = mainSigner.publicKey;
+
       const signature = await connection.sendTransaction(txFromMain, [mainSigner], {
-        skipPreflight: true,
+        skipPreflight: false,
         preflightCommitment: 'confirmed'
       });
-      return { success: true, txHash: signature };
+
+      try {
+        await connection.confirmTransaction({
+          signature,
+          blockhash: latestBh.blockhash,
+          lastValidBlockHeight: latestBh.lastValidBlockHeight
+        }, 'confirmed');
+      } catch {}
+
+      const updatedBalances = await getMultipleSolanaBalances(params.subWalletPubKeys);
+      return { success: true, txHash: signature, balances: updatedBalances.balances };
     }
 
     // Browser wallet fallback (Phantom / Solflare)
@@ -681,6 +703,11 @@ export async function disperseSolToSubWallets(params: {
       ? ((window as any).solana || (window as any).phantom?.solana)
       : null;
     if (winSolana && winSolana.publicKey) {
+      const senderBalanceLamports = await connection.getBalance(winSolana.publicKey);
+      if (senderBalanceLamports < totalNeededLamports + 10000) {
+        throw new Error(`Solde insuffisant dans votre wallet Phantom (${(senderBalanceLamports / 1e9).toFixed(3)} SOL disponible). Montant total requis: ${totalNeededSol.toFixed(3)} SOL pour les 5 sous-wallets.`);
+      }
+
       const txFromWallet = new Transaction();
       for (const pubKeyStr of params.subWalletPubKeys) {
         txFromWallet.add(
@@ -692,13 +719,25 @@ export async function disperseSolToSubWallets(params: {
         );
       }
       txFromWallet.feePayer = winSolana.publicKey;
-      txFromWallet.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+      txFromWallet.recentBlockhash = latestBlockhash.blockhash;
+
       const signedTx = await winSolana.signTransaction(txFromWallet);
       const signature = await connection.sendRawTransaction(signedTx.serialize(), {
-        skipPreflight: true,
+        skipPreflight: false,
         preflightCommitment: 'confirmed'
       });
-      return { success: true, txHash: signature };
+
+      try {
+        await connection.confirmTransaction({
+          signature,
+          blockhash: latestBlockhash.blockhash,
+          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+        }, 'confirmed');
+      } catch {}
+
+      const updatedBalances = await getMultipleSolanaBalances(params.subWalletPubKeys);
+      return { success: true, txHash: signature, balances: updatedBalances.balances };
     }
 
     throw new Error("Clé privée Solana manquante. Saisissez-la dans Paramètres → Clé Privée Solana, ou connectez votre wallet Phantom/Solflare.");
