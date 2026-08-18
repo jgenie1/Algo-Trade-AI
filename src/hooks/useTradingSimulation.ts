@@ -851,19 +851,25 @@ export function useTradingEngine() {
                   continue;
                 }
               } else {
-                const solBal = solanaBalanceRef.current ?? 0;
+                const botSubIndex = (bot.subWallet || 1) - 1;
+                const subWalletObj = subWalletsRef.current[botSubIndex];
+                const subWalletBal = subWalletObj?.balance || 0;
+                const masterBal = solanaBalanceRef.current ?? 0;
+                // Le capital disponible pour le bot est le solde de son sous-wallet (ou du wallet principal)
+                const availableTradeBal = subWalletBal > 0.001 ? subWalletBal : masterBal;
+
                 const minMarginSetting = typeof window !== 'undefined'
                   ? parseFloat(localStorage.getItem('settings_min_margin_sol') || '0.001')
                   : 0.001;
                 const effectiveMinMargin = isNaN(minMarginSetting) || minMarginSetting <= 0 ? 0.001 : minMarginSetting;
 
-                if (solBal < effectiveMinMargin) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible, minimum requis: ${effectiveMinMargin.toFixed(4)} SOL).`, 'error');
+                if (availableTradeBal < effectiveMinMargin) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde du Sous-Wallet #${bot.subWallet || 1} insuffisant (${availableTradeBal.toFixed(4)} SOL disponible, minimum requis: ${effectiveMinMargin.toFixed(4)} SOL).`, 'error');
                   continue;
                 }
-                posTradeAmount = Math.min(bot.capital, Math.max(effectiveMinMargin, solBal * 0.5));
-                if (posTradeAmount > solBal) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Marge requise (${posTradeAmount.toFixed(4)} SOL) supérieure au solde disponible (${solBal.toFixed(4)} SOL).`, 'error');
+                posTradeAmount = Math.min(bot.capital, Math.max(effectiveMinMargin, availableTradeBal * 0.95));
+                if (posTradeAmount > availableTradeBal) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Marge requise (${posTradeAmount.toFixed(4)} SOL) supérieure au solde du sous-wallet (${availableTradeBal.toFixed(4)} SOL).`, 'error');
                   continue;
                 }
               }
@@ -1219,23 +1225,29 @@ export function useTradingEngine() {
 
                 const cleanPair = currentPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
                 const isRealMode = (bot.mode || tradingModeRef.current) === 'REAL';
-                let calculatedTradeAmt = parseFloat((bot.capital / 3).toFixed(2));
+                let calculatedTradeAmt = parseFloat((bot.capital / 3).toFixed(4));
 
                 if (isRealMode) {
-                  const solBal = solanaBalanceRef.current ?? 0;
+                  const botSubIdx = (bot.subWallet || 1) - 1;
+                  const subWalletObj = subWalletsRef.current[botSubIdx];
+                  const subWalletBal = subWalletObj?.balance || 0;
+                  const masterBal = solanaBalanceRef.current ?? 0;
+                  // Le capital disponible pour le bot est le solde de son sous-wallet (ou du wallet principal)
+                  const availableTradeBal = subWalletBal > 0.001 ? subWalletBal : masterBal;
+
                   const minMarginSetting = typeof window !== 'undefined'
                     ? parseFloat(localStorage.getItem('settings_min_margin_sol') || '0.001')
                     : 0.001;
                   const effectiveMinMargin = isNaN(minMarginSetting) || minMarginSetting <= 0 ? 0.001 : minMarginSetting;
 
-                  if (solBal < effectiveMinMargin) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde SOL réel insuffisant (${solBal.toFixed(4)} SOL disponible, minimum requis: ${effectiveMinMargin.toFixed(4)} SOL).`, 'error');
+                  if (availableTradeBal < effectiveMinMargin) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde du Sous-Wallet #${bot.subWallet || 1} insuffisant (${availableTradeBal.toFixed(4)} SOL disponible, minimum requis: ${effectiveMinMargin.toFixed(4)} SOL).`, 'error');
                     continue;
                   }
                   
-                  calculatedTradeAmt = Math.min(bot.capital / 3, Math.max(effectiveMinMargin, solBal * 0.25));
-                  if (calculatedTradeAmt > solBal) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde réel disponible (${solBal.toFixed(4)} SOL).`, 'error');
+                  calculatedTradeAmt = Math.min(bot.capital, Math.max(effectiveMinMargin, availableTradeBal * 0.95));
+                  if (calculatedTradeAmt > availableTradeBal) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde du sous-wallet (${availableTradeBal.toFixed(4)} SOL).`, 'error');
                     continue;
                   }
                 } else {

@@ -17,7 +17,7 @@ import {
   ExternalLink,
   Check
 } from 'lucide-react';
-import type { SubWallet } from '@/types';
+import type { SubWallet, BotInstance } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
@@ -229,6 +229,67 @@ export default function TradingBotsManager({
       setLocalDisperseError(err.message || 'Erreur de distribution');
     } finally {
       setIsLocalDispersing(false);
+    }
+  };
+
+  const [fundingBotId, setFundingBotId] = useState<string | null>(null);
+
+  const handleFundBotSubWallet = async (bot: BotInstance) => {
+    const subIdx = (bot.subWallet || 1) - 1;
+    const targetSub = effectiveSubWallets[subIdx];
+    if (!targetSub || !targetSub.publicKey) {
+      alert("Sous-portefeuille introuvable.");
+      return;
+    }
+    const amountToTransfer = typeof bot.capital === 'number' && bot.capital > 0 ? bot.capital : 0.05;
+
+    if (solanaBalance !== null && solanaBalance < amountToTransfer + 0.001) {
+      alert(`Solde insuffisant dans votre portefeuille principal (${solanaBalance.toFixed(3)} SOL). Requis: ${amountToTransfer.toFixed(3)} SOL.`);
+      return;
+    }
+
+    setFundingBotId(bot.id);
+    try {
+      const res = await disperseSolToSubWallets({
+        subWalletPubKeys: [targetSub.publicKey],
+        amountPerWallet: amountToTransfer
+      });
+
+      if (res && res.success && res.txHash) {
+        const updated = effectiveSubWallets.map((w, i) => i === subIdx ? ({
+          ...w,
+          balance: res.balances ? (res.balances[w.publicKey] ?? (w.balance || 0) + amountToTransfer) : ((w.balance || 0) + amountToTransfer)
+        }) : w);
+        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+        setLocalSubWallets(updated);
+        addBotLog(bot.id, bot.strategy, `[TRANSFERT SOL RÉUSSI] ${amountToTransfer} SOL alloué et transféré vers le Sous-Wallet #${bot.subWallet || 1} ! Tx: ${res.txHash.slice(0, 12)}...`, 'trade');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } else {
+        alert(res.error || "Erreur lors du transfert vers le sous-portefeuille.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Erreur de transfert.");
+    } finally {
+      setFundingBotId(null);
+    }
+  };
+
+  const handleFundBotSubWalletDemo = (bot: BotInstance) => {
+    const subIdx = (bot.subWallet || 1) - 1;
+    const amountToTransfer = typeof bot.capital === 'number' && bot.capital > 0 ? (bot.capital > 50 ? 0.5 : bot.capital) : 0.5;
+    const updated = effectiveSubWallets.map((w, i) => i === subIdx ? ({
+      ...w,
+      balance: (w.balance || 0) + amountToTransfer
+    }) : w);
+    localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+    setLocalSubWallets(updated);
+    addBotLog(bot.id, bot.strategy, `[FLOTTE DÉMO] ${amountToTransfer} SOL virtuel alloué au Sous-Wallet #${bot.subWallet || 1} !`, 'trade');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('web3_wallet_updated'));
+      window.dispatchEvent(new Event('storage'));
     }
   };
 
@@ -756,6 +817,41 @@ export default function TradingBotsManager({
                         <span className="text-xs text-slate-300 font-extrabold font-mono block">PnL Net</span>
                       </div>
                     </div>
+
+                    {/* Bouton direct pour transférer les fonds alloués au sous-wallet */}
+                    {tradingMode === 'REAL' && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleFundBotSubWallet(b)}
+                        disabled={fundingBotId === b.id}
+                        className="w-full h-8 px-2.5 text-[11px] font-extrabold uppercase rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 flex items-center justify-center gap-1.5 font-headline transition-all"
+                      >
+                        {fundingBotId === b.id ? (
+                          <>
+                            <RefreshCw className="h-3 w-3 animate-spin text-purple-300" />
+                            Transfert de {b.capital || 0.05} SOL en cours...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-3 w-3 text-purple-300 fill-purple-300" />
+                            ⚡ Transférer {b.capital || 0.05} SOL vers Sous-Wallet #{b.subWallet || 1}
+                          </>
+                        )}
+                      </Button>
+                    )}
+
+                    {tradingMode === 'DEMO' && ((effectiveSubWallets[(b.subWallet || 1) - 1]?.balance || 0) < 0.005) && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleFundBotSubWalletDemo(b)}
+                        className="w-full h-8 px-2.5 text-[11px] font-extrabold uppercase rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 flex items-center justify-center gap-1.5 font-headline transition-all"
+                      >
+                        <Zap className="h-3 w-3 text-emerald-300 fill-emerald-300" />
+                        ⚡ Allouer {typeof b.capital === 'number' && b.capital < 50 ? b.capital : 0.5} SOL Démo vers Sous-Wallet #{b.subWallet || 1}
+                      </Button>
+                    )}
 
                     {/* Auto-transfer status indicator — no manual action needed */}
                     {tradingMode === 'REAL' && (b.netProfit || b.pnl || 0) > 0.000001 && (
