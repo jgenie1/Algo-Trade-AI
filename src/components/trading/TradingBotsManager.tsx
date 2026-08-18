@@ -11,17 +11,28 @@ import {
   AlertTriangle,
   Zap,
   RefreshCw,
-  Wallet
+  Wallet,
+  Copy,
+  CheckCircle2,
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import type { SubWallet } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
-import { sweepSubWalletProfitToMaster } from '@/services/pumpFunService';
+import { sweepSubWalletProfitToMaster, disperseSolToSubWallets } from '@/services/pumpFunService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription 
+} from '@/components/ui/dialog';
 import { 
   Select, 
   SelectTrigger, 
@@ -125,8 +136,73 @@ export default function TradingBotsManager({
     }
   }, []);
 
-  const effectiveSubWallets = (propSubWallets && propSubWallets.length > 0) ? propSubWallets : localSubWallets;
-  const totalSubWalletBalance = effectiveSubWallets.reduce((acc, w) => acc + (w.balance || 0), 0);
+  const effectiveSubWallets: SubWallet[] = (propSubWallets && propSubWallets.length > 0) ? propSubWallets : localSubWallets;
+  const totalSubWalletBalance = effectiveSubWallets.reduce((acc: number, w: SubWallet) => acc + (w.balance || 0), 0);
+
+  // Disperse Modal States
+  const [isDisperseModalOpen, setIsDisperseModalOpen] = useState<boolean>(false);
+  const [customDisperseAmount, setCustomDisperseAmount] = useState<number>(0.02);
+  const [isLocalDispersing, setIsLocalDispersing] = useState<boolean>(false);
+  const [localDisperseError, setLocalDisperseError] = useState<string>('');
+  const [localDisperseTx, setLocalDisperseTx] = useState<string>('');
+  const [copiedSubIndex, setCopiedSubIndex] = useState<number | null>(null);
+
+  const handleCopySubAddress = (addr: string, idx: number) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(addr);
+      setCopiedSubIndex(idx);
+      setTimeout(() => setCopiedSubIndex(null), 2000);
+    }
+  };
+
+  const handleFundDemoFleet = (solAmount = 0.5) => {
+    const updated: SubWallet[] = effectiveSubWallets.map((w: SubWallet) => ({
+      ...w,
+      balance: solAmount
+    }));
+    localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+    setLocalSubWallets(updated);
+    addBotLog('system', 'System', `[FLOTTE DÉMO ACTIVÉE] 5 Sous-Wallets virtuels approvisionnés avec ${solAmount} SOL chacun pour tester les robots sans risque !`, 'trade');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('web3_wallet_updated'));
+      window.dispatchEvent(new Event('storage'));
+    }
+  };
+
+  const handleExecuteRealDisperse = async () => {
+    if (effectiveSubWallets.length === 0) return;
+    setIsLocalDispersing(true);
+    setLocalDisperseError('');
+    setLocalDisperseTx('');
+
+    try {
+      const pubKeys = effectiveSubWallets.map((w: SubWallet) => w.publicKey);
+      const res = await disperseSolToSubWallets({
+        subWalletPubKeys: pubKeys,
+        amountPerWallet: customDisperseAmount
+      });
+
+      if (res && res.success && res.txHash) {
+        setLocalDisperseTx(res.txHash);
+        const updated: SubWallet[] = effectiveSubWallets.map((w: SubWallet) => ({
+          ...w,
+          balance: (w.balance || 0) + customDisperseAmount
+        }));
+        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+        setLocalSubWallets(updated);
+        addBotLog('system', 'System', `[DISPERSE SOL CONFIRMÉ] ${customDisperseAmount} SOL distribué avec succès vers les 5 sous-portefeuilles ! Tx: ${res.txHash.slice(0, 12)}...`, 'trade');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
+      } else {
+        setLocalDisperseError(res.error || 'Erreur lors de la distribution on-chain.');
+      }
+    } catch (err: any) {
+      setLocalDisperseError(err.message || 'Erreur de distribution');
+    } finally {
+      setIsLocalDispersing(false);
+    }
+  };
 
   // New Bot Form State
   const [botPair, setBotPair] = useState<string>('ALL');
@@ -274,58 +350,68 @@ export default function TradingBotsManager({
       )}
 
       {/* Multi-Wallet Fleet Status Banner */}
-      {isReal && (
-        <div className={cn(
-          "p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-body shadow-xl transition-all",
-          totalSubWalletBalance < 0.005
-            ? "bg-amber-950/30 border-amber-500/40 text-amber-300"
-            : "bg-purple-950/30 border-purple-500/40 text-purple-300"
-        )}>
-          <div className="flex items-start gap-3">
-            {totalSubWalletBalance < 0.005 ? (
+      <div className={cn(
+        "p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-body shadow-xl transition-all",
+        isReal
+          ? (totalSubWalletBalance < 0.005 ? "bg-amber-950/30 border-amber-500/40 text-amber-300" : "bg-purple-950/30 border-purple-500/40 text-purple-300")
+          : "bg-emerald-950/20 border-emerald-500/30 text-emerald-300"
+      )}>
+        <div className="flex items-start gap-3">
+          {isReal ? (
+            totalSubWalletBalance < 0.005 ? (
               <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
             ) : (
               <Wallet className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />
-            )}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-extrabold uppercase tracking-wide font-headline text-white">
-                  Flotte Multi-Wallet Solana : {effectiveSubWallets.filter(w => (w.balance || 0) >= 0.005).length}/5 Wallets Actifs
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-white/10 text-white">
-                  Total Flotte: {totalSubWalletBalance.toFixed(3)} SOL
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-300">
-                {totalSubWalletBalance < 0.005
-                  ? "Vos 5 sous-wallets sont actuellement vides (0.00 SOL). Distribuez du SOL pour activer l'exécution automatique des bots réels on-chain."
-                  : "Chaque bot utilise son sous-portefeuille dédié pour trader en parallèle sur Solana sans bloquer votre wallet principal."}
-              </p>
+            )
+          ) : (
+            <Bot className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+          )}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-extrabold uppercase tracking-wide font-headline text-white">
+                {isReal ? "Flotte Multi-Wallet Solana Réelle" : "Flotte Multi-Wallet Démo"} : {effectiveSubWallets.filter((w: SubWallet) => (w.balance || 0) >= 0.005).length}/5 Wallets Actifs
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-white/10 text-white">
+                Total Flotte: {totalSubWalletBalance.toFixed(3)} {isReal ? 'SOL Réel' : 'SOL Démo'}
+              </span>
+              {!isReal && (
+                <Badge className="bg-emerald-500/20 text-emerald-300 text-[9px] uppercase font-headline border-none">
+                  🧪 Mode Démo Actif
+                </Badge>
+              )}
             </div>
+            <p className="text-[11px] text-slate-300">
+              {isReal
+                ? (totalSubWalletBalance < 0.005
+                  ? "Vos 5 sous-wallets sont actuellement vides (0.00 SOL). Distribuez du SOL pour que vos bots tradent en direct sur Solana."
+                  : "Chaque bot utilise son sous-portefeuille dédié pour sniper et trader en parallèle sur Solana sans bloquer votre wallet principal.")
+                : "En Mode Démo, les 5 sous-portefeuilles sont simulés pour tester vos robots. Vous pouvez renflouer ou réinitialiser la flotte à tout moment."}
+            </p>
           </div>
+        </div>
 
-          {handleDisperseSOL && (
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {!isReal && totalSubWalletBalance < 0.005 && (
             <Button
               type="button"
-              onClick={handleDisperseSOL}
-              disabled={isDispersing || !isSolanaWalletActive}
-              className="shrink-0 h-10 px-4 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white font-extrabold text-xs rounded-xl transition-all uppercase tracking-wider font-headline flex items-center gap-2 border border-purple-500/40"
+              onClick={() => handleFundDemoFleet(0.5)}
+              className="h-10 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all uppercase tracking-wider font-headline flex items-center gap-2 border border-emerald-500/40"
             >
-              {isDispersing ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  Distribution...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-3.5 w-3.5 fill-white" />
-                  Distribuer SOL aux 5 Wallets
-                </>
-              )}
+              <Zap className="h-3.5 w-3.5 fill-white" />
+              Activer Flotte Démo (0.5 SOL/w)
             </Button>
           )}
+
+          <Button
+            type="button"
+            onClick={() => setIsDisperseModalOpen(true)}
+            className="h-10 px-4 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs rounded-xl transition-all uppercase tracking-wider font-headline flex items-center gap-2 border border-purple-500/40"
+          >
+            <Wallet className="h-3.5 w-3.5" />
+            Gérer & Distribuer SOL
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* Bot Configuration Form */}
       <Card className="bg-[#150f21] border-white/15 rounded-2xl p-6 space-y-5 shadow-2xl">
@@ -935,6 +1021,159 @@ export default function TradingBotsManager({
           </CardContent>
         </Card>
       </div>
+
+      {/* MODAL DE GESTION & DISTRIBUTION DE LA FLOTTE MULTI-WALLET */}
+      <Dialog open={isDisperseModalOpen} onOpenChange={setIsDisperseModalOpen}>
+        <DialogContent className="bg-[#150f21] border border-white/20 text-white max-w-xl rounded-2xl p-6 shadow-2xl space-y-4">
+          <DialogHeader className="space-y-1.5 border-b border-white/10 pb-4">
+            <DialogTitle className="text-lg font-extrabold uppercase tracking-wide font-headline flex items-center gap-2 text-white">
+              <Wallet className="h-5 w-5 text-purple-400" />
+              <span>Flotte Multi-Wallet Solana ({effectiveSubWallets.filter((w: SubWallet) => (w.balance || 0) >= 0.005).length}/5 Actifs)</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-300 font-body leading-relaxed">
+              Distribuez du SOL vers vos 5 sous-portefeuilles pour permettre aux robots de sniper, moyenner et prendre des profits en parallèle sans bloquer votre portefeuille principal.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* TABLEAU DES 5 SOUS-WALLETS */}
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+            {effectiveSubWallets.map((w: SubWallet, idx: number) => {
+              const num = idx + 1;
+              const isFunded = (w.balance || 0) >= 0.005;
+              const isCopied = copiedSubIndex === idx;
+
+              return (
+                <div 
+                  key={w.publicKey ? `${w.publicKey}_${idx}` : `sw_${idx}`}
+                  className="p-3 bg-black/40 border border-white/10 rounded-xl flex items-center justify-between gap-2 text-xs font-mono"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-6 w-6 rounded-lg bg-purple-500/20 text-purple-300 font-bold flex items-center justify-center text-xs font-headline">
+                      #{num}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-200 font-bold text-xs">
+                          {w.publicKey ? `${w.publicKey.slice(0, 6)}...${w.publicKey.slice(-6)}` : 'Non généré'}
+                        </span>
+                        {w.publicKey && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopySubAddress(w.publicKey, idx)}
+                            className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-all"
+                            title="Copier l'adresse publique"
+                          >
+                            {isCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-white text-xs">
+                      {(w.balance || 0).toFixed(3)} SOL
+                    </span>
+                    <Badge className={cn(
+                      "text-[9px] uppercase font-headline font-bold border-none px-2 py-0.5 rounded",
+                      isFunded ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                    )}>
+                      {isFunded ? "✅ Actif" : "⚠️ Vide"}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* FORMULAIRE DE MONTANT */}
+          <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-3 font-body">
+            <div className="flex justify-between items-center text-xs">
+              <label className="font-bold text-slate-200 uppercase font-headline tracking-wide">
+                Montant par Sous-Wallet (SOL)
+              </label>
+              <span className="font-mono text-purple-300 font-bold">
+                Total requis: {(customDisperseAmount * 5).toFixed(3)} SOL
+              </span>
+            </div>
+            <Input
+              type="number"
+              step="0.005"
+              min="0.001"
+              value={customDisperseAmount}
+              onChange={(e) => setCustomDisperseAmount(Math.max(0.001, parseFloat(e.target.value) || 0.001))}
+              className="w-full h-11 bg-black/50 border border-white/15 rounded-xl px-4 text-sm font-bold text-white font-mono focus:ring-[#c2ff0c]"
+            />
+
+            <div className="text-[11px] text-slate-400 flex justify-between">
+              <span>Portefeuille Principal Connecté :</span>
+              <span className="font-mono font-bold text-slate-200">
+                {solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL` : 'Non connecté'}
+              </span>
+            </div>
+          </div>
+
+          {/* RETOUR ERREUR / SUCCÈS */}
+          {localDisperseError && (
+            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-body flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
+              <span>{localDisperseError}</span>
+            </div>
+          )}
+
+          {localDisperseTx && (
+            <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-body space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>SOL Distribué avec succès on-chain !</span>
+              </div>
+              <a
+                href={`https://solscan.io/tx/${localDisperseTx}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-emerald-200 underline flex items-center gap-1 hover:text-white"
+              >
+                Voir sur Solscan ({localDisperseTx.slice(0, 16)}...) <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
+
+          {/* BOUTONS D'ACTION */}
+          <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/10">
+            <Button
+              type="button"
+              onClick={() => {
+                handleFundDemoFleet(0.5);
+                setIsDisperseModalOpen(false);
+              }}
+              variant="outline"
+              className="flex-1 h-11 bg-white/5 hover:bg-white/10 text-slate-200 border-white/15 text-xs font-extrabold uppercase tracking-wider font-headline"
+            >
+              🧪 Démo Virtuelle (0.50 SOL)
+            </Button>
+
+            <Button
+              type="button"
+              onClick={handleExecuteRealDisperse}
+              disabled={isLocalDispersing}
+              className="flex-1 h-11 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white text-xs font-extrabold uppercase tracking-wider font-headline flex items-center justify-center gap-2 border border-purple-500/40"
+            >
+              {isLocalDispersing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Distribution On-Chain...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 fill-white" />
+                  ⚡ Distribuer SOL Réel
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
