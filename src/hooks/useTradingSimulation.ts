@@ -956,14 +956,27 @@ export function useTradingEngine() {
 
           } else {
             // Standard quant strategy bot evaluation (with support for 'ALL' pairs scanning)
-            const pairsToScan = bot.pair === 'ALL'
-              ? currencyPairs.map(cp => cp.value).filter(v => v !== 'ALL')
+            const isRealMode = tradingModeRef.current === 'REAL';
+            const allAvailablePairs = currencyPairs.map(cp => cp.value).filter(v => v !== 'ALL');
+
+            // In REAL Mode: strictly exclude Forex pairs. Only scan verified Solana on-chain tokens
+            const pairsToScan = (bot.pair === 'ALL')
+              ? (isRealMode
+                  ? allAvailablePairs.filter(p => !p.startsWith('FX:') && !!SOLANA_TOKEN_MINTS[p.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || ''])
+                  : allAvailablePairs)
               : [bot.pair];
 
             let signalOpened = false;
 
             for (const currentPair of pairsToScan) {
               if (signalOpened) break;
+
+              // In REAL Mode, skip any Forex pair immediately (Forex is strictly DEMO/simulation only)
+              const pairSymbol = currentPair.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
+              const isCryptoOnChain = !!SOLANA_TOKEN_MINTS[pairSymbol];
+              if (isRealMode && !isCryptoOnChain) {
+                continue;
+              }
 
               // Prevent opening multiple positions on the exact same pair for the same bot
               if (activePositionsRef.current.some(p => p.pair === currentPair && p.botId === bot.id)) {
@@ -1322,19 +1335,16 @@ export function useTradingEngine() {
                       addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT ÉCHOUÉ] ${res.error || 'Erreur réseau'}. Position non ouverte.`, 'error');
                     }
                   });
-                } else {
-                  // Virtual execution: DEMO mode OR Forex pair OR no on-chain support
-                  if (isRealMode && isForexPair) {
-                    addBotLogRef.current(bot.id, bot.strategy, `[FOREX VIRTUEL] ${cleanPair} non tradable on-chain Solana. Suivi virtuel sur prix réels.`, 'info');
-                  }
+                } else if (!isRealMode) {
+                  // Virtual execution strictly in DEMO mode
                   setActivePositions(prev => {
                     if (prev.some(x => x.id === newPos.id || (x.botId === bot.id && x.pair === newPos.pair))) return prev;
                     return [...prev, newPos];
                   });
+                  addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
+                  signalOpened = true;
+                  break;
                 }
-
-                addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
-                signalOpened = true;
                 break;
               }
             }
@@ -1624,19 +1634,9 @@ export function useTradingEngine() {
       }
     } else if (posMode === 'REAL') {
       if (profit > 0) {
-        // Determine if this is a Forex pair (needs USD → SOL conversion) or a crypto/Pump.fun pair
-        const pairForSweep = p.pair || '';
-        const pairSym = pairForSweep.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
-        const isForex = pairForSweep.startsWith('FX:') || (!SOLANA_TOKEN_MINTS[pairSym] && !p.txHash && !(mintAddress.length >= 32 && mintAddress.length <= 44));
-
-        let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
-        if (currentSolUsdPrice <= 1) {
-          const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
-          currentSolUsdPrice = savedCmc > 1 ? savedCmc : 150;
-        }
-
-        const netProfitSol = isForex ? (profit / currentSolUsdPrice) * 0.90 : profit * 0.90;
-        const vaultSkimSol = autoReserveEnabled ? (isForex ? (profit / currentSolUsdPrice) * 0.10 : profit * 0.10) : 0;
+        // In REAL Mode, all trades are 100% native on-chain Solana trades (Pump.fun or Jupiter swaps)
+        const netProfitSol = profit * 0.90;
+        const vaultSkimSol = autoReserveEnabled ? profit * 0.10 : 0;
 
         if (vaultSkimSol > 0 && setReserveVaultSol) {
           setReserveVaultSol(vault => {
@@ -1659,8 +1659,13 @@ export function useTradingEngine() {
           if (typeof window !== 'undefined') localStorage.setItem('trade_solana_balance', nextBal.toString());
           return nextBal;
         });
+        let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
+        if (currentSolUsdPrice <= 1) {
+          const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
+          currentSolUsdPrice = savedCmc > 1 ? savedCmc : 150;
+        }
         setBalance(prev => {
-          const nextUsd = prev + (isForex ? profit * 0.90 : netProfitSol * currentSolUsdPrice);
+          const nextUsd = prev + (netProfitSol * currentSolUsdPrice);
           if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
           return nextUsd;
         });
