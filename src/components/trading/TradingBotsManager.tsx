@@ -16,7 +16,14 @@ import {
   CheckCircle2,
   ExternalLink,
   Check,
-  Download
+  Download,
+  Eye,
+  EyeOff,
+  Send,
+  Activity,
+  TrendingUp,
+  Layers,
+  Coins
 } from 'lucide-react';
 import type { SubWallet, BotInstance } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
@@ -115,6 +122,7 @@ export default function TradingBotsManager({
     botLogs, 
     botLearnings, 
     setBotLearnings, 
+    activePositions,
     closedPositions, 
     setTransactions,
     resetDemoData,
@@ -328,6 +336,70 @@ export default function TradingBotsManager({
     }
   };
 
+  const [activeSubWalletTab, setActiveSubWalletTab] = useState<number>(1);
+  const [revealedKeyIndex, setRevealedKeyIndex] = useState<number | null>(null);
+  const [fundAmountInput, setFundAmountInput] = useState<{ [key: number]: number }>({
+    1: 0.02, 2: 0.02, 3: 0.02, 4: 0.02, 5: 0.02
+  });
+  const [isFundingSpecific, setIsFundingSpecific] = useState<boolean>(false);
+
+  const handleFundSpecificSubWallet = async (subNum: number, amount: number) => {
+    const subIdx = subNum - 1;
+    const targetSub = effectiveSubWallets[subIdx];
+    if (!targetSub || !targetSub.publicKey) {
+      alert("Sous-portefeuille introuvable.");
+      return;
+    }
+
+    if (tradingMode === 'DEMO') {
+      const updated = effectiveSubWallets.map((w, i) => i === subIdx ? ({
+        ...w,
+        balance: (w.balance || 0) + amount
+      }) : w);
+      localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+      setLocalSubWallets(updated);
+      addBotLog('system', 'System', `[DÉMO] ${amount} SOL alloué au Sous-Wallet #${subNum} !`, 'trade');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+        window.dispatchEvent(new Event('storage'));
+      }
+      return;
+    }
+
+    if (solanaBalance !== null && solanaBalance < amount + 0.001) {
+      alert(`Solde insuffisant dans votre portefeuille principal (${solanaBalance.toFixed(3)} SOL). Requis: ${amount.toFixed(3)} SOL.`);
+      return;
+    }
+
+    setIsFundingSpecific(true);
+    try {
+      const res = await disperseSolToSubWallets({
+        subWalletPubKeys: [targetSub.publicKey],
+        amountPerWallet: amount
+      });
+
+      if (res && res.success && res.txHash) {
+        const updated = effectiveSubWallets.map((w, i) => i === subIdx ? ({
+          ...w,
+          balance: res.balances ? (res.balances[w.publicKey] ?? (w.balance || 0) + amount) : ((w.balance || 0) + amount)
+        }) : w);
+        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+        setLocalSubWallets(updated);
+        addBotLog('system', 'System', `[TRANSFERT SOL RÉUSSI] ${amount} SOL transféré vers le Sous-Wallet #${subNum} ! Tx: ${res.txHash.slice(0, 12)}...`, 'trade');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } else {
+        alert(res.error || "Erreur lors du transfert vers le sous-portefeuille.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Erreur de transfert.");
+    } finally {
+      setIsFundingSpecific(false);
+    }
+  };
+
   const [fundingBotId, setFundingBotId] = useState<string | null>(null);
 
   const handleFundBotSubWallet = async (bot: BotInstance) => {
@@ -535,68 +607,493 @@ export default function TradingBotsManager({
       )}
 
       {/* Multi-Wallet Fleet Status Banner */}
-      <div className={cn(
-        "p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs font-body shadow-xl transition-all",
-        isReal
-          ? (totalSubWalletBalance < 0.005 ? "bg-amber-950/30 border-amber-500/40 text-amber-300" : "bg-purple-950/30 border-purple-500/40 text-purple-300")
-          : "bg-emerald-950/20 border-emerald-500/30 text-emerald-300"
-      )}>
-        <div className="flex items-start gap-3">
-          {isReal ? (
-            totalSubWalletBalance < 0.005 ? (
-              <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-            ) : (
-              <Wallet className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />
-            )
-          ) : (
-            <Bot className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-          )}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-extrabold uppercase tracking-wide font-headline text-white">
-                {isReal ? "Flotte Multi-Wallet Solana Réelle" : "Flotte Multi-Wallet Démo"} : {effectiveSubWallets.filter((w: SubWallet) => (w.balance || 0) >= 0.005).length}/5 Wallets Actifs
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-white/10 text-white">
-                Total Flotte: {totalSubWalletBalance.toFixed(3)} {isReal ? 'SOL Réel' : 'SOL Démo'}
-              </span>
-              {!isReal && (
-                <Badge className="bg-emerald-500/20 text-emerald-300 text-[9px] uppercase font-headline border-none">
-                  🧪 Mode Démo Actif
-                </Badge>
-              )}
+      {/* CENTRE DE CONTRÔLE & SUPERVISION DE LA FLOTTE MULTI-WALLET SOLANA */}
+      <Card className="bg-[#150f21] border border-white/20 rounded-2xl p-5 shadow-2xl space-y-4">
+        {/* EN-TÊTE PRINCIPAL DE LA FLOTTE */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-300">
+              <Wallet className="h-5 w-5" />
             </div>
-            <p className="text-[11px] text-slate-300">
-              {isReal
-                ? (totalSubWalletBalance < 0.005
-                  ? "Vos 5 sous-wallets sont actuellement vides (0.00 SOL). Distribuez du SOL pour que vos bots tradent en direct sur Solana."
-                  : "Chaque bot utilise son sous-portefeuille dédié pour sniper et trader en parallèle sur Solana sans bloquer votre wallet principal.")
-                : "En Mode Démo, les 5 sous-portefeuilles sont simulés pour tester vos robots. Vous pouvez renflouer ou réinitialiser la flotte à tout moment."}
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-extrabold text-base uppercase tracking-wider font-headline text-white flex items-center gap-2">
+                  <span>Flotte Multi-Wallet Solana</span>
+                  <Badge className={cn(
+                    "text-[10px] uppercase font-headline font-bold border-none px-2.5 py-0.5 rounded",
+                    effectiveSubWallets.some((w: SubWallet) => (w.balance || 0) >= 0.005)
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : "bg-amber-500/20 text-amber-300"
+                  )}>
+                    {effectiveSubWallets.filter((w: SubWallet) => (w.balance || 0) >= 0.005).length}/5 Wallets Actifs
+                  </Badge>
+                </h3>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-xs text-slate-300 flex-wrap">
+                <span className="font-mono font-bold text-white">
+                  Solde Total: {totalSubWalletBalance.toFixed(4)} {isReal ? 'SOL Réel' : 'SOL Démo'}
+                </span>
+                <span className="text-slate-500">•</span>
+                <span className="text-purple-300 font-mono text-[11px]">
+                  {formatSolToUsdAndHtg(totalSubWalletBalance).combinedLabel}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ACTIONS GLOBALES RAPIDES */}
+          <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshOnChainBalances}
+              disabled={isRefreshingBalances}
+              className="h-9 px-3 bg-white/5 hover:bg-white/10 text-slate-200 border-white/15 text-xs font-bold font-headline uppercase rounded-xl flex items-center gap-1.5"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", isRefreshingBalances && "animate-spin text-purple-400")} />
+              Actualiser RPC
+            </Button>
+
+            {!isReal && totalSubWalletBalance < 0.005 && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleFundDemoFleet(0.5)}
+                className="h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl uppercase font-headline flex items-center gap-1.5 border border-emerald-500/40"
+              >
+                <Zap className="h-3.5 w-3.5 fill-white" />
+                Alimenter Démo
+              </Button>
+            )}
+
+            {isReal && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleReclaimAllSubWallets}
+                disabled={isLocalReclaiming || isLocalDispersing}
+                className="h-9 px-3 bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/40 text-xs font-extrabold uppercase font-headline rounded-xl flex items-center gap-1.5 transition-all"
+              >
+                {isLocalReclaiming ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-rose-300" />
+                    Rapatriement...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    📥 Tout Rapatrier vers Phantom
+                  </>
+                )}
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsDisperseModalOpen(true)}
+              className="h-9 px-3.5 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs rounded-xl uppercase font-headline flex items-center gap-1.5 border border-purple-500/40 shadow-lg shadow-purple-900/30"
+            >
+              <Zap className="h-3.5 w-3.5 fill-white" />
+              ⚡ Distribuer SOL
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {!isReal && totalSubWalletBalance < 0.005 && (
-            <Button
-              type="button"
-              onClick={() => handleFundDemoFleet(0.5)}
-              className="h-10 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all uppercase tracking-wider font-headline flex items-center gap-2 border border-emerald-500/40"
-            >
-              <Zap className="h-3.5 w-3.5 fill-white" />
-              Activer Flotte Démo (0.5 SOL/w)
-            </Button>
-          )}
+        {/* ALERTES RAPATRIEMENT DIRECTES */}
+        {reclaimSuccessMsg && (
+          <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-body flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span className="font-bold">{reclaimSuccessMsg}</span>
+            </div>
+            <button onClick={() => setReclaimSuccessMsg('')} className="text-emerald-400 hover:text-white text-xs">✕</button>
+          </div>
+        )}
 
-          <Button
+        {reclaimErrorMsg && (
+          <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-body flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
+              <span>{reclaimErrorMsg}</span>
+            </div>
+            <button onClick={() => setReclaimErrorMsg('')} className="text-rose-400 hover:text-white text-xs">✕</button>
+          </div>
+        )}
+
+        {/* ONGLETS DE SÉLECTION DU SOUS-WALLET */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <button
             type="button"
-            onClick={() => setIsDisperseModalOpen(true)}
-            className="h-10 px-4 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs rounded-xl transition-all uppercase tracking-wider font-headline flex items-center gap-2 border border-purple-500/40"
+            onClick={() => setActiveSubWalletTab(0)}
+            className={cn(
+              "px-3 py-1.5 rounded-xl text-xs font-extrabold uppercase font-headline transition-all flex items-center gap-1.5 shrink-0",
+              activeSubWalletTab === 0
+                ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+                : "bg-black/40 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10"
+            )}
           >
-            <Wallet className="h-3.5 w-3.5" />
-            Gérer & Distribuer SOL
-          </Button>
+            <Layers className="h-3.5 w-3.5" />
+            Vue d&apos;Ensemble (5 Wallets)
+          </button>
+
+          {[1, 2, 3, 4, 5].map((num) => {
+            const w = effectiveSubWallets[num - 1];
+            const bal = w?.balance || 0;
+            const isFunded = bal >= 0.005;
+            const assignedBot = bots.find(b => (b.subWallet || 1) === num);
+
+            return (
+              <button
+                key={num}
+                type="button"
+                onClick={() => setActiveSubWalletTab(num)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-xs font-bold font-headline transition-all flex items-center gap-2 shrink-0 border",
+                  activeSubWalletTab === num
+                    ? "bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-900/40"
+                    : "bg-black/40 text-slate-300 hover:bg-white/10 hover:text-white border-white/10"
+                )}
+              >
+                <span>Wallet #{num}</span>
+                <span className="font-mono text-[11px] font-bold text-purple-200">
+                  {bal.toFixed(3)} SOL
+                </span>
+                <span className={cn(
+                  "h-2 w-2 rounded-full",
+                  isFunded ? "bg-emerald-400" : "bg-amber-400"
+                )} />
+                {assignedBot && (
+                  <Badge className="bg-white/10 text-[9px] px-1 py-0 rounded uppercase font-headline border-none">
+                    Bot Actif
+                  </Badge>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </div>
+
+        {/* CONTENU VUE DÉTAILLÉE : SOIT UN SOUS-WALLET SPÉCIFIQUE, SOIT VUE D'ENSEMBLE */}
+        {activeSubWalletTab > 0 ? (
+          (() => {
+            const num = activeSubWalletTab;
+            const w = effectiveSubWallets[num - 1];
+            const bal = w?.balance || 0;
+            const isFunded = bal >= 0.005;
+            const isCopied = copiedSubIndex === (num - 1);
+            const isKeyRevealed = revealedKeyIndex === (num - 1);
+            const assignedBots = bots.filter(b => (b.subWallet || 1) === num);
+            const walletPositions = activePositions.filter(p => p.botId && assignedBots.some(b => b.id === p.botId));
+            const walletClosed = closedPositions.filter(p => p.botId && assignedBots.some(b => b.id === p.botId));
+            const currentFundInput = fundAmountInput[num] || 0.02;
+
+            return (
+              <div className="bg-black/40 border border-white/15 rounded-xl p-5 space-y-5">
+                {/* 1. CARTE D'IDENTITÉ DU SOUS-WALLET */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="h-7 w-7 rounded-lg bg-purple-600/30 text-purple-300 font-extrabold flex items-center justify-center text-xs font-headline">
+                        #{num}
+                      </span>
+                      <h4 className="text-base font-extrabold text-white uppercase font-headline">
+                        Sous-Portefeuille #{num}
+                      </h4>
+                      <Badge className={cn(
+                        "text-[10px] uppercase font-headline font-bold border-none px-2 py-0.5 rounded",
+                        isFunded ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                      )}>
+                        {isFunded ? "✅ Actif & Prêt au Trading" : "⚠️ Non Renfloué (0.00 SOL)"}
+                      </Badge>
+                    </div>
+
+                    {/* ADRESSE PUBLIQUE SOLSCAN */}
+                    <div className="flex items-center gap-2 text-xs font-mono text-slate-300 pt-1 flex-wrap">
+                      <span className="text-slate-400">Adresse Publique:</span>
+                      <span className="font-bold text-white bg-black/60 px-2 py-0.5 rounded border border-white/10">
+                        {w?.publicKey || 'En attente de génération'}
+                      </span>
+                      {w?.publicKey && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleCopySubAddress(w.publicKey, num - 1)}
+                            className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-all flex items-center gap-1 text-[11px]"
+                            title="Copier l'adresse publique"
+                          >
+                            {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                            <span>{isCopied ? 'Copié' : 'Copier'}</span>
+                          </button>
+                          <a
+                            href={`https://solscan.io/account/${w.publicKey}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 hover:bg-white/10 rounded text-purple-300 hover:text-white transition-all flex items-center gap-1 text-[11px] underline"
+                          >
+                            <span>Solscan</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </>
+                      )}
+                    </div>
+
+                    {/* CLÉ PRIVÉE SÉCURISÉE */}
+                    {w?.privateKey && (
+                      <div className="flex items-center gap-2 text-xs font-mono text-slate-400 pt-1 flex-wrap">
+                        <span>Clé Secrète (Phantom):</span>
+                        <span className="font-mono text-slate-300 bg-black/60 px-2 py-0.5 rounded border border-white/10 text-[11px]">
+                          {isKeyRevealed ? w.privateKey : '••••••••••••••••••••••••••••••••••••••••••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setRevealedKeyIndex(isKeyRevealed ? null : (num - 1))}
+                          className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-all flex items-center gap-1 text-[11px]"
+                        >
+                          {isKeyRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          <span>{isKeyRevealed ? 'Masquer' : 'Révéler'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SOLDE EN DIRECT */}
+                  <div className="text-left md:text-right bg-purple-950/20 border border-purple-500/20 p-3 rounded-xl shrink-0">
+                    <span className="text-xs text-slate-400 font-bold uppercase font-headline block">Solde On-Chain</span>
+                    <span className="font-extrabold text-xl text-white font-mono block">
+                      {bal.toFixed(4)} SOL
+                    </span>
+                    <span className="text-xs text-purple-300 font-mono font-bold block">
+                      {formatSolToUsdAndHtg(bal).combinedLabel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. ACTIONS DE TRANSFERT RAPIDE SUR CE SOUS-WALLET */}
+                <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="font-extrabold text-xs uppercase font-headline text-white flex items-center gap-1.5">
+                      <Send className="h-3.5 w-3.5 text-purple-400" />
+                      Alimenter ce Sous-Wallet #{num}
+                    </span>
+                    <p className="text-[11px] text-slate-300">
+                      Envoyez du SOL depuis votre portefeuille Phantom connecté vers ce sous-portefeuille pour le financer individuellement.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.005"
+                      value={currentFundInput}
+                      onChange={(e) => setFundAmountInput(prev => ({ ...prev, [num]: parseFloat(e.target.value) || 0.01 }))}
+                      className="w-28 h-10 bg-black/60 border border-white/15 rounded-xl px-3 text-xs font-mono font-bold text-white focus:ring-[#c2ff0c]"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleFundSpecificSubWallet(num, currentFundInput)}
+                      disabled={isFundingSpecific}
+                      className="h-10 px-3 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl uppercase font-headline flex items-center gap-1.5 shrink-0"
+                    >
+                      <Zap className="h-3.5 w-3.5 fill-white" />
+                      Envoyer {currentFundInput} SOL
+                    </Button>
+
+                    {isReal && bal > 0.0005 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => w && handleReclaimSingleSubWallet(w)}
+                        disabled={isLocalReclaiming}
+                        className="h-10 px-3 bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/40 font-bold text-xs rounded-xl uppercase font-headline flex items-center gap-1.5 shrink-0"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Rapatrier ce Solde
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. LE TRAVAIL DU SOUS-WALLET : ROBOTS ASSIGNÉS & POSITIONS ACTIVES */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* ROBOT(S) ACTIF(S) */}
+                  <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <span className="font-extrabold text-xs uppercase font-headline text-white flex items-center gap-1.5">
+                        <Bot className="h-4 w-4 text-[#c2ff0c]" />
+                        Robot Assigné à ce Wallet ({assignedBots.length})
+                      </span>
+                    </div>
+
+                    {assignedBots.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 bg-black/20 rounded-lg border border-dashed border-white/10">
+                        Aucun robot n&apos;est actuellement assigné au Sous-Wallet #{num}.
+                        <p className="text-[11px] text-slate-500 mt-1">Vous pouvez sélectionner le Sous-Wallet #{num} lors de la création d&apos;un bot ci-dessous.</p>
+                      </div>
+                    ) : (
+                      assignedBots.map(b => (
+                        <div key={b.id} className="p-3 bg-black/50 border border-white/10 rounded-lg space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="font-bold text-xs text-white">
+                              {b.strategy}
+                            </div>
+                            <Badge className={cn(
+                              "text-[9px] font-bold uppercase border-none px-2 py-0.5 rounded",
+                              b.status === 'RUNNING' ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                            )}>
+                              {b.status === 'RUNNING' ? 'En Cours' : 'En Pause'}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-xs font-mono text-slate-300">
+                            <span>Paire: {b.pair === 'ALL' ? 'Scan Multi-Actifs' : b.pair}</span>
+                            <span className={cn(
+                              "font-bold",
+                              (b.netProfit || 0) >= 0 ? "text-[#c2ff0c]" : "text-rose-400"
+                            )}>
+                              PnL: {formatSmartPnl(b.netProfit || 0, isReal)} {isReal ? 'SOL' : '$'}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* POSITIONS ACTIVES DE CE SOUS-WALLET */}
+                  <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <span className="font-extrabold text-xs uppercase font-headline text-white flex items-center gap-1.5">
+                        <Activity className="h-4 w-4 text-purple-400" />
+                        Positions Actives en Cours ({walletPositions.length})
+                      </span>
+                    </div>
+
+                    {walletPositions.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 bg-black/20 rounded-lg border border-dashed border-white/10">
+                        Aucune position ouverte actuellement pour le Sous-Wallet #{num}.
+                        <p className="text-[11px] text-slate-500 mt-1">Le robot analyse les flux de marché pour détecter un signal d&apos;entrée.</p>
+                      </div>
+                    ) : (
+                      walletPositions.map(p => {
+                        const currentP = livePrices[p.pair] || p.entryPrice;
+                        const pnlVal = (currentP - p.entryPrice) * p.amount * (p.type === 'BUY' ? 1 : -1);
+                        return (
+                          <div key={p.id} className="p-3 bg-black/50 border border-white/10 rounded-lg space-y-1 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-white uppercase">{p.pair.replace('SOL:', '')}</span>
+                              <span className={cn(
+                                "font-mono font-bold",
+                                pnlVal >= 0 ? "text-[#c2ff0c]" : "text-rose-400"
+                              )}>
+                                {pnlVal >= 0 ? '+' : ''}{pnlVal.toFixed(4)} SOL
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                              <span>Entrée: {p.entryPrice.toFixed(4)}</span>
+                              <span>Actuel: {currentP.toFixed(4)}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        ) : (
+          /* VUE D'ENSEMBLE DES 5 SOUS-WALLETS EN GRILLE */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {effectiveSubWallets.map((w: SubWallet, idx: number) => {
+              const num = idx + 1;
+              const bal = w?.balance || 0;
+              const isFunded = bal >= 0.005;
+              const assignedBots = bots.filter(b => (b.subWallet || 1) === num);
+              const walletPos = activePositions.filter(p => p.botId && assignedBots.some(b => b.id === p.botId));
+
+              return (
+                <div
+                  key={w.publicKey ? `${w.publicKey}_${idx}` : `sw_card_${idx}`}
+                  className="p-4 bg-black/40 border border-white/10 rounded-xl space-y-3 hover:border-purple-500/40 transition-all cursor-pointer"
+                  onClick={() => setActiveSubWalletTab(num)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-6 w-6 rounded-lg bg-purple-600/30 text-purple-300 font-bold flex items-center justify-center text-xs font-headline">
+                        #{num}
+                      </span>
+                      <span className="font-extrabold text-sm text-white font-headline">
+                        Wallet #{num}
+                      </span>
+                    </div>
+                    <Badge className={cn(
+                      "text-[9px] uppercase font-headline font-bold border-none px-2 py-0.5 rounded",
+                      isFunded ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                    )}>
+                      {isFunded ? "✅ Actif" : "⚠️ 0.00 SOL"}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-black/50 p-2.5 rounded-lg border border-white/5 space-y-0.5">
+                    <span className="text-[10px] text-slate-400 uppercase font-headline block">Solde en direct</span>
+                    <span className="font-extrabold text-base text-white font-mono block">
+                      {bal.toFixed(4)} SOL
+                    </span>
+                    <span className="text-[11px] text-purple-300 font-mono block">
+                      {formatSolToUsdAndHtg(bal).combinedLabel}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                      <span>Robot Assigné:</span>
+                      <span className="font-bold text-white">
+                        {assignedBots.length > 0 ? assignedBots[0].strategy : 'Aucun'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                      <span>Trades en cours:</span>
+                      <span className="font-bold text-purple-300 font-mono">
+                        {walletPos.length} position{walletPos.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSubWalletTab(num);
+                      }}
+                      className="flex-1 h-8 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/30 text-[11px] font-bold uppercase font-headline rounded-lg"
+                    >
+                      Détails & Actions
+                    </Button>
+                    {isReal && bal > 0.0005 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReclaimSingleSubWallet(w);
+                        }}
+                        disabled={isLocalReclaiming}
+                        className="h-8 px-2.5 bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-[11px] font-bold uppercase font-headline rounded-lg"
+                        title="Rapatrier vers Phantom"
+                      >
+                        📥 Rapatrier
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {/* Bot Configuration Form */}
       <Card className="bg-[#150f21] border-white/15 rounded-2xl p-6 space-y-5 shadow-2xl">
