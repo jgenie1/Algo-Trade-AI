@@ -630,6 +630,61 @@ export async function getMultipleSolanaBalances(pubKeys: string[]): Promise<{ su
   }
 }
 
+/**
+ * Rapatrie tous les SOL des 5 sous-wallets vers le portefeuille Phantom principal
+ */
+export async function reclaimAllSubWalletsToMaster(params: {
+  destinationPubKey: string;
+}): Promise<{ success: boolean; totalReclaimed: number; errors: string[] }> {
+  try {
+    const { Keypair, SystemProgram, Transaction, PublicKey } = await import('@solana/web3.js');
+    const { default: bs58 } = await import('bs58');
+    const connection = await getWorkingConnection();
+    
+    const rawSubWallets = typeof window !== 'undefined' ? localStorage.getItem('trade_sub_wallets') : null;
+    if (!rawSubWallets) return { success: false, totalReclaimed: 0, errors: ['Aucun sous-wallet trouvé'] };
+
+    const subWallets = JSON.parse(rawSubWallets);
+    const destKey = new PublicKey(params.destinationPubKey);
+    let totalReclaimed = 0;
+    const errors: string[] = [];
+
+    for (const sw of subWallets) {
+      try {
+        if (!sw.privateKey) continue;
+        const keypair = Keypair.fromSecretKey(bs58.decode(sw.privateKey));
+        const balance = await connection.getBalance(keypair.publicKey, 'confirmed');
+        const fee = 5000; // 0.000005 SOL de frais réseau
+        const sendAmount = balance - fee;
+
+        if (sendAmount > 10000) {
+          const tx = new Transaction().add(
+            SystemProgram.transfer({
+              fromPubkey: keypair.publicKey,
+              toPubkey: destKey,
+              lamports: sendAmount,
+            })
+          );
+          tx.feePayer = keypair.publicKey;
+          const { blockhash } = await connection.getLatestBlockhash('confirmed');
+          tx.recentBlockhash = blockhash;
+          tx.sign(keypair);
+
+          const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
+          await connection.confirmTransaction(sig, 'confirmed');
+          totalReclaimed += sendAmount / 1e9;
+        }
+      } catch (e: any) {
+        errors.push(e.message || 'Erreur transfert sous-wallet');
+      }
+    }
+
+    return { success: totalReclaimed > 0, totalReclaimed, errors };
+  } catch (err: any) {
+    return { success: false, totalReclaimed: 0, errors: [err.message || 'Erreur globale'] };
+  }
+}
+
 export async function disperseSolToSubWallets(params: {
   subWalletPubKeys: string[];
   amountPerWallet: number;

@@ -15,13 +15,14 @@ import {
   Copy,
   CheckCircle2,
   ExternalLink,
-  Check
+  Check,
+  Download
 } from 'lucide-react';
 import type { SubWallet, BotInstance } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
-import { sweepSubWalletProfitToMaster, disperseSolToSubWallets, getMultipleSolanaBalances } from '@/services/pumpFunService';
+import { sweepSubWalletProfitToMaster, disperseSolToSubWallets, getMultipleSolanaBalances, reclaimAllSubWalletsToMaster } from '@/services/pumpFunService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -229,6 +230,101 @@ export default function TradingBotsManager({
       setLocalDisperseError(err.message || 'Erreur de distribution');
     } finally {
       setIsLocalDispersing(false);
+    }
+  };
+
+  const [isLocalReclaiming, setIsLocalReclaiming] = useState<boolean>(false);
+  const [reclaimSuccessMsg, setReclaimSuccessMsg] = useState<string>('');
+  const [reclaimErrorMsg, setReclaimErrorMsg] = useState<string>('');
+
+  const getConnectedSolanaAddress = (): string => {
+    if (typeof window === 'undefined') return '';
+    const phantom = (window as any)?.phantom?.solana || (window as any)?.solana;
+    if (phantom?.publicKey) return phantom.publicKey.toBase58();
+    return localStorage.getItem('settings_solana_address') || localStorage.getItem('solana_connected_address') || '';
+  };
+
+  const handleReclaimAllSubWallets = async () => {
+    const destAddr = getConnectedSolanaAddress();
+    if (!destAddr) {
+      alert("Veuillez d'abord connecter votre portefeuille Phantom.");
+      return;
+    }
+    setIsLocalReclaiming(true);
+    setReclaimSuccessMsg('');
+    setReclaimErrorMsg('');
+
+    try {
+      const res = await reclaimAllSubWalletsToMaster({ destinationPubKey: destAddr });
+      if (res.success && res.totalReclaimed > 0) {
+        setReclaimSuccessMsg(`✅ ${res.totalReclaimed.toFixed(4)} SOL rapatriés avec succès vers votre Phantom !`);
+        addBotLog('system', 'System', `[RAPATRIEMENT SOL CONFIRMÉ] ${res.totalReclaimed.toFixed(4)} SOL récupérés et renvoyés vers le Master Wallet (${destAddr.slice(0, 8)}...) !`, 'trade');
+        await handleRefreshOnChainBalances();
+      } else {
+        const errMsg = res.errors && res.errors.length > 0 ? res.errors.join(' | ') : "Aucun SOL à rapatrier (les sous-wallets ont moins de 0.00001 SOL).";
+        setReclaimErrorMsg(errMsg);
+      }
+    } catch (err: any) {
+      setReclaimErrorMsg(err.message || 'Erreur lors du rapatriement');
+    } finally {
+      setIsLocalReclaiming(false);
+    }
+  };
+
+  const handleReclaimSingleSubWallet = async (subWallet: SubWallet) => {
+    const destAddr = getConnectedSolanaAddress();
+    if (!destAddr) {
+      alert("Veuillez connecter votre portefeuille Phantom.");
+      return;
+    }
+    if (!subWallet.privateKey) {
+      alert("Clé privée du sous-wallet introuvable.");
+      return;
+    }
+
+    setIsLocalReclaiming(true);
+    setReclaimSuccessMsg('');
+    setReclaimErrorMsg('');
+
+    try {
+      const { Keypair, SystemProgram, Transaction, PublicKey } = await import('@solana/web3.js');
+      const { default: bs58 } = await import('bs58');
+      const { getWorkingConnection } = await import('@/services/pumpFunService');
+      const connection = await getWorkingConnection();
+
+      const kp = Keypair.fromSecretKey(bs58.decode(subWallet.privateKey));
+      const bal = await connection.getBalance(kp.publicKey, 'confirmed');
+      const fee = 5000;
+      const sendAmount = bal - fee;
+
+      if (sendAmount <= 10000) {
+        alert("Ce sous-wallet n'a pas assez de SOL à rapatrier (solde trop faible).");
+        return;
+      }
+
+      const tx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: kp.publicKey,
+          toPubkey: new PublicKey(destAddr),
+          lamports: sendAmount
+        })
+      );
+      tx.feePayer = kp.publicKey;
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      tx.recentBlockhash = blockhash;
+      tx.sign(kp);
+
+      const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
+      await connection.confirmTransaction(sig, 'confirmed');
+
+      const solReclaimed = sendAmount / 1e9;
+      setReclaimSuccessMsg(`✅ ${solReclaimed.toFixed(4)} SOL rapatriés depuis Sous-Wallet vers Phantom ! (Tx: ${sig.slice(0, 10)}...)`);
+      addBotLog('system', 'System', `[RAPATRIEMENT SOL] ${solReclaimed.toFixed(4)} SOL récupérés du Sous-Wallet (${kp.publicKey.toBase58().slice(0, 8)}...) !`, 'trade');
+      await handleRefreshOnChainBalances();
+    } catch (err: any) {
+      setReclaimErrorMsg(err.message || 'Erreur de rapatriement');
+    } finally {
+      setIsLocalReclaiming(false);
     }
   };
 
@@ -1217,6 +1313,19 @@ export default function TradingBotsManager({
                     )}>
                       {isFunded ? "✅ Actif" : "⚠️ Vide"}
                     </Badge>
+                    {(w.balance || 0) > 0.0005 && isReal && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleReclaimSingleSubWallet(w)}
+                        disabled={isLocalReclaiming}
+                        className="h-7 px-2 text-[10px] font-bold text-rose-300 hover:text-white bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/30 rounded-lg font-headline uppercase transition-all"
+                        title="Rapatrier ce solde vers Phantom"
+                      >
+                        📥 Rapatrier
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -1312,38 +1421,77 @@ export default function TradingBotsManager({
             </div>
           )}
 
-          {/* BOUTONS D'ACTION */}
-          <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-white/10">
-            <Button
-              type="button"
-              onClick={() => {
-                handleFundDemoFleet(0.5);
-                setIsDisperseModalOpen(false);
-              }}
-              variant="outline"
-              className="flex-1 h-11 bg-white/5 hover:bg-white/10 text-slate-200 border-white/15 text-xs font-extrabold uppercase tracking-wider font-headline"
-            >
-              🧪 Démo Virtuelle (0.50 SOL)
-            </Button>
+          {/* RETOUR RAPATRIEMENT */}
+          {reclaimErrorMsg && (
+            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-body flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
+              <span>{reclaimErrorMsg}</span>
+            </div>
+          )}
 
-            <Button
-              type="button"
-              onClick={handleExecuteRealDisperse}
-              disabled={isLocalDispersing || Boolean(isReal && solanaBalance !== null && solanaBalance < (customDisperseAmount * 5 + 0.001))}
-              className="flex-1 h-11 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white text-xs font-extrabold uppercase tracking-wider font-headline flex items-center justify-center gap-2 border border-purple-500/40"
-            >
-              {isLocalDispersing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Distribution On-Chain...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4 fill-white" />
-                  ⚡ Distribuer SOL Réel
-                </>
-              )}
-            </Button>
+          {reclaimSuccessMsg && (
+            <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-body flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span className="font-bold">{reclaimSuccessMsg}</span>
+            </div>
+          )}
+
+          {/* BOUTONS D'ACTION */}
+          <div className="space-y-2 pt-2 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  handleFundDemoFleet(0.5);
+                  setIsDisperseModalOpen(false);
+                }}
+                variant="outline"
+                className="flex-1 h-11 bg-white/5 hover:bg-white/10 text-slate-200 border-white/15 text-xs font-extrabold uppercase tracking-wider font-headline"
+              >
+                🧪 Démo Virtuelle (0.50 SOL)
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleExecuteRealDisperse}
+                disabled={isLocalDispersing || isLocalReclaiming || Boolean(isReal && solanaBalance !== null && solanaBalance < (customDisperseAmount * 5 + 0.001))}
+                className="flex-1 h-11 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white text-xs font-extrabold uppercase tracking-wider font-headline flex items-center justify-center gap-2 border border-purple-500/40"
+              >
+                {isLocalDispersing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Distribution On-Chain...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 fill-white" />
+                    ⚡ Distribuer SOL Réel
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* BOUTON RAPATRIER TOUS LES FONDS VERS LE MASTER WALLET */}
+            {isReal && (
+              <Button
+                type="button"
+                onClick={handleReclaimAllSubWallets}
+                disabled={isLocalReclaiming || isLocalDispersing}
+                className="w-full h-11 bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/40 rounded-xl font-bold font-headline uppercase text-xs flex items-center justify-center gap-2 transition-all mt-1"
+              >
+                {isLocalReclaiming ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin text-rose-300" />
+                    Rapatriement on-chain vers Phantom en cours...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    📥 Tout Rapatrier vers mon Portefeuille Principal (Phantom)
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
