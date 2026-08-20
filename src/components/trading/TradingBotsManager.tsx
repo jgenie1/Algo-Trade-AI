@@ -23,13 +23,26 @@ import {
   Activity,
   TrendingUp,
   Layers,
-  Coins
+  Coins,
+  Scale,
+  Sparkles,
+  FileSpreadsheet,
+  Lock,
+  PauseCircle,
+  PlayCircle
 } from 'lucide-react';
 import type { SubWallet, BotInstance } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
-import { sweepSubWalletProfitToMaster, disperseSolToSubWallets, getMultipleSolanaBalances, reclaimAllSubWalletsToMaster } from '@/services/pumpFunService';
+import { 
+  sweepSubWalletProfitToMaster, 
+  disperseSolToSubWallets, 
+  getMultipleSolanaBalances, 
+  reclaimAllSubWalletsToMaster,
+  rebalanceFleetSubWallets,
+  closeEmptyTokenAccountsAndRefundRent
+} from '@/services/pumpFunService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -400,6 +413,137 @@ export default function TradingBotsManager({
     }
   };
 
+  // Section 2: Contrôles Globaux de la Flotte de Robots
+  const handleStartAllBots = () => {
+    if (bots.length === 0) return;
+    const updated = bots.map(b => ({ ...b, status: 'RUNNING' as const }));
+    setBots(updated);
+    addBotLog('system', 'System', `⚡ TOUS LES ROBOTS ONT ÉTÉ DÉMARRÉS (${bots.length} bots actifs) !`, 'trade');
+  };
+
+  const handlePauseAllBots = () => {
+    if (bots.length === 0) return;
+    const updated = bots.map(b => ({ ...b, status: 'STOPPED' as const }));
+    setBots(updated);
+    addBotLog('system', 'System', `⏸️ TOUS LES ROBOTS ONT ÉTÉ MIS EN PAUSE.`, 'info');
+  };
+
+  const handleClearAllBots = () => {
+    if (bots.length === 0) return;
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer tous les robots de trading configurés ?")) {
+      setBots([]);
+      addBotLog('system', 'System', `🗑️ Tous les robots de trading ont été réinitialisés.`, 'info');
+    }
+  };
+
+  // Section 3: Rééquilibrage & Récupération des Loyers On-Chain
+  const [isRebalancing, setIsRebalancing] = useState<boolean>(false);
+  const [isRefundingRent, setIsRefundingRent] = useState<boolean>(false);
+
+  const handleRebalanceFleet = async () => {
+    if (tradingMode === 'DEMO') {
+      const total = effectiveSubWallets.reduce((acc, w) => acc + (w.balance || 0), 0);
+      const avg = total / 5;
+      const updated = effectiveSubWallets.map(w => ({ ...w, balance: avg }));
+      localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+      setLocalSubWallets(updated);
+      setReclaimSuccessMsg(`⚖️ Flotte Démo rééquilibrée : ${avg.toFixed(3)} SOL par sous-portefeuille.`);
+      addBotLog('system', 'System', `[RÉÉQUILIBRAGE DÉMO] 5 sous-portefeuilles rééquilibrés à ${avg.toFixed(3)} SOL chacun.`, 'trade');
+      return;
+    }
+
+    setIsRebalancing(true);
+    setReclaimSuccessMsg('');
+    setReclaimErrorMsg('');
+    try {
+      const res = await rebalanceFleetSubWallets();
+      if (res.success) {
+        setReclaimSuccessMsg(`⚖️ Flotte rééquilibrée avec succès (${res.averageSol.toFixed(4)} SOL moyen, ${res.transfersCount} transferts) !`);
+        addBotLog('system', 'System', `[RÉÉQUILIBRAGE SOL] Flotte rééquilibrée (${res.averageSol.toFixed(4)} SOL moyen) !`, 'trade');
+        await handleRefreshOnChainBalances();
+      } else {
+        setReclaimErrorMsg(res.error || "Impossible de rééquilibrer (soldes trop faibles ou équilibrés).");
+      }
+    } catch (err: any) {
+      setReclaimErrorMsg(err.message || "Erreur de rééquilibrage");
+    } finally {
+      setIsRebalancing(false);
+    }
+  };
+
+  const handleRefundRent = async () => {
+    const destAddr = getConnectedSolanaAddress();
+    if (!destAddr) {
+      alert("Veuillez connecter votre portefeuille Phantom.");
+      return;
+    }
+    setIsRefundingRent(true);
+    setReclaimSuccessMsg('');
+    setReclaimErrorMsg('');
+    try {
+      const res = await closeEmptyTokenAccountsAndRefundRent({ destinationMasterPubKey: destAddr });
+      if (res.success && res.closedAccountsCount > 0) {
+        setReclaimSuccessMsg(`🧹 ${res.closedAccountsCount} comptes vides fermés ! +${res.refundedSol.toFixed(4)} SOL de loyer récupérés vers votre Phantom.`);
+        addBotLog('system', 'System', `[LOYER SOL RÉCUPÉRÉ] ${res.closedAccountsCount} comptes fermés, +${res.refundedSol.toFixed(4)} SOL restitués !`, 'trade');
+      } else {
+        setReclaimSuccessMsg(`🧹 Aucun compte de jeton vide à fermer (loyers déjà optimisés).`);
+      }
+    } catch (err: any) {
+      setReclaimErrorMsg(err.message || "Erreur récupération loyers");
+    } finally {
+      setIsRefundingRent(false);
+    }
+  };
+
+  // Section 4: Export CSV & Sécurisation des Gains dans le Coffre-Fort
+  const [isSweepingProfits, setIsSweepingProfits] = useState<boolean>(false);
+
+  const handleExportCsv = () => {
+    const rows = [
+      ['Date/Heure', 'Paire', 'Type', 'Prix Entree', 'Prix Sortie', 'Levier', 'Profit/Perte', 'Devise']
+    ];
+
+    closedPositions.forEach(p => {
+      rows.push([
+        p.timestamp ? new Date(p.timestamp).toLocaleString('fr-FR') : 'N/A',
+        (p.pair || '').replace('FX:', '').replace('-USD', '').replace('=', ''),
+        p.type || 'BUY',
+        (p.entryPrice || 0).toString(),
+        (p.exitPrice || 0).toString(),
+        (p.leverage || 1).toString(),
+        (p.profit || 0).toString(),
+        isReal ? 'SOL' : '$'
+      ]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `trading_history_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleSweepProfitsToVault = () => {
+    const totalBotProfit = bots.reduce((acc, b) => acc + Math.max(0, b.netProfit || 0), 0);
+    if (totalBotProfit <= 0) {
+      alert("Aucun profit positif cumulé à sécuriser dans le coffre-fort pour le moment.");
+      return;
+    }
+
+    if (isReal) {
+      setReserveVaultSol(prev => (Number(prev) || 0) + totalBotProfit);
+      addBotLog('system', 'System', `🔒 +${totalBotProfit.toFixed(4)} SOL de profits sécurisés dans le Coffre-Fort anti-liquidation !`, 'trade');
+      alert(`🔒 +${totalBotProfit.toFixed(4)} SOL de gains verrouillés dans le Coffre-Fort !`);
+    } else {
+      setReserveVault(prev => (Number(prev) || 0) + totalBotProfit);
+      addBotLog('system', 'System', `🔒 +${totalBotProfit.toFixed(2)} $ de profits sécurisés dans le Coffre-Fort virtuel !`, 'trade');
+      alert(`🔒 +${totalBotProfit.toFixed(2)} $ de gains verrouillés dans le Coffre-Fort !`);
+    }
+  };
+
   const [fundingBotId, setFundingBotId] = useState<string | null>(null);
 
   const handleFundBotSubWallet = async (bot: BotInstance) => {
@@ -667,6 +811,49 @@ export default function TradingBotsManager({
               </Button>
             )}
 
+            {/* BOUTON RÉÉQUILIBRER LA FLOTTE */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleRebalanceFleet}
+              disabled={isRebalancing}
+              className="h-9 px-3 bg-white/5 hover:bg-white/10 text-slate-200 border-white/15 text-xs font-bold font-headline uppercase rounded-xl flex items-center gap-1.5"
+              title="Équilibrer les soldes entre les 5 sous-portefeuilles"
+            >
+              <Scale className={cn("h-3.5 w-3.5 text-blue-400", isRebalancing && "animate-spin")} />
+              {isRebalancing ? "Équilibrage..." : "⚖️ Rééquilibrer"}
+            </Button>
+
+            {/* BOUTON RÉCUPÉRER LES LOYERS SOLANA */}
+            {isReal && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRefundRent}
+                disabled={isRefundingRent}
+                className="h-9 px-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs font-bold font-headline uppercase rounded-xl flex items-center gap-1.5"
+                title="Fermer les comptes de tokens vides et récupérer les ~0.00204 SOL de loyer par compte vers Phantom"
+              >
+                <Sparkles className={cn("h-3.5 w-3.5 text-emerald-400", isRefundingRent && "animate-spin")} />
+                {isRefundingRent ? "Récupération..." : "🧹 Loyers (Rent)"}
+              </Button>
+            )}
+
+            {/* BOUTON SÉCURISER LES GAINS */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSweepProfitsToVault}
+              className="h-9 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs font-bold font-headline uppercase rounded-xl flex items-center gap-1.5"
+              title="Sécuriser les profits cumulés des robots dans le Coffre-Fort"
+            >
+              <Lock className="h-3.5 w-3.5 text-amber-400" />
+              🔒 Sécuriser Gains
+            </Button>
+
             {isReal && (
               <Button
                 type="button"
@@ -683,7 +870,7 @@ export default function TradingBotsManager({
                 ) : (
                   <>
                     <Download className="h-3.5 w-3.5" />
-                    📥 Tout Rapatrier vers Phantom
+                    📥 Tout Rapatrier
                   </>
                 )}
               </Button>
@@ -1300,7 +1487,45 @@ export default function TradingBotsManager({
                 <Bot className="h-5 w-5 text-[#c2ff0c]" />
                 <span>{tradingMode === 'DEMO' ? "Mes Bots Démo" : "Mes Bots Réels"} ({filteredBots.length})</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                {filteredBots.length > 0 && (
+                  <>
+                    {filteredBots.some(b => b.status === 'STOPPED') ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleStartAllBots}
+                        className="h-7 px-2.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-[10px] font-bold uppercase rounded-lg flex items-center gap-1 font-headline"
+                        title="Démarrer tous les robots en simultané"
+                      >
+                        <PlayCircle className="h-3 w-3" />
+                        Tout Démarrer
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handlePauseAllBots}
+                        className="h-7 px-2.5 bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/40 text-[10px] font-bold uppercase rounded-lg flex items-center gap-1 font-headline"
+                        title="Mettre en pause tous les robots"
+                      >
+                        <PauseCircle className="h-3 w-3" />
+                        Tout Mettre en Pause
+                      </Button>
+                    )}
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleClearAllBots}
+                      className="h-7 px-2 text-[10px] font-bold uppercase rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 flex items-center gap-1 font-headline"
+                      title="Supprimer tous les robots configurés"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </>
+                )}
+
                 <Badge className="bg-[#c2ff0c]/20 text-[#c2ff0c] text-xs font-bold border-none uppercase font-headline">
                   {filteredBots.filter(b => b.status === 'RUNNING').length} En Cours
                 </Badge>
@@ -1642,19 +1867,34 @@ export default function TradingBotsManager({
         {/* MODULE 4: HISTORIQUE DES CLÔTURES */}
         <Card className="bg-[#150f21] border border-white/15 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
           <CardHeader className="p-0 mb-4 border-b border-white/10 pb-3">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <CardTitle className="text-base font-extrabold uppercase tracking-wider text-white font-headline flex items-center gap-2">
                 <History className="h-5 w-5 text-slate-300" />
                 <span>{tradingMode === 'DEMO' ? "Historique Démo" : "Historique Réel (SOL)"} ({filteredClosed.length})</span>
               </CardTitle>
-              {filteredClosed.length > 0 && (
-                <Badge className={cn(
-                  "text-xs font-mono font-bold px-2.5 py-1 border-none",
-                  netRealizedPnL >= 0 ? "bg-emerald-500/25 text-emerald-300" : "bg-rose-500/25 text-rose-300"
-                )}>
-                  PnL: {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {filteredClosed.length > 0 && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleExportCsv}
+                      className="h-7 px-2.5 bg-white/10 hover:bg-white/20 text-slate-200 border border-white/15 text-[10px] font-bold uppercase rounded-lg flex items-center gap-1 font-headline"
+                      title="Télécharger l'historique en fichier CSV / Excel"
+                    >
+                      <FileSpreadsheet className="h-3 w-3 text-emerald-400" />
+                      Exporter CSV
+                    </Button>
+                    <Badge className={cn(
+                      "text-xs font-mono font-bold px-2.5 py-1 border-none",
+                      netRealizedPnL >= 0 ? "bg-emerald-500/25 text-emerald-300" : "bg-rose-500/25 text-rose-300"
+                    )}>
+                      PnL: {netRealizedPnL >= 0 ? '+' : ''}{netRealizedPnL.toFixed(2)} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                    </Badge>
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
 

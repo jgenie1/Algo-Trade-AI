@@ -685,6 +685,156 @@ export async function reclaimAllSubWalletsToMaster(params: {
   }
 }
 
+/**
+ * Rééquilibre automatiquement les soldes des 5 sous-wallets de manière équitable
+ */
+export async function rebalanceFleetSubWallets(): Promise<{
+  success: boolean;
+  averageSol: number;
+  transfersCount: number;
+  error?: string;
+}> {
+  try {
+    const { Keypair, SystemProgram, Transaction } = await import('@solana/web3.js');
+    const { default: bs58 } = await import('bs58');
+    const connection = await getWorkingConnection();
+
+    const rawSubWallets = typeof window !== 'undefined' ? localStorage.getItem('trade_sub_wallets') : null;
+    if (!rawSubWallets) return { success: false, averageSol: 0, transfersCount: 0, error: 'Aucun sous-wallet trouvé' };
+
+    const subWallets = JSON.parse(rawSubWallets);
+    const keypairs: any[] = [];
+    const balances: number[] = [];
+
+    for (const sw of subWallets) {
+      if (!sw.privateKey) continue;
+      const kp = Keypair.fromSecretKey(bs58.decode(sw.privateKey));
+      keypairs.push(kp);
+      const bal = await connection.getBalance(kp.publicKey, 'confirmed');
+      balances.push(bal);
+    }
+
+    if (keypairs.length < 2) {
+      return { success: false, averageSol: 0, transfersCount: 0, error: 'Moins de 2 sous-wallets disponibles' };
+    }
+
+    const totalLamports = balances.reduce((a, b) => a + b, 0);
+    const avgLamports = Math.floor(totalLamports / keypairs.length);
+    const fee = 5000;
+    let transfersCount = 0;
+
+    for (let i = 0; i < keypairs.length; i++) {
+      if (balances[i] > avgLamports + 10000) {
+        for (let j = 0; j < keypairs.length; j++) {
+          if (balances[j] < avgLamports - 10000) {
+            const needed = avgLamports - balances[j];
+            const surplus = balances[i] - avgLamports;
+            const transferAmount = Math.min(surplus, needed) - fee;
+
+            if (transferAmount > 10000) {
+              const tx = new Transaction().add(
+                SystemProgram.transfer({
+                  fromPubkey: keypairs[i].publicKey,
+                  toPubkey: keypairs[j].publicKey,
+                  lamports: transferAmount,
+                })
+              );
+              tx.feePayer = keypairs[i].publicKey;
+              const { blockhash } = await connection.getLatestBlockhash('confirmed');
+              tx.recentBlockhash = blockhash;
+              tx.sign(keypairs[i]);
+
+              const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
+              await connection.confirmTransaction(sig, 'confirmed');
+
+              balances[i] -= (transferAmount + fee);
+              balances[j] += transferAmount;
+              transfersCount++;
+            }
+          }
+        }
+      }
+    }
+
+    return { success: true, averageSol: avgLamports / 1e9, transfersCount };
+  } catch (err: any) {
+    return { success: false, averageSol: 0, transfersCount: 0, error: err.message || 'Erreur lors du rééquilibrage' };
+  }
+}
+
+/**
+ * Ferme tous les comptes de tokens SPL vides sur les 5 sous-wallets et rembourse le loyer (Rent Refund) vers le Master Wallet
+ */
+export async function closeEmptyTokenAccountsAndRefundRent(params: {
+  destinationMasterPubKey: string;
+}): Promise<{
+  success: boolean;
+  closedAccountsCount: number;
+  refundedSol: number;
+  error?: string;
+}> {
+  try {
+    const { Keypair, Transaction, TransactionInstruction, PublicKey } = await import('@solana/web3.js');
+    const { default: bs58 } = await import('bs58');
+    const connection = await getWorkingConnection();
+
+    const rawSubWallets = typeof window !== 'undefined' ? localStorage.getItem('trade_sub_wallets') : null;
+    if (!rawSubWallets) return { success: false, closedAccountsCount: 0, refundedSol: 0, error: 'Aucun sous-wallet' };
+
+    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    const subWallets = JSON.parse(rawSubWallets);
+    const destMaster = new PublicKey(params.destinationMasterPubKey);
+    let closedCount = 0;
+
+    for (const sw of subWallets) {
+      if (!sw.privateKey) continue;
+      const kp = Keypair.fromSecretKey(bs58.decode(sw.privateKey));
+      
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(kp.publicKey, {
+        programId: TOKEN_PROGRAM_ID,
+      });
+
+      for (const accountInfo of tokenAccounts.value) {
+        const parsedData = accountInfo.account.data.parsed.info;
+        const amount = parsedData.tokenAmount?.uiAmount;
+
+        // Si le solde de jetons est 0, on peut fermer le compte et récupérer les ~0.00204 SOL de loyer !
+        if (amount === 0) {
+          try {
+            // Instruction SPL Token CloseAccount (opcode = 9)
+            const closeIx = new TransactionInstruction({
+              programId: TOKEN_PROGRAM_ID,
+              keys: [
+                { pubkey: accountInfo.pubkey, isSigner: false, isWritable: true },
+                { pubkey: destMaster, isSigner: false, isWritable: true },
+                { pubkey: kp.publicKey, isSigner: true, isWritable: false },
+              ],
+              data: Buffer.from([9]),
+            });
+
+            const tx = new Transaction().add(closeIx);
+            tx.feePayer = kp.publicKey;
+            const { blockhash } = await connection.getLatestBlockhash('confirmed');
+            tx.recentBlockhash = blockhash;
+            tx.sign(kp);
+
+            const sig = await connection.sendRawTransaction(tx.serialize());
+            await connection.confirmTransaction(sig, 'confirmed');
+            closedCount++;
+          } catch (accErr) {
+            console.warn(`[RentRefund] Erreur fermeture compte ${accountInfo.pubkey.toBase58()}:`, accErr);
+          }
+        }
+      }
+    }
+
+    const refundedSol = closedCount * 0.002039;
+    return { success: true, closedAccountsCount: closedCount, refundedSol };
+  } catch (err: any) {
+    return { success: false, closedAccountsCount: 0, refundedSol: 0, error: err.message || 'Erreur récupération loyers' };
+  }
+}
+
 export async function disperseSolToSubWallets(params: {
   subWalletPubKeys: string[];
   amountPerWallet: number;
