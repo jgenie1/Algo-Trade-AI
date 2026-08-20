@@ -310,73 +310,55 @@ export default function Header() {
 
   return (
     <header 
-      className="flex h-16 items-center justify-between gap-2 sm:gap-3 max-w-full bg-[#0b0814]/90 backdrop-blur-2xl border border-white/12 rounded-2xl px-2.5 sm:px-5 w-full mb-6 shrink-0 shadow-[0_15px_40px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(194,255,12,0.06)] transition-all duration-300 relative z-30" 
+      className="flex flex-wrap lg:flex-nowrap min-h-16 h-auto py-2.5 items-center justify-between gap-3 max-w-full bg-[#0e0a1a]/90 backdrop-blur-2xl border border-white/12 rounded-2xl px-3 sm:px-5 w-full mb-6 shrink-0 shadow-[0_15px_40px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(194,255,12,0.06)] transition-all duration-300 relative z-30" 
       suppressHydrationWarning
     >
-      {/* Left Zone: Brand Identity / Sidebar Toggle / Search / Live USD-HTG Market Rate */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-        {/* Explicit Sidebar Show/Hide Toggle Button */}
-        <Button
-          type="button"
-          onClick={toggleSidebar}
-          className={cn(
-            "h-9 sm:h-10 px-2 sm:px-3 font-headline font-bold text-xs rounded-xl flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 shadow-sm border cursor-pointer active:scale-95",
-            state === "expanded"
-              ? "bg-white/5 hover:bg-white/10 border-white/10 text-white/80 hover:text-white"
-              : "bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 border-[#c2ff0c]/50 text-[#c2ff0c] shadow-[0_0_15px_rgba(194,255,12,0.3)] animate-pulse"
-          )}
-          title={state === "expanded" ? "Masquer le menu latéral (Ctrl+B)" : "Afficher le menu latéral (Ctrl+B)"}
-        >
-          <PanelLeft className="h-4 w-4 text-[#c2ff0c]" />
-          <span className="hidden sm:inline font-headline text-[11px] uppercase tracking-wider font-extrabold">
-            {state === "expanded" ? "Masquer" : "Menu"}
-          </span>
-        </Button>
-        
-        {/* Brand Cyber Identity (Desktop & Mobile Compact) */}
-        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/5 shrink-0">
-          <div className="relative flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
-            <Sparkles className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+      {/* Left Zone: Brand Identity & Live USD-HTG Market Rate */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Brand Cyber Identity */}
+        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
+          <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
+            <Sparkles className="h-3.5 w-3.5" />
           </div>
           <div className="flex flex-col text-left leading-none">
-            <span className="font-headline font-black text-[11px] sm:text-xs text-white tracking-wider flex items-center gap-0.5 sm:gap-1">
-              <span className="hidden xs:inline">ALGOTRADE</span> <span className="text-[#c2ff0c]">AI</span>
+            <span className="font-headline font-black text-xs text-white tracking-wider flex items-center gap-1">
+              <span>ALGOTRADE</span> <span className="text-[#c2ff0c]">AI</span>
             </span>
-            <span className="text-[7px] sm:text-[8px] font-mono text-purple-300 uppercase tracking-widest font-extrabold mt-0.5 hidden xs:block">
+            <span className="text-[8px] font-mono text-purple-300 uppercase tracking-widest font-extrabold mt-0.5">
               PRO TERMINAL
             </span>
           </div>
         </div>
 
         {/* Live USD -> HTG Market Rate Pill */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-950/40 via-purple-900/20 to-purple-950/40 border border-purple-500/30 text-purple-200 text-xs shadow-inner shrink-0 hover:border-[#c2ff0c]/40 transition-colors">
+        <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-950/50 via-purple-900/30 to-purple-950/50 border border-purple-500/30 text-purple-200 text-xs shadow-inner shrink-0 hover:border-[#c2ff0c]/40 transition-colors">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
           </span>
-          <span className="text-[10px] uppercase font-bold text-white/50 font-headline">USD ➔ HTG:</span>
-          <span className="font-mono font-extrabold text-[#c2ff0c] text-xs">
+          <span className="text-[10px] uppercase font-bold text-white/50 font-headline hidden sm:inline">USD ➔ HTG:</span>
+          <span className="font-mono font-black text-[#c2ff0c] text-xs">
             {liveHtgRate.toFixed(2)} HTG
           </span>
         </div>
       </div>
 
-      {/* Center / Mode Switcher & Security Controls Zone */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      {/* Center / Mode Switcher & Trading Tools Zone */}
+      <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap justify-center shrink-0">
         {/* Segmented Mode Switcher (DEMO vs REAL) */}
-        <div className="flex items-center p-0.5 sm:p-1 bg-black/50 border border-white/10 rounded-xl shrink-0">
+        <div className="flex items-center p-1 bg-black/60 border border-white/12 rounded-xl shrink-0">
           <button
             type="button"
             onClick={() => setTradingMode('DEMO')}
             className={cn(
-              "px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer active:scale-95",
+              "px-3 py-1 text-[10px] font-black uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer active:scale-95",
               tradingMode === 'DEMO' 
-                ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.25)]" 
+                ? "bg-amber-500/30 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]" 
                 : "text-white/40 hover:text-white"
             )}
           >
             <span className="sm:hidden">DEMO</span>
-            <span className="hidden sm:inline">DEMO (Virtual)</span>
+            <span className="hidden sm:inline">DEMO (Virtuel)</span>
           </button>
           <button
             type="button"
@@ -387,32 +369,30 @@ export default function Header() {
               setTradingMode('REAL');
             }}
             className={cn(
-              "px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-extrabold uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer active:scale-95",
+              "px-3 py-1 text-[10px] font-black uppercase font-headline rounded-lg transition-all duration-200 border-none cursor-pointer active:scale-95",
               tradingMode === 'REAL' 
                 ? "bg-purple-600/40 text-purple-200 border border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.35)]" 
                 : "text-white/40 hover:text-white"
             )}
           >
-            <span className="sm:hidden">⚡ REAL</span>
-            <span className="hidden sm:inline">⚡ REAL (On-Chain)</span>
+            <span className="sm:hidden">⚡ RÉEL</span>
+            <span className="hidden sm:inline">⚡ RÉEL (Solana)</span>
           </button>
         </div>
 
-        {/* Panic Kill Switch 1-Clic (Desktop only in header, also in mobile menu) */}
-        <div className="hidden sm:block">
-          <PanicKillSwitch />
-        </div>
+        {/* Panic Kill Switch 1-Clic */}
+        <PanicKillSwitch />
 
         {/* Coffre-Fort Intouchable (10% des Gains) */}
-        <div className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[#c2ff0c] font-headline text-xs shadow-sm shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center text-[#c2ff0c]">
-            <Lock className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-[#c2ff0c] font-headline text-xs shadow-sm shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center text-[#c2ff0c]">
+            <Lock className="h-3 w-3" />
           </div>
           <div className="flex flex-col text-left justify-center leading-tight">
-            <span className="text-[9px] text-white/50 font-body uppercase font-bold tracking-wider whitespace-nowrap">
-              Coffre-Fort ({tradingMode === 'REAL' ? 'SOL' : 'USD'})
+            <span className="text-[8px] text-white/50 font-body uppercase font-bold tracking-wider whitespace-nowrap">
+              Coffre-Fort
             </span>
-            <span className="text-xs font-mono font-extrabold text-[#c2ff0c]">
+            <span className="text-xs font-mono font-black text-[#c2ff0c]">
               {tradingMode === 'REAL' 
                 ? `${(Number(reserveVaultSol) || 0).toFixed(2)} SOL` 
                 : `$${(Number(reserveVault) || 0).toFixed(2)}`}
@@ -423,9 +403,9 @@ export default function Header() {
         {/* DEX Swap Quick Trigger Button */}
         <Button
           onClick={() => setIsSwapOpen(true)}
-          className="hidden md:flex h-10 px-3.5 bg-gradient-to-r from-purple-950/70 to-indigo-950/70 hover:from-purple-900/90 hover:to-indigo-900/90 border border-purple-500/40 text-purple-200 font-headline font-bold text-xs rounded-xl shadow-md items-center gap-2 transition-all shrink-0 cursor-pointer active:scale-95"
+          className="flex h-9 px-3 bg-gradient-to-r from-purple-900/60 to-indigo-900/60 hover:from-purple-800/80 hover:to-indigo-800/80 border border-purple-500/40 text-purple-200 font-headline font-black text-xs rounded-xl shadow-md items-center gap-1.5 transition-all shrink-0 cursor-pointer active:scale-95"
         >
-          <ArrowDownUp className="h-4 w-4 text-[#c2ff0c]" />
+          <ArrowDownUp className="h-3.5 w-3.5 text-[#c2ff0c]" />
           <span className="font-headline uppercase tracking-wide">Swap DEX</span>
         </Button>
 
@@ -433,14 +413,14 @@ export default function Header() {
         <DEXSwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} />
       </div>
 
-      {/* Right Zone: Wallet / Language / Notifications / Settings / Profile */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      {/* Right Zone: Wallet / Notifications / Settings / Profile */}
+      <div className="flex items-center gap-2 shrink-0">
         {/* Web3 Multi-Chain Connect Wallet Button */}
         <Dialog>
           <DialogTrigger asChild>
             {connectedWallet ? (
               <Button
-                className="h-9 sm:h-10 px-2 sm:px-3 bg-white/5 hover:bg-white/10 border border-emerald-500/40 text-white font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 sm:gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] cursor-pointer active:scale-95"
+                className="h-9 sm:h-10 px-2.5 sm:px-3 bg-white/5 hover:bg-white/10 border border-emerald-500/40 text-white font-headline font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 sm:gap-2 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] cursor-pointer active:scale-95"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -449,19 +429,16 @@ export default function Header() {
                 <span className="font-mono text-[11px] sm:text-xs font-semibold text-emerald-400">
                   {connectedWallet.address.slice(0, 3)}..{connectedWallet.address.slice(-3)}
                 </span>
-                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-headline uppercase font-bold hidden md:inline">
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-headline uppercase font-bold hidden sm:inline">
                   {connectedWallet.chain}
                 </span>
               </Button>
             ) : (
               <Button
-                className="h-9 sm:h-10 px-2.5 sm:px-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-bold text-xs rounded-xl shadow-[0_0_20px_rgba(147,51,247,0.4)] hover:shadow-[0_0_28px_rgba(147,51,247,0.65)] flex items-center gap-1.5 sm:gap-2 border border-purple-400/40 transition-all cursor-pointer active:scale-95"
+                className="h-9 sm:h-10 px-3 sm:px-4 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-headline font-black text-xs rounded-xl shadow-[0_0_20px_rgba(147,51,247,0.4)] hover:shadow-[0_0_28px_rgba(147,51,247,0.65)] flex items-center gap-2 border border-purple-400/40 transition-all cursor-pointer active:scale-95"
               >
-                <Wallet className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-[#c2ff0c] animate-pulse" />
-                <span className="text-[11px] sm:text-xs">Web3</span>
-                <span className="text-[9px] bg-black/40 text-[#c2ff0c] px-1 py-0.5 rounded font-mono font-normal hidden sm:inline">
-                  Multi
-                </span>
+                <Wallet className="h-4 w-4 text-[#c2ff0c] animate-pulse" />
+                <span>Connecter Wallet</span>
               </Button>
             )}
           </DialogTrigger>

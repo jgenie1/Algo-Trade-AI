@@ -66,15 +66,24 @@
   * { 
     @apply border-border; 
     scrollbar-width: thin;
-    scrollbar-color: rgba(194, 255, 12, 0.35) rgba(255, 255, 255, 0.02);
+    scrollbar-color: rgba(194, 255, 12, 0.45) rgba(0, 0, 0, 0.5);
   }
-  body { @apply bg-background text-foreground; }
+  html { 
+    scroll-behavior: smooth; 
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  body { 
+    @apply bg-background text-foreground; 
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
 
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-  ::-webkit-scrollbar-thumb { background: rgba(194,255,12,0.35); border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(194,255,12,0.6); }
-  html { scroll-behavior: smooth; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: rgba(10, 6, 18, 0.8); }
+  ::-webkit-scrollbar-thumb { background: rgba(194, 255, 12, 0.4); border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.1); }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(194, 255, 12, 0.8); }
 }
 
 @layer utilities {
