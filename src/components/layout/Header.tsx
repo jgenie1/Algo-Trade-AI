@@ -315,13 +315,19 @@ export default function Header() {
     >
       {/* Scrollable Ribbon Wrapper for Top Menu Controls */}
       <div className="flex items-center justify-between gap-3 min-h-16 py-2.5 px-3 sm:px-5 min-w-max">
-        {/* Left Zone: Brand Identity & Live USD-HTG Market Rate */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Brand Cyber Identity */}
-        <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
-          <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
-            <Sparkles className="h-3.5 w-3.5" />
-          </div>
+        {/* Left Zone: Sidebar Toggle, Brand Identity & Live USD-HTG Market Rate */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Bouton de réapparition / masquage du menu latéral */}
+          <SidebarTrigger 
+            className="h-8 w-8 rounded-lg bg-white/[0.06] hover:bg-[#c2ff0c]/20 text-slate-300 hover:text-[#c2ff0c] border border-white/10 hover:border-[#c2ff0c]/40 transition-all duration-200 flex items-center justify-center shrink-0 cursor-pointer shadow-sm active:scale-95" 
+            title="Afficher / Réduire le menu latéral (Ctrl+B)" 
+          />
+
+          {/* Brand Cyber Identity */}
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
+            <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
+              <Sparkles className="h-3.5 w-3.5" />
+            </div>
           <div className="flex flex-col text-left leading-none">
             <span className="font-headline font-black text-xs text-white tracking-wider flex items-center gap-1">
               <span>ALGOTRADE</span> <span className="text-[#c2ff0c]">AI</span>

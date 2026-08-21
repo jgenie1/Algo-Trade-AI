@@ -1225,7 +1225,10 @@ export function useTradingEngine() {
 
                 const cleanPair = currentPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
                 const isRealMode = (bot.mode || tradingModeRef.current) === 'REAL';
-                let calculatedTradeAmt = parseFloat((bot.capital / 3).toFixed(4));
+                // En Démo : limiter chaque trade à 5% du capital (max 500 $) pour une gestion saine du risque et un stop loss efficace
+                let calculatedTradeAmt = isRealMode 
+                  ? parseFloat((bot.capital / 3).toFixed(4))
+                  : parseFloat((Math.min(bot.capital * 0.05, 500) || 50).toFixed(2));
 
                 if (isRealMode) {
                   const botSubIdx = (bot.subWallet || 1) - 1;
@@ -1374,22 +1377,40 @@ export function useTradingEngine() {
     return () => clearTimeout(timerId);
   }, []);
 
-  // Global Position Monitor
+  // Global Position Monitor & Automatic Stop-Loss / Take-Profit Guardian
   useEffect(() => {
     const checkStops = () => {
       const positions = activePositionsRef.current;
       if (positions.length === 0) return;
 
       positions.forEach(p => {
-        const current = livePricesRef.current[p.pair];
-        if (!current) return;
+        const cleanPair = (p.pair || '').replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+        const current = livePricesRef.current[p.pair]
+          || livePricesRef.current[p.pair.replace('FX:', '')]
+          || livePricesRef.current[`FX:${p.pair}`]
+          || livePricesRef.current[`${cleanPair}-USD`]
+          || livePricesRef.current[cleanPair]
+          || getRealMarketBasePrice(p.pair);
+
+        if (!current || current <= 0) return;
 
         const isLong = p.type === 'BUY' || p.type === 'LONG';
+        const entry = typeof p.entryPrice === 'number' && p.entryPrice > 0 ? p.entryPrice : current;
+
+        // Initialisation automatique et sécurisée du Stop-Loss si non défini (4% de distance max)
+        if (!p.sl || isNaN(p.sl)) {
+          p.sl = isLong ? parseFloat((entry * 0.96).toFixed(5)) : parseFloat((entry * 1.04).toFixed(5));
+        }
+        if (!p.tp || isNaN(p.tp)) {
+          p.tp = isLong ? parseFloat((entry * 1.08).toFixed(5)) : parseFloat((entry * 0.92).toFixed(5));
+        }
+
+        // Trailing Stop Loss dynamique
         if (isLong) {
-          const currentHighest = p.highestPrice || p.entryPrice;
+          const currentHighest = p.highestPrice || entry;
           if (current > currentHighest) {
             p.highestPrice = current;
-            const trailingPct = p.pair.startsWith('SOL:') ? 0.15 : 0.02;
+            const trailingPct = p.pair.startsWith('SOL:') ? 0.06 : 0.02;
             const newSl = parseFloat((current * (1 - trailingPct)).toFixed(5));
             if (!p.sl || newSl > p.sl) {
               p.sl = newSl;
@@ -1397,7 +1418,7 @@ export function useTradingEngine() {
             }
           }
         } else {
-          const currentLowest = p.highestPrice || p.entryPrice;
+          const currentLowest = p.highestPrice || entry;
           if (current < currentLowest) {
             p.highestPrice = current;
             const trailingPct = 0.02;
@@ -1412,28 +1433,23 @@ export function useTradingEngine() {
         let shouldClose = false;
         let closeReason = '';
 
-        if (p.botId) {
-          const botConfig = botsRef.current.find(b => b.id === p.botId);
-          const botCap = botConfig?.capital || 1000;
-          const maxTradeLossLimit = -0.04 * botCap;
-          
-          const entry = p.entryPrice || current;
-          const priceDiff = current - entry;
-          const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
-          const lev = p.leverage || 1;
-          const liveProfit = pctDiff * p.amount * lev * (isLong ? 1 : -1);
+        const priceDiff = current - entry;
+        const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+        const lev = p.leverage || 1;
+        const liveProfit = pctDiff * (p.amount || 1) * lev * (isLong ? 1 : -1);
 
-          if (liveProfit <= maxTradeLossLimit) {
-            shouldClose = true;
-            closeReason = `Arrêt d'urgence anti-perte (Perte de position contenue à max 4% du capital du bot)`;
-          }
+        // Protection Stop-Loss stricte : coupure immédiate si la perte atteint 4% du montant
+        const maxAllowedLoss = -Math.max((p.amount || 1) * 0.04, 1);
+        if (liveProfit <= maxAllowedLoss) {
+          shouldClose = true;
+          closeReason = `Arrêt Stop-Loss Anti-Perte (Perte limitée à max 4%)`;
         }
 
         if (!shouldClose) {
           if (isLong) {
             if (p.sl && current <= p.sl) {
               shouldClose = true;
-              closeReason = `Stop Loss suiveur déclenché (${current.toFixed(5)} <= ${p.sl})`;
+              closeReason = `Stop-Loss déclenché (${current.toFixed(5)} <= ${p.sl})`;
             } else if (p.tp && current >= p.tp) {
               shouldClose = true;
               closeReason = `Take Profit déclenché (${current.toFixed(5)} >= ${p.tp})`;
@@ -1441,7 +1457,7 @@ export function useTradingEngine() {
           } else {
             if (p.sl && current >= p.sl) {
               shouldClose = true;
-              closeReason = `Stop Loss suiveur déclenché (${current.toFixed(5)} >= ${p.sl})`;
+              closeReason = `Stop-Loss déclenché (${current.toFixed(5)} >= ${p.sl})`;
             } else if (p.tp && current <= p.tp) {
               shouldClose = true;
               closeReason = `Take Profit déclenché (${current.toFixed(5)} <= ${p.tp})`;
@@ -1513,7 +1529,8 @@ export function useTradingEngine() {
     const isLong = p.type === 'BUY';
     const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
     const maxGain = amt * lev * 5;
-    const maxLoss = -amt;
+    // RÈGLE ANTI-PERTE ABSOLUE : Le Stop Loss limite la perte à un maximum de 5% du montant engagé
+    const maxLoss = -Math.min(amt, Math.max(amt * 0.05, 1));
     const profit = Math.max(maxLoss, Math.min(maxGain, rawProfit));
 
     const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;

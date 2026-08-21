@@ -12,15 +12,9 @@ import WalletTokenPortfolio from '@/components/wallet/WalletTokenPortfolio';
 import DEXSwapModal from '@/components/wallet/DEXSwapModal';
 import PositionDetailsModal from '@/components/trading/PositionDetailsModal';
 import MarketRadarAndChart from '@/components/trading/MarketRadarAndChart';
-import dynamic from 'next/dynamic';
 import PortfolioStatsHeader from '@/components/layout/PortfolioStatsHeader';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { SwapToken } from '@/services/dexSwapService';
-
-const AutomatedPipelineFlowVisualizer = dynamic(
-  () => import('@/components/trading/AutomatedPipelineFlowVisualizer').then((mod) => mod.default),
-  { ssr: false }
-);
 
 export default function TradingTerminalPage() {
   const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'tokens' | 'wallets'>('manual');
@@ -231,8 +225,6 @@ export default function TradingTerminalPage() {
 
         {/* Tab 2: Automatic Bots & Intelligence */}
         <TabsContent value="bots" className="m-0 focus-visible:outline-none space-y-6">
-          <AutomatedPipelineFlowVisualizer />
-
           <MarketRadarAndChart
             selectedPair={selectedPair}
             setSelectedPair={setSelectedPair}
