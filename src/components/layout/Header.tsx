@@ -310,11 +310,13 @@ export default function Header() {
 
   return (
     <header 
-      className="flex flex-wrap lg:flex-nowrap min-h-16 h-auto py-2.5 items-center justify-between gap-3 max-w-full bg-[#0e0a1a]/90 backdrop-blur-2xl border border-white/12 rounded-2xl px-3 sm:px-5 w-full mb-6 shrink-0 shadow-[0_15px_40px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(194,255,12,0.06)] transition-all duration-300 relative z-30" 
+      className="w-full mb-6 shrink-0 bg-[#0e0a1a]/95 backdrop-blur-2xl border border-white/12 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.95),0_0_20px_rgba(194,255,12,0.06)] transition-all duration-300 relative z-30 overflow-x-auto overflow-y-visible max-w-full" 
       suppressHydrationWarning
     >
-      {/* Left Zone: Brand Identity & Live USD-HTG Market Rate */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      {/* Scrollable Ribbon Wrapper for Top Menu Controls */}
+      <div className="flex items-center justify-between gap-3 min-h-16 py-2.5 px-3 sm:px-5 min-w-max">
+        {/* Left Zone: Brand Identity & Live USD-HTG Market Rate */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Brand Cyber Identity */}
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
           <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-[#c2ff0c]/15 border border-[#c2ff0c]/40 text-[#c2ff0c] shadow-[0_0_12px_rgba(194,255,12,0.25)]">
@@ -848,6 +850,7 @@ export default function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </header>
+    </div>
+  </header>
   );
 }
