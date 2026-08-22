@@ -119,7 +119,9 @@ export default function BinanceAgentConnectModal({ isOpen, onClose, triggerButto
       } else {
         setTestResult({
           success: false,
-          message: `⚠️ Clés API enregistrées mais validation échouée. Vérifiez vos autorisations Spot/Futures.`
+          message: info.error 
+            ? `⚠️ ${info.error}` 
+            : `⚠️ Clés API enregistrées mais validation échouée. Vérifiez vos restrictions d'IP et autorisations Spot.`
         });
       }
     } else {

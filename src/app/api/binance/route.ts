@@ -19,28 +19,43 @@ export async function POST(req: NextRequest) {
       ? 'https://testnet.binance.vision/api/v3'
       : 'https://api.binance.com/api/v3';
 
+    // Synchronisation automatique de l'horodatage avec les serveurs de Binance
+    let serverTime = Date.now();
+    try {
+      const timeRes = await fetch(`${baseUrl}/time`, { cache: 'no-store' });
+      if (timeRes.ok) {
+        const timeData = await timeRes.json();
+        if (timeData.serverTime) {
+          serverTime = timeData.serverTime;
+        }
+      }
+    } catch (e) {}
+
     // 1. GET ACCOUNT INFO & BALANCES
     if (action === 'get_account') {
       if (!apiKey || !apiSecret) {
         return NextResponse.json({ success: false, error: 'API Key et Secret requis' }, { status: 400 });
       }
 
-      const timestamp = Date.now();
-      const queryString = `timestamp=${timestamp}&recvWindow=10000`;
-      const signature = generateBinanceSignature(queryString, apiSecret);
+      const queryString = `timestamp=${serverTime}&recvWindow=60000`;
+      const signature = generateBinanceSignature(queryString, apiSecret.trim());
 
       const res = await fetch(`${baseUrl}/account?${queryString}&signature=${signature}`, {
         method: 'GET',
         headers: {
-          'X-MBX-APIKEY': apiKey,
+          'X-MBX-APIKEY': apiKey.trim(),
           'Content-Type': 'application/json'
         },
         cache: 'no-store'
       });
 
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({ msg: res.statusText }));
-        return NextResponse.json({ success: false, error: errJson.msg || 'Erreur API Binance' }, { status: res.status });
+        const errJson = await res.json().catch(() => ({ msg: res.statusText, code: res.status }));
+        const detailedError = errJson.msg || errJson.message || `Erreur HTTP ${res.status}`;
+        return NextResponse.json({ 
+          success: false, 
+          error: `Binance [Code ${errJson.code || res.status}]: ${detailedError}` 
+        }, { status: 200 });
       }
 
       const data = await res.json();

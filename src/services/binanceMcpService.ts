@@ -39,6 +39,7 @@ export interface BinanceAccountInfo {
   balances: BinanceAssetBalance[];
   latencyMs: number;
   lastUpdated: number;
+  error?: string;
 }
 
 export interface BinanceTradeOrderParams {
@@ -244,7 +245,8 @@ export async function fetchBinanceAccountInfo(): Promise<BinanceAccountInfo> {
         freeBalanceUsdt: 0,
         balances: [],
         latencyMs: latencyRes.latencyMs,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        error: data.error || 'Validation des clés échouée'
       };
     }
   } catch (e: any) {
@@ -257,7 +259,8 @@ export async function fetchBinanceAccountInfo(): Promise<BinanceAccountInfo> {
       freeBalanceUsdt: 0,
       balances: [],
       latencyMs: latencyRes.latencyMs,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
+      error: e.message || 'Erreur de communication avec le serveur'
     };
   }
 }
