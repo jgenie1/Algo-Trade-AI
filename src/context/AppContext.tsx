@@ -287,73 +287,50 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     balanceRef.current = balance;
   }, [bots, activePositions, balance]);
 
-  // 2b. Continuous execution loop for active bots & alerts
-  useEffect(() => {
-    if (!isInitialized.current) return;
-
-    const hasRunningBot = Array.isArray(bots) && bots.some(b => b && b.status === 'RUNNING');
-    if (!hasRunningBot) return;
-
-    const interval = setInterval(() => {
-      import('@/services/botExecutionEngine').then(({ processBotIteration }) => {
-        processBotIteration(
-          botsRef.current, 
-          activePositionsRef.current, 
-          balanceRef.current,
-          null,
-          setBots, 
-          setActivePositions, 
-          setClosedPositions,
-          setReserveVault, 
-          setReserveVaultSol
-        );
-      }).catch(err => console.warn("Failed to load botExecutionEngine:", err));
-    }, 5000);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Array.isArray(bots) && bots.some(b => b && b.status === 'RUNNING')]);
-
-  // 3. Save to Firestore whenever states change
+  // 3. Save to LocalStorage & Firestore whenever states change (with Debounce)
   useEffect(() => {
     if (!isInitialized.current || isIncomingSync.current) return;
 
-    localStorage.setItem('trade_mode', tradingMode);
-    localStorage.setItem('trade_balance', balance.toString());
-    localStorage.setItem('trade_reserve_vault', reserveVault.toString());
-    localStorage.setItem('trade_reserve_vault_sol', reserveVaultSol.toString());
-    localStorage.setItem('trade_positions', JSON.stringify(activePositions));
-    localStorage.setItem('trade_closed', JSON.stringify(closedPositions));
-    localStorage.setItem('trade_bots', JSON.stringify(bots));
-    localStorage.setItem('trade_transactions', JSON.stringify(transactions));
-    localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
-    localStorage.setItem('trade_logs', JSON.stringify(botLogs));
-
-    const storedCex = localStorage.getItem('algo_trade_cex_keys');
-    const storedNotif = localStorage.getItem('algo_trade_notification_settings');
-
-    const currentStateObj: AppState = {
-      tradeMode: tradingMode,
-      balance,
-      reserveVault,
-      reserveVaultSol,
-      positions: activePositions,
-      closedPositions,
-      bots,
-      transactions,
-      botLearnings,
-      botLogs,
-      cexKeys: storedCex ? JSON.parse(storedCex) : undefined,
-      notificationSettings: storedNotif ? JSON.parse(storedNotif) : undefined
-    };
-
-    const currentStateHash = JSON.stringify(currentStateObj);
-    if (currentStateHash === lastStateHashRef.current) return;
-
     const timer = setTimeout(() => {
-      lastStateHashRef.current = currentStateHash;
-      saveFullState(currentStateObj);
-    }, 500);
+      try {
+        localStorage.setItem('trade_mode', tradingMode);
+        localStorage.setItem('trade_balance', balance.toString());
+        localStorage.setItem('trade_reserve_vault', reserveVault.toString());
+        localStorage.setItem('trade_reserve_vault_sol', reserveVaultSol.toString());
+        localStorage.setItem('trade_positions', JSON.stringify(activePositions));
+        localStorage.setItem('trade_closed', JSON.stringify(closedPositions));
+        localStorage.setItem('trade_bots', JSON.stringify(bots));
+        localStorage.setItem('trade_transactions', JSON.stringify(transactions));
+        localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
+        localStorage.setItem('trade_logs', JSON.stringify(botLogs));
+
+        const storedCex = localStorage.getItem('algo_trade_cex_keys');
+        const storedNotif = localStorage.getItem('algo_trade_notification_settings');
+
+        const currentStateObj: AppState = {
+          tradeMode: tradingMode,
+          balance,
+          reserveVault,
+          reserveVaultSol,
+          positions: activePositions,
+          closedPositions,
+          bots,
+          transactions,
+          botLearnings,
+          botLogs,
+          cexKeys: storedCex ? JSON.parse(storedCex) : undefined,
+          notificationSettings: storedNotif ? JSON.parse(storedNotif) : undefined
+        };
+
+        const currentStateHash = JSON.stringify(currentStateObj);
+        if (currentStateHash !== lastStateHashRef.current) {
+          lastStateHashRef.current = currentStateHash;
+          saveFullState(currentStateObj);
+        }
+      } catch (e) {
+        console.warn("Storage sync error:", e);
+      }
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [tradingMode, balance, reserveVault, reserveVaultSol, activePositions, closedPositions, bots, transactions, botLearnings, botLogs]);

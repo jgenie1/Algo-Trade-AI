@@ -12,11 +12,6 @@ import dynamic from "next/dynamic";
 import VaultGrowthChart from "@/components/wallet/VaultGrowthChart";
 import { exportTransactionsToCSV, exportBotsPerformanceToCSV } from "@/services/exportService";
 
-const AutomatedPipelineFlowVisualizer = dynamic(
-  () => import("@/components/trading/AutomatedPipelineFlowVisualizer").then((mod) => mod.default),
-  { ssr: false }
-);
-
 function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", className = "" }: {
   value: number; decimals?: number; prefix?: string; suffix?: string; className?: string;
 }) {
@@ -157,8 +152,6 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 text-white" suppressHydrationWarning>
-      {/* Visualiseur de Pipeline d'Exécution IA & Solana */}
-      <AutomatedPipelineFlowVisualizer />
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-5">
         <div>
           <h1 className="text-3xl font-bold tracking-tight font-headline flex items-center gap-2">

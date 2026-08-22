@@ -23,6 +23,7 @@ import {
   analyzePumpCoinWithSniperPrompt 
 } from '@/services/pumpFunService';
 import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
+import { resolveLivePrice, canonicalizePair } from '@/lib/symbolUtils';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -1384,13 +1385,7 @@ export function useTradingEngine() {
       if (positions.length === 0) return;
 
       positions.forEach(p => {
-        const cleanPair = (p.pair || '').replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-        const current = livePricesRef.current[p.pair]
-          || livePricesRef.current[p.pair.replace('FX:', '')]
-          || livePricesRef.current[`FX:${p.pair}`]
-          || livePricesRef.current[`${cleanPair}-USD`]
-          || livePricesRef.current[cleanPair]
-          || getRealMarketBasePrice(p.pair);
+        const current = resolveLivePrice(p.pair, livePricesRef.current) || getRealMarketBasePrice(p.pair);
 
         if (!current || current <= 0) return;
 

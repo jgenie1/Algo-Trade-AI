@@ -607,17 +607,19 @@ export async function getMultipleSolanaBalances(pubKeys: string[]): Promise<{ su
     const connection = await getWorkingConnection();
 
     const balances: Record<string, number> = {};
-    const results = await Promise.allSettled(
-      pubKeys.map(async (key) => {
-        const balance = await connection.getBalance(new PublicKey(key));
-        return { key, balance: balance / 1e9 };
-      })
-    );
+    if (!pubKeys || pubKeys.length === 0) return { success: true, balances };
 
-    results.forEach((res, i) => {
-      const key = pubKeys[i];
-      if (res.status === 'fulfilled') {
-        balances[key] = res.value.balance;
+    const validPubKeys = pubKeys.filter(k => k && k.length >= 32 && k.length <= 44);
+    if (validPubKeys.length === 0) return { success: true, balances };
+
+    // 1-Roundtrip batch query to Solana RPC (zero 429 rate limits)
+    const publicKeys = validPubKeys.map(k => new PublicKey(k));
+    const accountsInfo = await connection.getMultipleAccountsInfo(publicKeys, 'confirmed');
+
+    accountsInfo.forEach((acc: any, i: number) => {
+      const key = validPubKeys[i];
+      if (acc && typeof acc.lamports === 'number') {
+        balances[key] = acc.lamports / 1e9;
       } else {
         balances[key] = 0;
       }
