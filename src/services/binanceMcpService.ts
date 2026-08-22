@@ -16,6 +16,7 @@ export interface BinanceAgentConfig {
   apiKey?: string;
   apiSecret?: string;
   isTestnet: boolean;
+  region?: 'GLOBAL' | 'US' | 'TESTNET';
   agenticSubAccountId?: string;
   maxAllocatedCapitalUsdt: number;
   emergencyStopActive: boolean;
@@ -216,7 +217,8 @@ export async function fetchBinanceAccountInfo(): Promise<BinanceAccountInfo> {
         action: 'get_account',
         apiKey: config.apiKey,
         apiSecret: config.apiSecret,
-        isTestnet: config.isTestnet
+        isTestnet: config.isTestnet,
+        region: config.region || (config.isTestnet ? 'TESTNET' : 'GLOBAL')
       })
     });
 

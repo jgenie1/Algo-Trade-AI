@@ -13,11 +13,14 @@ function generateBinanceSignature(queryString: string, apiSecret: string): strin
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, apiKey, apiSecret, isTestnet, order } = body;
+    const { action, apiKey, apiSecret, isTestnet, region, order } = body;
 
-    const baseUrl = isTestnet
-      ? 'https://testnet.binance.vision/api/v3'
-      : 'https://api.binance.com/api/v3';
+    let baseUrl = 'https://api.binance.com/api/v3';
+    if (region === 'US') {
+      baseUrl = 'https://api.binance.us/api/v3';
+    } else if (region === 'TESTNET' || isTestnet) {
+      baseUrl = 'https://testnet.binance.vision/api/v3';
+    }
 
     // Synchronisation automatique de l'horodatage avec les serveurs de Binance
     let serverTime = Date.now();
@@ -50,6 +53,13 @@ export async function POST(req: NextRequest) {
       });
 
       if (!res.ok) {
+        if (res.status === 451) {
+          return NextResponse.json({
+            success: false,
+            error: "⚠️ Binance [Code 451 Géo-Restriction] : L'adresse IP de votre connexion/serveur se trouve dans une juridiction restreinte par Binance Global (ex: USA/Cloud US). 👉 Solutions : 1) Sélectionnez « Binance.US » ci-dessus si votre compte est américain, 2) Utilisez un VPN (Europe/Suisse/Asie), ou 3) Testez sur Binance Testnet."
+          }, { status: 200 });
+        }
+
         const errJson = await res.json().catch(() => ({ msg: res.statusText, code: res.status }));
         const detailedError = errJson.msg || errJson.message || `Erreur HTTP ${res.status}`;
         return NextResponse.json({ 

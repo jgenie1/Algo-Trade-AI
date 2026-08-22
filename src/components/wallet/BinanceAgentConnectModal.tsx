@@ -217,31 +217,43 @@ export default function BinanceAgentConnectModal({ isOpen, onClose, triggerButto
 
         {/* Formulaire de Configuration */}
         <form onSubmit={handleSaveAndConnect} className="space-y-4">
-          {/* Sélection Réseau : Mainnet vs Testnet */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-black/50 border border-white/10 rounded-xl">
+          {/* Sélection Réseau & Région : Global vs US vs Testnet */}
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-black/50 border border-white/10 rounded-xl">
             <button
               type="button"
-              onClick={() => setConfig(c => ({ ...c, isTestnet: false }))}
-              className={`py-2 text-xs font-bold font-headline uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                !config.isTestnet 
+              onClick={() => setConfig(c => ({ ...c, isTestnet: false, region: 'GLOBAL' }))}
+              className={`py-2 text-[11px] font-bold font-headline uppercase rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
+                (!config.region || config.region === 'GLOBAL') && !config.isTestnet
                   ? 'bg-[#f0b90b] text-black shadow-md font-black' 
                   : 'text-white/50 hover:text-white'
               }`}
             >
-              <Zap className="h-3.5 w-3.5" />
-              <span>Binance Mainnet (Réel)</span>
+              <Globe className="h-3 w-3" />
+              <span>Global (com)</span>
             </button>
             <button
               type="button"
-              onClick={() => setConfig(c => ({ ...c, isTestnet: true }))}
-              className={`py-2 text-xs font-bold font-headline uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                config.isTestnet 
+              onClick={() => setConfig(c => ({ ...c, isTestnet: false, region: 'US' }))}
+              className={`py-2 text-[11px] font-bold font-headline uppercase rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
+                config.region === 'US' && !config.isTestnet
+                  ? 'bg-blue-500 text-white shadow-md font-black' 
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <Zap className="h-3 w-3" />
+              <span>Binance.US</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfig(c => ({ ...c, isTestnet: true, region: 'TESTNET' }))}
+              className={`py-2 text-[11px] font-bold font-headline uppercase rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
+                config.isTestnet || config.region === 'TESTNET'
                   ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' 
                   : 'text-white/50 hover:text-white'
               }`}
             >
-              <Cpu className="h-3.5 w-3.5" />
-              <span>Binance Testnet (Sandbox)</span>
+              <Cpu className="h-3 w-3" />
+              <span>Testnet</span>
             </button>
           </div>
 
