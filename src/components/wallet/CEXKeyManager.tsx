@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { KeyRound, ShieldCheck, CheckCircle2, XCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { dispatchAlert } from '@/services/notificationService';
 
+import { saveBinanceAgentConfig } from '@/services/binanceMcpService';
+
 export interface CEXCredentials {
   exchange: 'binance' | 'bybit' | 'okx' | 'coinbase';
   apiKey: string;
@@ -43,6 +45,13 @@ export default function CEXKeyManager() {
     e.preventDefault();
     if (typeof window !== 'undefined') {
       localStorage.setItem('algo_trade_cex_keys', JSON.stringify(exchangeKeys));
+      if (exchangeKeys.binance) {
+        saveBinanceAgentConfig({
+          apiKey: exchangeKeys.binance.apiKey,
+          apiSecret: exchangeKeys.binance.apiSecret,
+          isTestnet: exchangeKeys.binance.isTestnet
+        });
+      }
       window.dispatchEvent(new Event('storage'));
     }
     setTestResult({ success: true, message: `Clés API pour ${activeTab.toUpperCase()} enregistrées de manière chiffrée !` });

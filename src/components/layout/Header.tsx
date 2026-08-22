@@ -24,7 +24,8 @@ import {
   ExternalLink,
   ArrowDownUp,
   Lock,
-  PanelLeft
+  PanelLeft,
+  Bot
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
@@ -33,6 +34,7 @@ import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
 import PWAInstallBanner from '@/components/layout/PWAInstallBanner';
 import { getStoredLanguage, setStoredLanguage, Language } from '@/services/languageService';
 import DEXSwapModal from '@/components/wallet/DEXSwapModal';
+import BinanceAgentConnectModal from '@/components/wallet/BinanceAgentConnectModal';
 import {
   Popover,
   PopoverContent,
@@ -419,6 +421,18 @@ export default function Header() {
 
         {/* DEX Swap Modal */}
         <DEXSwapModal isOpen={isSwapOpen} onClose={() => setIsSwapOpen(false)} />
+
+        {/* Binance Agent OS MCP Connector */}
+        <BinanceAgentConnectModal
+          triggerButton={
+            <Button
+              className="flex h-9 px-3 bg-gradient-to-r from-[#f0b90b]/15 to-yellow-950/40 hover:from-[#f0b90b]/25 hover:to-yellow-900/50 border border-[#f0b90b]/40 text-[#f0b90b] font-headline font-black text-xs rounded-xl shadow-md items-center gap-1.5 transition-all shrink-0 cursor-pointer active:scale-95"
+            >
+              <Bot className="h-3.5 w-3.5 text-[#f0b90b]" />
+              <span className="font-headline uppercase tracking-wide">Binance Agent OS</span>
+            </Button>
+          }
+        />
       </div>
 
       {/* Right Zone: Wallet / Notifications / Settings / Profile */}
