@@ -869,8 +869,9 @@ export async function disperseSolToSubWallets(params: {
       }
 
       const senderBalanceLamports = await connection.getBalance(mainSigner.publicKey);
-      if (senderBalanceLamports < totalNeededLamports + 10000) {
-        throw new Error(`Solde insuffisant dans votre portefeuille principal (${(senderBalanceLamports / 1e9).toFixed(3)} SOL disponible). Montant requis: ${totalNeededSol.toFixed(3)} SOL pour les 5 wallets.`);
+      const GAS_BUFFER_LAMPORTS = 5000000; // 0.005 SOL réservés pour les frais de réseau
+      if (senderBalanceLamports < totalNeededLamports + GAS_BUFFER_LAMPORTS) {
+        throw new Error(`Solde insuffisant dans votre portefeuille principal (${(senderBalanceLamports / 1e9).toFixed(3)} SOL disponible). Montant requis: ${totalNeededSol.toFixed(3)} SOL + 0.005 SOL de frais de gas.`);
       }
 
       const txFromMain = new Transaction();
@@ -1458,8 +1459,9 @@ export async function executeJupiterSwap(params: {
       return { success: false, error: 'Montant trop faible pour un swap Jupiter (minimum ~0.000001 SOL).' };
     }
 
-    // 1. Get Jupiter quote
-    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${slippageBps}`;
+    // 1. Get Jupiter quote with normalized slippage bps
+    const safeSlippageBps = slippageBps <= 10 ? Math.round(slippageBps * 100) : Math.round(slippageBps);
+    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${safeSlippageBps}`;
     const quoteRes = await fetch(quoteUrl, { cache: 'no-store' });
     if (!quoteRes.ok) {
       const txt = await quoteRes.text();

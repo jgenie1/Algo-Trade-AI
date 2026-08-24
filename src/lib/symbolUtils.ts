@@ -70,3 +70,31 @@ export function resolveLivePrice(pair: string, livePrices: Record<string, number
 
   return 0;
 }
+
+export function slugifyStrategy(name: string): string {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Supprime les accents
+    .replace(/[^a-z0-9]+/g, '-')     // Remplace les caractères non alphanumériques par des tirets
+    .replace(/^-+|-+$/g, '');        // Supprime les tirets au début et à la fin
+}
+
+export function getDisplayPairLabel(pair: string): { symbol: string; badge: string; isSolana: boolean } {
+  if (!pair) return { symbol: 'N/A', badge: 'FX', isSolana: false };
+  const trimmed = pair.trim();
+
+  if (trimmed.startsWith('SOL:')) {
+    const parts = trimmed.split(':');
+    const ticker = parts[parts.length - 1] || 'MEME';
+    return { symbol: ticker.toUpperCase(), badge: 'SOLANA', isSolana: true };
+  }
+
+  if (trimmed.startsWith('FX:')) {
+    return { symbol: trimmed.replace('FX:', '').replace('=X', ''), badge: 'FOREX', isSolana: false };
+  }
+
+  return { symbol: cleanSymbol(trimmed) || trimmed, badge: 'CRYPTO', isSolana: false };
+}
+

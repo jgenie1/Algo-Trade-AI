@@ -3,6 +3,7 @@
 import React from 'react';
 import { Activity, Eye, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn, formatSmartPnl, getRealMarketBasePrice } from '@/lib/utils';
+import { resolveLivePrice, getDisplayPairLabel } from '@/lib/symbolUtils';
 import { useAppState } from '@/context/AppContext';
 import { 
   Table, 
@@ -37,7 +38,7 @@ export default function ActivePositionsTable({
     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
-    const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
+    const current = resolveLivePrice(p.pair, livePrices) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
     const priceDiff = current - entry;
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
     const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
@@ -92,7 +93,7 @@ export default function ActivePositionsTable({
                 const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                 const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
                 const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
-                const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
+                const current = resolveLivePrice(p.pair, livePrices) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
                 const priceDiff = current - entry;
                 const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
                 const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
@@ -101,7 +102,7 @@ export default function ActivePositionsTable({
                 const livePnlPct = pctDiff * lev * (isLong ? 100 : -100);
                 const pnlPct = isNaN(livePnlPct) ? 0 : livePnlPct;
                 const isProfit = profit >= 0;
-                const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+                const { symbol: cleanAsset, badge, isSolana } = getDisplayPairLabel(p.pair);
 
                 return (
                   <div
@@ -112,6 +113,9 @@ export default function ActivePositionsTable({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-extrabold text-base text-white group-hover:text-[#c2ff0c] transition-colors">{cleanAsset}</span>
+                        <Badge className={cn("text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase", isSolana ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 text-white/60 border-white/10')}>
+                          {badge}
+                        </Badge>
                         <Badge className={cn("text-xs font-extrabold px-2.5 py-0.5 rounded-full border-none", isLong ? 'bg-emerald-500/25 text-emerald-300' : 'bg-rose-500/25 text-rose-300')}>
                           {p.type} {lev}x
                         </Badge>
@@ -191,7 +195,7 @@ export default function ActivePositionsTable({
                     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
                     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
                     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
-                    const current = (livePrices && livePrices[p.pair]) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
+                    const current = resolveLivePrice(p.pair, livePrices) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : entry);
                     const priceDiff = current - entry;
                     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
                     const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
@@ -200,7 +204,7 @@ export default function ActivePositionsTable({
                     const livePnlPct = pctDiff * lev * (isLong ? 100 : -100);
                     const pnlPct = isNaN(livePnlPct) ? 0 : livePnlPct;
                     const isProfit = profit >= 0;
-                    const cleanAsset = (p.pair || "").replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+                    const { symbol: cleanAsset, badge, isSolana } = getDisplayPairLabel(p.pair);
 
                     return (
                       <TableRow
@@ -210,6 +214,9 @@ export default function ActivePositionsTable({
                       >
                         <TableCell className="py-3.5 px-4 font-extrabold font-mono text-sm text-white flex items-center gap-2 group-hover:text-[#c2ff0c] transition-colors">
                           <span>{cleanAsset}</span>
+                          <Badge className={cn("text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase", isSolana ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 text-white/60 border-white/10')}>
+                            {badge}
+                          </Badge>
                           {p.botId && (
                             <span className="bg-[#2e1d44] text-[#c2ff0c] border border-[#6b3ba7]/40 text-xs font-bold px-2 py-0.5 rounded uppercase font-headline">
                               BOT

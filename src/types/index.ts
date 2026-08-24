@@ -23,6 +23,7 @@ export interface Position {
   bondingCurveProgress?: number;
   replyCount?: number;
   highestPrice?: number;
+  lowestPrice?: number;
   highestPnlPct?: number;
   dcaCount?: number;
   mode?: 'DEMO' | 'REAL';

@@ -1400,7 +1400,7 @@ export function useTradingEngine() {
           p.tp = isLong ? parseFloat((entry * 1.08).toFixed(5)) : parseFloat((entry * 0.92).toFixed(5));
         }
 
-        // Trailing Stop Loss dynamique
+        // Trailing Stop Loss dynamique (LONG & SHORT)
         if (isLong) {
           const currentHighest = p.highestPrice || entry;
           if (current > currentHighest) {
@@ -1413,14 +1413,15 @@ export function useTradingEngine() {
             }
           }
         } else {
-          const currentLowest = p.highestPrice || entry;
+          // Trailing Stop pour position SHORT (suit le point le plus bas)
+          const currentLowest = p.lowestPrice || entry;
           if (current < currentLowest) {
-            p.highestPrice = current;
-            const trailingPct = 0.02;
+            p.lowestPrice = current;
+            const trailingPct = p.pair.startsWith('SOL:') ? 0.06 : 0.02;
             const newSl = parseFloat((current * (1 + trailingPct)).toFixed(5));
             if (!p.sl || newSl < p.sl) {
               p.sl = newSl;
-              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: current, sl: newSl } : item));
+              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, lowestPrice: current, sl: newSl } : item));
             }
           }
         }
