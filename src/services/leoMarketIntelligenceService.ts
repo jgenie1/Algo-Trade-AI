@@ -68,7 +68,12 @@ export async function scanWebAndMarketIntelligence(livePrices: Record<string, nu
     }
   } catch (e) {}
 
-  // 2. Scrutage des Majeures Crypto (CoinMarketCap / Direct Feeds)
+  // 2. Scrutage des Majeures Crypto (CoinMarketCap Pro / Direct Feeds)
+  let cmcData: any = null;
+  try {
+    cmcData = await fetchCoinMarketCapQuotes(['BTC', 'ETH', 'SOL', 'BNB', 'XRP']);
+  } catch (e) {}
+
   const majorCryptos = [
     { sym: 'SOL', name: 'Solana', base: 180 },
     { sym: 'BTC', name: 'Bitcoin', base: 92000 },
@@ -78,21 +83,28 @@ export async function scanWebAndMarketIntelligence(livePrices: Record<string, nu
   ];
 
   majorCryptos.forEach(crypto => {
-    const currentPrice = livePrices[crypto.sym] || livePrices[`${crypto.sym}-USD`] || getRealMarketBasePrice(crypto.sym) || crypto.base;
-    const changeEst = ((currentPrice - crypto.base) / crypto.base) * 100;
-    const alpha = Math.min(95, Math.max(40, Math.round(70 + changeEst * 2)));
+    const cmcQuote = cmcData?.[crypto.sym]?.quote?.USD;
+    const currentPrice = cmcQuote?.price || livePrices[crypto.sym] || livePrices[`${crypto.sym}-USD`] || getRealMarketBasePrice(crypto.sym) || crypto.base;
+    const change24h = typeof cmcQuote?.percent_change_24h === 'number' 
+      ? cmcQuote.percent_change_24h 
+      : ((currentPrice - crypto.base) / crypto.base) * 100;
+    const volume24h = cmcQuote?.volume_24h || currentPrice * 150000;
+
+    const alpha = Math.min(95, Math.max(40, Math.round(70 + change24h * 2)));
     const signal = alpha >= 78 ? 'STRONG_BUY' : alpha >= 60 ? 'BUY' : 'NEUTRAL';
 
     opportunities.push({
       symbol: crypto.sym,
       name: crypto.name,
       priceUsd: currentPrice,
-      change24h: parseFloat(changeEst.toFixed(2)),
-      volume24hUsd: currentPrice * 150000,
+      change24h: parseFloat(change24h.toFixed(2)),
+      volume24hUsd: volume24h,
       source: 'CMC_CRYPTO',
       alphaScore: alpha,
       signal,
-      reasoning: `Tendance directionnelle solide. Liquidité institutionnelle abondante.`,
+      reasoning: cmcQuote 
+        ? `Données vérifiées CoinMarketCap Pro. Volume 24h : $${(volume24h / 1e6).toFixed(1)}M. Tendance solide.` 
+        : `Tendance directionnelle solide. Liquidité institutionnelle abondante.`,
       targetBot: 'Bot 3 — Trend Momentum Master'
     });
   });
