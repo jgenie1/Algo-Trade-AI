@@ -168,7 +168,7 @@ export async function executeLeoOrder(
     return {
       success: true,
       actionTaken: "LOCK_PROFITS",
-      message: `Commandant, analyse terminée. J'ai scanné vos ${active.length} positions. ${winning.length} positions sont en profit (+${totalWin.toFixed(2)} $). J'ai transféré ${skimmedVault.toFixed(2)} $ (10%) vers votre Coffre-Fort intouchable. Votre capital est sous protection maximale.`,
+      message: `Commandant, analyse terminée.\nJ'ai scanné vos ${active.length} positions : ${winning.length} positions sont en profit (+${totalWin.toFixed(2)} $).\nJ'ai transféré ${skimmedVault.toFixed(2)} $ (10%) vers votre Coffre-Fort intouchable.\nVotre capital est sous protection maximale.`,
       affectedPositions: winning.length,
       vaultTransferredUsd: skimmedVault
     };
@@ -182,12 +182,12 @@ export async function executeLeoOrder(
     return {
       success: true,
       actionTaken: "WEB_SCAN",
-      message: `🌐 **Rapport de Scrutage Web & Marché de LÉO :**\n` +
-        `• **Sentiment Global :** ${fleet.sentiment} (Indice ${fleet.fearAndGreedIndex}/100 | Régime ${fleet.regime})\n` +
-        `• **Top Opportunité 1 :** ${top?.name || 'SOL'} — Alpha Score : **${top?.alphaScore || 92}/100** (${top?.reasoning || 'Forte pression acheteuse'}). Signal : **${top?.signal}** ➔ Recommandé pour ${top?.targetBot}.\n` +
-        `• **Top Opportunité 2 :** ${top2?.name || 'BTC'} — Alpha Score : **${top2?.alphaScore || 85}/100**.\n` +
-        `• **État de votre Portefeuille :** AUM Total : **$${fleet.totalAumUsd}** | Positions Actives : **${fleet.totalPositionsCount}** (PnL en direct : **${fleet.openPnLUsd >= 0 ? '+' : ''}$${fleet.openPnLUsd}**).\n` +
-        `*Souhaitez-vous que j'ordonne au Bot Sniper d'ouvrir une position sur ${top?.name} ?*`
+      message: `🌐 Rapport de Scrutage Web & Marché de LÉO :\n` +
+        `• Sentiment Global : ${fleet.sentiment} (Indice ${fleet.fearAndGreedIndex}/100 | Régime ${fleet.regime})\n` +
+        `• Top Opportunité 1 : ${top?.name || 'SOL'} — Alpha Score : ${top?.alphaScore || 92}/100 (${top?.reasoning || 'Forte pression acheteuse'}). Signal : ${top?.signal} ➔ Recommandé pour ${top?.targetBot}.\n` +
+        `• Top Opportunité 2 : ${top2?.name || 'BTC'} — Alpha Score : ${top2?.alphaScore || 85}/100.\n` +
+        `• État de votre Portefeuille : AUM Total : $${fleet.totalAumUsd} | Positions Actives : ${fleet.totalPositionsCount} (PnL en direct : ${fleet.openPnLUsd >= 0 ? '+' : ''}$${fleet.openPnLUsd}).\n` +
+        `Souhaitez-vous que j'ordonne au Bot Sniper d'ouvrir une position sur ${top?.name} ?`
     };
   }
 
@@ -203,11 +203,11 @@ export async function executeLeoOrder(
     return {
       success: true,
       actionTaken: "DISPATCH_TRADE",
-      message: `⚡ **Ordre d'Attaque Transmis aux Bots :**\n` +
-        `J'ai ordonné à **${targetAsset.targetBot}** de cibler **${targetAsset.name}** (Alpha ${targetAsset.alphaScore}/100).\n` +
-        `• **Levier :** 20x optimisé.\n` +
-        `• **Stop-Loss Dynamique :** Garanti à 4% avec Trailing Lock dès +3.5% de profit.\n` +
-        `• **Allocation :** 1/3 de la marge disponible. Exécution en cours !`,
+      message: `⚡ Ordre d'Attaque Transmis aux Bots :\n` +
+        `J'ai ordonné à ${targetAsset.targetBot} de cibler ${targetAsset.name} (Alpha ${targetAsset.alphaScore}/100).\n` +
+        `• Levier : 20x optimisé.\n` +
+        `• Stop-Loss Dynamique : Garanti à 4% avec Trailing Lock dès +3.5% de profit.\n` +
+        `• Allocation : 1/3 de la marge disponible. Exécution en cours !`,
       dispatchedTrade: {
         symbol: targetAsset.symbol,
         targetBot: targetAsset.targetBot,
@@ -229,8 +229,8 @@ export async function executeLeoOrder(
     return {
       success: true,
       actionTaken: "SHIELD_MODE",
-      message: `🛡️ **Protocole Bouclier Aladdin Activé :**\n` +
-        `J'ai resserré les Stop-Loss de vos ${fleet.totalPositionsCount} positions actives à **2.0% maximum**.\n` +
+      message: `🛡️ Protocole Bouclier Aladdin Activé :\n` +
+        `J'ai resserré les Stop-Loss de vos ${fleet.totalPositionsCount} positions actives à 2.0% maximum.\n` +
         `Vos $${fleet.vaultSecuredUsd} dans le Coffre-Fort restent 100% immunisés contre les retournements de marché.`
     };
   }
@@ -248,7 +248,7 @@ export async function executeLeoOrder(
     return {
       success: true,
       actionTaken: "EMERGENCY_STOP",
-      message: "🛑 **Kill-Switch Exécuté :** Les 5 bots sont immédiatement mis à l'arrêt. Les flux de trading sont gelés et vos capitaux sont sous séquestre sécurisé."
+      message: "🛑 Kill-Switch Exécuté : Les 5 bots sont immédiatement mis à l'arrêt. Les flux de trading sont gelés et vos capitaux sont sous séquestre sécurisé."
     };
   }
 
@@ -256,11 +256,11 @@ export async function executeLeoOrder(
   return {
     success: true,
     actionTaken: "BRIEFING",
-    message: `👑 **Rapport de Situation du Général LÉO :**\n` +
-      `• **AUM Global Flotte :** $${fleet.totalAumUsd} (Liquidités : $${fleet.freeCashUsd} | Coffre : $${fleet.vaultSecuredUsd})\n` +
-      `• **Santé Opérationnelle :** Score de **${fleet.fleetHealthScore}%** | Win-Rate 24h : **${fleet.winRate24h}%**\n` +
-      `• **Positions Actives :** ${fleet.totalPositionsCount} en cours (PnL Flottant : $${fleet.openPnLUsd})\n` +
-      `• **Radar Web & Marché :** ${fleet.tacticalRecommendation}\n\n` +
-      `*Donnez-moi un ordre direct : "Scrute le net", "Attaque avec le sniper", "Sécurise les gains" ou "Active le bouclier".*`
+    message: `👑 Rapport de Situation du Général LÉO :\n` +
+      `• AUM Global Flotte : $${fleet.totalAumUsd} (Liquidités : $${fleet.freeCashUsd} | Coffre : $${fleet.vaultSecuredUsd})\n` +
+      `• Santé Opérationnelle : Score de ${fleet.fleetHealthScore}% | Win-Rate 24h : ${fleet.winRate24h}%\n` +
+      `• Positions Actives : ${fleet.totalPositionsCount} en cours (PnL Flottant : $${fleet.openPnLUsd})\n` +
+      `• Radar Web & Marché : ${fleet.tacticalRecommendation}\n\n` +
+      `Donnez-moi un ordre direct : 'Scrute le net', 'Attaque avec le sniper', 'Sécurise les gains' ou 'Active le bouclier'.`
   };
 }

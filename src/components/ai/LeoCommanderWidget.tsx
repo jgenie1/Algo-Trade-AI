@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Crown, Shield, Zap, Lock, Power, Send, Globe, Radio, Sparkles, TrendingUp, RefreshCw } from 'lucide-react';
+import { Crown, Shield, Zap, Lock, Power, Send, Globe, Radio, Sparkles, TrendingUp, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,82 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAppState } from '@/context/AppContext';
 import { evaluateFleetWithLeo, executeLeoOrder, LeoFleetStatus } from '@/services/leoOrchestratorService';
+
+/**
+ * Rendu Cyber-Luxe Premium des messages de Léo sans astérisques bruts
+ */
+function PremiumLeoMessage({ text, sender }: { text: string; sender: 'USER' | 'LEO' }) {
+  if (sender === 'USER') {
+    return (
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900/40 to-[#9945FF]/30 text-purple-100 border border-[#9945FF]/40 rounded-tr-none font-medium text-xs shadow-md">
+        {text}
+      </div>
+    );
+  }
+
+  // Nettoyage de tout astérisque résiduel
+  const cleanContent = text.replace(/\*\*/g, '').replace(/\*/g, '');
+  const lines = cleanContent.split('\n').filter(line => line.trim().length > 0);
+
+  return (
+    <div className="p-4 rounded-2xl bg-[#140e24] border border-[#f0b90b]/25 rounded-tl-none space-y-2 text-xs shadow-xl text-white/90">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+
+        // 1. Titre d'Alerte / Section avec Icône
+        if (trimmed.startsWith('👑') || trimmed.startsWith('🌐') || trimmed.startsWith('⚡') || trimmed.startsWith('🛡️') || trimmed.startsWith('🛑')) {
+          return (
+            <div key={idx} className="flex items-center gap-2 pb-1 border-b border-white/10 text-amber-300 font-headline font-bold text-xs uppercase tracking-wide">
+              <span>{trimmed}</span>
+            </div>
+          );
+        }
+
+        // 2. Ligne de Puce avec Badge de Métrique
+        if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+          const content = trimmed.replace(/^[•-]\s*/, '');
+          const parts = content.split(' : ');
+
+          if (parts.length === 2) {
+            return (
+              <div key={idx} className="flex items-start gap-2 py-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#f0b90b] mt-1.5 shrink-0 shadow-[0_0_6px_#f0b90b]" />
+                <div className="flex-1">
+                  <span className="text-white/50 font-semibold">{parts[0]} : </span>
+                  <span className="font-bold text-white font-mono">{parts[1]}</span>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={idx} className="flex items-start gap-2 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#c2ff0c] mt-1.5 shrink-0" />
+              <span className="text-white/80 font-medium">{content}</span>
+            </div>
+          );
+        }
+
+        // 3. Question / Action Recommandée en Italique Subtil
+        if (trimmed.includes('?')) {
+          return (
+            <div key={idx} className="pt-2 text-[#f0b90b] font-semibold text-[11px] flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              <span>{trimmed}</span>
+            </div>
+          );
+        }
+
+        // 4. Paragraphe Standard
+        return (
+          <p key={idx} className="text-white/80 font-normal leading-relaxed text-xs">
+            {trimmed}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function LeoCommanderWidget() {
   const state = useAppState();
@@ -21,7 +97,7 @@ export default function LeoCommanderWidget() {
   const [chatLogs, setChatLogs] = useState<Array<{ sender: 'USER' | 'LEO'; text: string; time: string }>>([
     {
       sender: 'LEO',
-      text: "👑 **Salutations, Commandant.** Je suis **LÉO**, votre Maître Orchestrateur IA & Directeur des Investissements.\n\nJe scrute le Net en continu (CoinMarketCap, Pump.fun, DexScreener) et commande vos 5 bots pour maximiser vos profits tout en verrouillant 10% dans le Coffre-Fort.\n\n*Cliquez sur un ordre rapide ci-dessous ou tapez 'Scrute le net' pour lancer une analyse !*",
+      text: "👑 Salutations, Commandant. Je suis LÉO, votre Maître Orchestrateur IA & Directeur des Investissements.\n\nJe scrute le Net en continu (CoinMarketCap, Pump.fun, DexScreener) et commande vos 5 bots pour maximiser vos profits tout en verrouillant 10% dans le Coffre-Fort.\n\nCliquez sur un ordre rapide ci-dessous ou tapez 'Scrute le net' pour lancer une analyse !",
       time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -49,7 +125,6 @@ export default function LeoCommanderWidget() {
     setChatLogs(prev => [...prev, { sender: 'USER', text: textToSend, time }]);
     setInputCommand('');
 
-    // Exécution de l'ordre par Léo avec pleine conscience
     const result = await executeLeoOrder(textToSend, state, {
       setActivePositions: state.setActivePositions,
       setReserveVault: state.setReserveVault,
@@ -185,21 +260,17 @@ export default function LeoCommanderWidget() {
                 </Button>
               </div>
 
-              {/* Terminal de Chat avec Léo */}
-              <div className="h-48 overflow-y-auto space-y-2.5 p-3 rounded-2xl bg-black/60 border border-white/10 font-body text-xs">
+              {/* Terminal de Chat avec Rendu Cyber-Luxe */}
+              <div className="h-52 overflow-y-auto space-y-3 p-3 rounded-2xl bg-black/60 border border-white/10 text-xs">
                 {chatLogs.map((log, i) => (
                   <div key={i} className={`flex flex-col ${log.sender === 'USER' ? 'items-end' : 'items-start'}`}>
-                    <div className="flex items-center gap-1 text-[10px] text-white/30 mb-0.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-white/30 mb-1 px-1">
                       <span>{log.sender === 'USER' ? 'Commandant' : '👑 LÉO (Chef d\'Orchestre)'}</span>
                       <span>•</span>
                       <span>{log.time}</span>
                     </div>
-                    <div className={`p-3 rounded-2xl max-w-[88%] whitespace-pre-line ${
-                      log.sender === 'USER' 
-                        ? 'bg-[#9945FF]/25 text-purple-200 border border-[#9945FF]/40 rounded-tr-none' 
-                        : 'bg-white/5 text-white/90 border border-white/10 rounded-tl-none font-mono text-[11px]'
-                    }`}>
-                      {log.text}
+                    <div className="max-w-[90%]">
+                      <PremiumLeoMessage text={log.text} sender={log.sender} />
                     </div>
                   </div>
                 ))}
