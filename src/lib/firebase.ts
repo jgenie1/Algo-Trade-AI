@@ -12,15 +12,25 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-X7HWCDYYBQ"
 };
 
+// Modern browser shim: gracefully redirect deprecated 'unload' events to 'pagehide'
+// to eliminate Chrome/Chromium Permissions Policy violations from Google WebChannel SDK.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  const originalAddEventListener = window.addEventListener;
+  window.addEventListener = function (type: string, listener: any, options?: any) {
+    if (type === 'unload') {
+      return originalAddEventListener.call(window, 'pagehide', listener, options);
+    }
+    return originalAddEventListener.call(window, type, listener, options);
+  };
+}
+
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Set Firestore log level to silent so offline fallback logs do not trigger Next.js console.error dev overlay
+// Set Firestore log level to silent
 setLogLevel('silent');
 
-// Use long-polling instead of WebChannel (which registers window.addEventListener('unload')
-// triggering Permissions Policy violations in modern Chrome).
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  experimentalAutoDetectLongPolling: true,
 });
 
 export const DEFAULT_USER = 'main_terminal';

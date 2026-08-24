@@ -156,15 +156,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         });
     };
 
-    const safetyTimer = setTimeout(() => {
-      if (!isInitialized.current) {
-        console.log("Firebase Firestore unreachable — using localStorage.");
-        try { unsubscribe(); } catch (_) {}
-        loadFromLocalStorage();
-        isInitialized.current = true;
-        setIsLoading(false);
-      }
-    }, 3000);
+    // 1. Immediately hydrate from localStorage for instant 0ms rendering
+    loadFromLocalStorage();
+    isInitialized.current = true;
+    setIsLoading(false);
 
     try {
       const activeId = getActiveUserId();
@@ -178,8 +173,6 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
             
             const incomingHash = JSON.stringify(data);
             if (incomingHash === lastStateHashRef.current) {
-              isInitialized.current = true;
-              setIsLoading(false);
               return;
             }
 
@@ -245,34 +238,17 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
             setTimeout(() => {
               isIncomingSync.current = false;
             }, 200);
-          } else {
-            loadFromLocalStorage();
           }
-
-          isInitialized.current = true;
-          setIsLoading(false);
         },
         () => {
-          try { unsubscribe(); } catch (_) {}
-          console.log("Firestore blocked/unavailable — switching to localStorage fallback.");
-          if (!isInitialized.current) {
-            loadFromLocalStorage();
-            isInitialized.current = true;
-            setIsLoading(false);
-          }
+          // Graceful silent fallback if Firestore is unreachable
         }
       );
-    } catch (e) {
-      console.warn("Firestore listener init error:", e);
-      if (!isInitialized.current) {
-        loadFromLocalStorage();
-        isInitialized.current = true;
-        setIsLoading(false);
-      }
+    } catch (_) {
+      // Graceful fallback
     }
 
     return () => {
-      clearTimeout(safetyTimer);
       if (unsubscribe) unsubscribe();
     };
   }, []);
