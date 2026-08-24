@@ -20,7 +20,8 @@ import {
   Bot,
   Trophy,
   Coins,
-  Layers
+  Layers,
+  Crown
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAppState } from '@/context/AppContext';
@@ -31,6 +32,13 @@ export default function MobileQuickActionSheet() {
   const { reserveVault, reserveVaultSol, tradingMode, setBalance, setReserveVault, setReserveVaultSol, setTransactions } = useAppState();
   const [isOpen, setIsOpen] = useState(false);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
+
+  const handleOpenLeo = () => {
+    setIsOpen(false);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('open_leo_commander'));
+    }
+  };
 
   const handleUnlockVaultFast = () => {
     const isReal = tradingMode === 'REAL';
@@ -58,7 +66,6 @@ export default function MobileQuickActionSheet() {
         status: 'COMPLETED'
       }, ...(prev || [])]);
       setIsOpen(false);
-      alert(`Succès ! ${formattedAmt} transférés au Solde Principal.`);
     }
   };
 
@@ -66,26 +73,40 @@ export default function MobileQuickActionSheet() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="h-12 w-12 rounded-full bg-gradient-to-tr from-[#c2ff0c] via-emerald-400 to-lime-300 text-black flex items-center justify-center shadow-[0_0_25px_rgba(194,255,12,0.6)] border-4 border-[#0a0614] active:scale-90 transition-all duration-200"
+        className="flex flex-col items-center justify-center -mt-5 bg-gradient-to-tr from-purple-600 via-[#9945FF] to-[#c2ff0c] p-3.5 rounded-full shadow-[0_0_20px_rgba(153,69,255,0.6)] text-black active:scale-95 transition-all duration-200 border-2 border-white/20 select-none z-10"
         aria-label="Actions rapides"
       >
-        <Zap className="h-6 w-6 fill-black text-black" />
+        <Zap className="h-6 w-6 text-black fill-black" />
       </button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="bg-[#120a1c]/95 backdrop-blur-2xl border border-white/15 rounded-t-3xl sm:rounded-3xl p-5 text-white space-y-4 max-w-md w-full bottom-0 sm:bottom-auto fixed sm:relative translate-y-0 shadow-[0_-15px_40px_rgba(0,0,0,0.95)]">
-          {/* Poignée de glissement pour style Bottom Sheet */}
-          <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto -mt-1 mb-2" />
-
-          <DialogHeader className="text-left border-b border-white/10 pb-3">
-            <DialogTitle className="text-base font-headline font-black text-[#c2ff0c] flex items-center gap-2">
-              <Zap className="h-5 w-5 text-[#c2ff0c] fill-[#c2ff0c]" />
-              Actions Rapides Au Pouce
+        <DialogContent className="max-w-sm bg-[#0e0a1a]/95 border border-white/10 text-white backdrop-blur-2xl rounded-3xl p-5 shadow-[0_0_50px_rgba(153,69,255,0.2)]">
+          <DialogHeader className="border-b border-white/10 pb-3">
+            <DialogTitle className="text-base font-headline font-black text-white flex items-center gap-2">
+              <Zap className="h-4 w-4 text-[#c2ff0c]" />
+              <span>Actions Rapides & Navigation</span>
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-300 font-body">
-              Accès instantané aux fonctions principales du terminal de trading.
+            <DialogDescription className="text-xs text-white/50 font-body">
+              Accès direct aux fonctionnalités essentielles de trading
             </DialogDescription>
           </DialogHeader>
+
+          {/* Bouton Hero LÉO AI COMMANDER */}
+          <button
+            onClick={handleOpenLeo}
+            className="w-full p-3 bg-gradient-to-r from-amber-500 via-[#f0b90b] to-yellow-600 text-black rounded-2xl flex items-center justify-between shadow-[0_0_20px_rgba(240,185,11,0.4)] active:scale-95 transition-all font-headline"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-black/20 text-black rounded-xl">
+                <Crown className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <span className="text-xs font-black block uppercase tracking-wider">LÉO AI COMMANDER</span>
+                <span className="text-[10px] text-black/80 font-medium block">Veille Web & Contrôle des 5 Bots</span>
+              </div>
+            </div>
+            <span className="text-[9px] font-black uppercase bg-black text-[#f0b90b] px-2 py-1 rounded-lg">OUVRIR</span>
+          </button>
 
           <div className="grid grid-cols-2 gap-2.5 py-1 font-body">
             <Link
