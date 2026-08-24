@@ -179,16 +179,17 @@ export async function getPumpFunWsUrl(): Promise<string> {
 export async function getWorkingConnection(): Promise<any> {
   const { Connection } = await import('@solana/web3.js');
 
+  const proxyRpc = typeof window !== 'undefined' ? `${window.location.origin}/api/solana-rpc` : '';
   const customRpc = (typeof window !== 'undefined' && localStorage.getItem('settings_rpc_url')) || '';
   const envRpc = process.env.SOLANA_RPC_URL || '';
 
   // Ordered fallback list — most reliable working endpoints first
   const candidates = [
+    proxyRpc,
     customRpc,
-    'https://api.mainnet-beta.solana.com',
     'https://solana-rpc.publicnode.com',
+    'https://api.mainnet-beta.solana.com',
     envRpc,
-    'https://rpc.ankr.com/solana',
   ].filter(Boolean) as string[];
 
   // Deduplicate while preserving order
@@ -207,8 +208,8 @@ export async function getWorkingConnection(): Promise<any> {
     } catch (err: any) {}
   }
 
-  // Fallback to official Solana mainnet connection if all checks fail
-  return new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+  // Fallback to internal proxy or publicnode
+  return new Connection(proxyRpc || 'https://solana-rpc.publicnode.com', 'confirmed');
 }
 
 export async function executeRealPumpTrade(params: {

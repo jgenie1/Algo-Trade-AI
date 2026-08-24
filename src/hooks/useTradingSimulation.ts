@@ -217,11 +217,12 @@ export function useTradingEngine() {
         const pubKey = new PublicKey(parsed.address);
 
         const customRpc = localStorage.getItem('settings_rpc_url');
+        const proxyRpc = typeof window !== 'undefined' ? `${window.location.origin}/api/solana-rpc` : '';
         const rpcEndpoints = [
+          proxyRpc,
           customRpc,
-          'https://rpc.ankr.com/solana',
-          'https://solana-mainnet.rpc.extrnode.com',
-          'https://solana-rpc.publicnode.com'
+          'https://solana-rpc.publicnode.com',
+          'https://solana-mainnet.rpc.extrnode.com'
         ].filter(Boolean) as string[];
 
         const accruedProfit = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_accrued_profit_sol') || '0') : 0;
