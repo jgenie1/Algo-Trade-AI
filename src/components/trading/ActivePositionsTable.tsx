@@ -57,21 +57,38 @@ export default function ActivePositionsTable({
             <span>{tradingMode === 'DEMO' ? "Positions Ouvertes Démo" : "Positions Ouvertes Réelles (SOL)"} ({filteredPositions.length})</span>
           </div>
 
-          {/* Badge PnL Total En Direct */}
-          {filteredPositions.length > 0 && (
-            <div className={cn(
-              "px-3 py-1.5 rounded-xl border text-xs font-mono font-extrabold flex items-center gap-2 shadow-inner transition-all",
-              isTotalProfit 
-                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
-                : "bg-rose-500/15 text-rose-300 border-rose-500/40"
-            )}>
-              <span className="relative flex h-2 w-2">
-                <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isTotalProfit ? "bg-emerald-400" : "bg-rose-400")}></span>
-                <span className={cn("relative inline-flex rounded-full h-2 w-2", isTotalProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
-              </span>
-              <span>PnL Direct Total : {formatSmartPnl(totalLiveProfit, isSolMode)} {isSolMode ? 'SOL' : '$'}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Bouton Tout Fermer */}
+            {filteredPositions.length > 0 && (
+              <Button
+                onClick={() => {
+                  if (confirm(`Fermer toutes les ${filteredPositions.length} positions ouvertes ?`)) {
+                    filteredPositions.forEach(p => handleClosePosition(p));
+                  }
+                }}
+                size="sm"
+                className="h-7 px-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-bold rounded-lg transition-all active:scale-95"
+              >
+                Tout Fermer ({filteredPositions.length})
+              </Button>
+            )}
+
+            {/* Badge PnL Total En Direct */}
+            {filteredPositions.length > 0 && (
+              <div className={cn(
+                "px-3 py-1.5 rounded-xl border text-xs font-mono font-extrabold flex items-center gap-2 shadow-inner transition-all",
+                isTotalProfit 
+                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+                  : "bg-rose-500/15 text-rose-300 border-rose-500/40"
+              )}>
+                <span className="relative flex h-2 w-2">
+                  <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isTotalProfit ? "bg-emerald-400" : "bg-rose-400")}></span>
+                  <span className={cn("relative inline-flex rounded-full h-2 w-2", isTotalProfit ? "bg-emerald-500" : "bg-rose-500")}></span>
+                </span>
+                <span>PnL Direct Total : {formatSmartPnl(totalLiveProfit, isSolMode)} {isSolMode ? 'SOL' : '$'}</span>
+              </div>
+            )}
+          </div>
         </CardTitle>
       </CardHeader>
 
