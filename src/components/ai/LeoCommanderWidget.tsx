@@ -150,10 +150,13 @@ export default function LeoCommanderWidget() {
         state, 
         {
           setActivePositions: state.setActivePositions,
+          setClosedPositions: state.setClosedPositions,
           setReserveVault: state.setReserveVault,
           setReserveVaultSol: state.setReserveVaultSol,
           setBots: state.setBots,
-          setBalance: state.setBalance
+          setBalance: state.setBalance,
+          setBotLogs: state.setBotLogs,
+          setTransactions: state.setTransactions
         },
         {},
         newLogs
