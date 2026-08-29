@@ -370,8 +370,8 @@ export function useTradingEngine() {
       window.addEventListener('web3_wallet_updated', updateWalletAndStatus);
       window.addEventListener('storage', updateWalletAndStatus);
     }
-    // Poll every 3 seconds for near real-time blockchain balance detection
-    const interval = setInterval(updateWalletAndStatus, 3500);
+    // Poll every 10 seconds for blockchain balance detection (in addition to instant event triggers)
+    const interval = setInterval(updateWalletAndStatus, 10000);
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('web3_wallet_updated', updateWalletAndStatus);
@@ -542,7 +542,7 @@ export function useTradingEngine() {
     };
 
     updatePrices();
-    const interval = setInterval(updatePrices, 2000);
+    const interval = setInterval(updatePrices, 6000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPair, activePositions.length, bots.length]);

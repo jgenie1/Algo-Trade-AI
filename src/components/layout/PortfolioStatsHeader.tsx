@@ -55,7 +55,7 @@ export default function PortfolioStatsHeader({
       }
     };
     fetchQuotes();
-    const interval = setInterval(fetchQuotes, 4000);
+    const interval = setInterval(fetchQuotes, 12000);
     const handlePriceUpdate = (e: any) => {
       if (e?.detail && typeof e.detail === 'number') {
         setLiveCmcPrices(prev => ({ ...prev, SOL: e.detail }));

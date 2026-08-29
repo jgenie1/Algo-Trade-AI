@@ -72,7 +72,7 @@ export function useMarketTicker() {
     };
 
     fetchAllLivePrices();
-    const interval = setInterval(fetchAllLivePrices, 5000);
+    const interval = setInterval(fetchAllLivePrices, 12000);
     return () => {
       isMounted = false;
       clearInterval(interval);
