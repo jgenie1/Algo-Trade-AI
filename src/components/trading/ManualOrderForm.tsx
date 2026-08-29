@@ -173,6 +173,9 @@ export default function ManualOrderForm({
     const sl = stopLoss ? parseFloat(stopLoss) : undefined;
     const tp = takeProfit ? parseFloat(takeProfit) : undefined;
 
+    const isRealMode = tradingMode === 'REAL';
+    const finalLeverage = isRealMode && selectedPair.startsWith('SOL:') ? 1 : leverage;
+
     const newPos: Position = {
       id: 'pos_' + Math.random().toString(36).substring(2, 9),
       pair: selectedPair,
@@ -180,7 +183,7 @@ export default function ManualOrderForm({
       entryPrice: currentPrice,
       currentPrice: currentPrice,
       amount: orderAmount,
-      leverage: leverage,
+      leverage: finalLeverage,
       sl,
       tp,
       timestamp: Date.now(),
@@ -195,6 +198,11 @@ export default function ManualOrderForm({
       setBalance(bal => bal - marginRequired);
     } else {
       if (typeof window !== 'undefined') {
+        const cur = parseFloat(localStorage.getItem('trade_solana_balance') || '0');
+        if (!isNaN(cur) && cur > 0) {
+          const next = Math.max(0, cur - orderAmount);
+          localStorage.setItem('trade_solana_balance', next.toString());
+        }
         window.dispatchEvent(new Event('web3_wallet_updated'));
       }
     }

@@ -437,7 +437,7 @@ export async function executeLeoOrder(
       targetBotId = 'bot-1';
     }
 
-    const currentPrice = resolveLivePrice(targetSymbol, livePrices) || getRealMarketBasePrice(targetSymbol) || 180;
+    const currentPrice = resolveLivePrice(targetSymbol, livePrices) || getRealMarketBasePrice(targetSymbol) || 105.0;
     let rawAvailSol = 0.05;
     if (typeof window !== 'undefined') {
       const storedSubs = localStorage.getItem('trade_sub_wallets');
@@ -451,16 +451,28 @@ export async function executeLeoOrder(
     }
     const realMarginSol = Math.min(0.25, Math.max(0.005, rawAvailSol * 0.85));
     const marginAmount = isRealMode ? parseFloat(realMarginSol.toFixed(4)) : 75;
-    const leverage = 20;
+    const leverage = isRealMode ? 1 : 10;
 
-    // Déduire la marge du solde et persister
-    if (actions.setBalance) {
+    // Déduire la marge du solde approprié et persister
+    if (isRealMode) {
+      if (typeof window !== 'undefined') {
+        const curSol = parseFloat(localStorage.getItem('trade_solana_balance') || '0');
+        if (!isNaN(curSol) && curSol > 0) {
+          const nextSol = Math.max(0, curSol - marginAmount);
+          localStorage.setItem('trade_solana_balance', nextSol.toString());
+        }
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
+    } else if (actions.setBalance) {
       actions.setBalance(prev => {
         const next = Math.max(0, prev - marginAmount);
         if (typeof window !== 'undefined') localStorage.setItem('trade_balance', next.toString());
         return next;
       });
     }
+
+    const slPrice = currentPrice * 0.94; // Stop Loss à -6%
+    const tpPrice = currentPrice * 1.15; // Take Profit à +15%
 
     // Créer la vraie position active
     const newPosition: Position = {
@@ -471,8 +483,8 @@ export async function executeLeoOrder(
       leverage: leverage,
       entryPrice: currentPrice,
       currentPrice: currentPrice,
-      sl: parseFloat((currentPrice * 0.96).toFixed(currentPrice > 100 ? 2 : 4)), // Stop Loss à -4%
-      tp: parseFloat((currentPrice * 1.12).toFixed(currentPrice > 100 ? 2 : 4)), // Take Profit à +12%
+      sl: slPrice,
+      tp: tpPrice,
       timestamp: Date.now(),
       botId: targetBotId,
       botName: targetBot,

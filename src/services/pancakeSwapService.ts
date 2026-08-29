@@ -60,10 +60,15 @@ export async function getBnbPrice(): Promise<string> {
     const price = ethers.utils.formatUnits(amountsOut[1], 18);
     return price;
   } catch (error: any) {
-    const basePrice = 582.45;
-    const timeFactor = Date.now() / 60000;
-    const wave = Math.sin(timeFactor) * 2.3 + Math.cos(timeFactor / 5) * 1.1;
-    return (basePrice + wave).toFixed(2);
+    try {
+      const bRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT');
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        const p = parseFloat(bData.price);
+        if (!isNaN(p) && p > 0) return p.toFixed(2);
+      }
+    } catch (e) {}
+    return '693.00';
   }
 }
 

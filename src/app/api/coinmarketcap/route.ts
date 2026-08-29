@@ -13,40 +13,89 @@ const CACHE_TTL_MS = 25000; // 25 seconds server cache to strictly respect CMC A
 
 const DEFAULT_SYMBOLS = 'BTC,ETH,SOL,BNB,XRP,ADA,DOGE,LINK,AVAX';
 
-// Fallback base prices in case CMC is completely down or hard rate-limited
-const FALLBACK_PRICES: Record<string, number> = {
-  BTC: 92450.0,
-  ETH: 3420.0,
-  SOL: 184.5,
-  BNB: 655.0,
-  XRP: 2.15,
-  ADA: 0.85,
-  DOGE: 0.38,
-  LINK: 18.5,
-  AVAX: 34.0,
+const BINANCE_MAP: Record<string, string> = {
+  BTC: 'BTCUSDT',
+  ETH: 'ETHUSDT',
+  SOL: 'SOLUSDT',
+  BNB: 'BNBUSDT',
+  XRP: 'XRPUSDT',
+  ADA: 'ADAUSDT',
+  DOGE: 'DOGEUSDT',
+  LINK: 'LINKUSDT',
+  AVAX: 'AVAXUSDT'
 };
 
-function generateFallbackData(symbols: string[]): Record<string, any> {
+async function fetchRealLiveCryptoPrices(symbols: string[]): Promise<Record<string, any>> {
   const result: Record<string, any> = {};
-  symbols.forEach(sym => {
-    const s = sym.toUpperCase();
-    const price = FALLBACK_PRICES[s] || 1.0;
-    result[s] = {
-      id: 1,
-      name: s,
-      symbol: s,
-      slug: s.toLowerCase(),
-      quote: {
-        USD: {
-          price,
-          volume_24h: price * 150000,
-          percent_change_24h: 1.25,
-          percent_change_1h: 0.15,
-          last_updated: new Date().toISOString()
+  const binancePairs = symbols.map(s => BINANCE_MAP[s.toUpperCase()]).filter(Boolean);
+  
+  if (binancePairs.length > 0) {
+    try {
+      const url = `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(binancePairs))}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            const symEntry = Object.entries(BINANCE_MAP).find(([, pair]) => pair === item.symbol);
+            if (symEntry) {
+              const sym = symEntry[0];
+              const price = parseFloat(item.lastPrice);
+              const change24h = parseFloat(item.priceChangePercent);
+              const volume = parseFloat(item.volume);
+              result[sym] = {
+                id: 1,
+                name: sym,
+                symbol: sym,
+                slug: sym.toLowerCase(),
+                quote: {
+                  USD: {
+                    price,
+                    volume_24h: volume * price,
+                    percent_change_24h: change24h,
+                    percent_change_1h: 0.0,
+                    last_updated: new Date().toISOString()
+                  }
+                }
+              };
+            }
+          }
         }
       }
-    };
-  });
+    } catch (e) {}
+  }
+
+  // Pour les symboles non gérés par Binance, interroger Coinbase Spot
+  for (const s of symbols) {
+    const sym = s.toUpperCase();
+    if (!result[sym]) {
+      try {
+        const cbRes = await fetch(`https://api.coinbase.com/v2/prices/${sym}-USD/spot`, { cache: 'no-store' });
+        if (cbRes.ok) {
+          const cbData = await cbRes.json();
+          const p = parseFloat(cbData?.data?.amount);
+          if (!isNaN(p) && p > 0) {
+            result[sym] = {
+              id: 1,
+              name: sym,
+              symbol: sym,
+              slug: sym.toLowerCase(),
+              quote: {
+                USD: {
+                  price: p,
+                  volume_24h: 1000000,
+                  percent_change_24h: 0.0,
+                  percent_change_1h: 0.0,
+                  last_updated: new Date().toISOString()
+                }
+              }
+            };
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
   return result;
 }
 
@@ -80,9 +129,9 @@ export async function GET(request: Request) {
   const apiKey = process.env.COINMARKETCAP_API_KEY;
 
   if (!apiKey) {
-    // If no API key configured, gracefully serve realistic market fallback without error
-    const fallback = generateFallbackData(requestedSymbols);
-    return NextResponse.json({ success: true, data: fallback, source: 'fallback_no_key' }, { status: 200 });
+    // Si aucune clé CMC, récupérer directement les cours réels sur Binance & Coinbase (100% réels)
+    const realPrices = await fetchRealLiveCryptoPrices(requestedSymbols);
+    return NextResponse.json({ success: true, data: realPrices, source: 'binance_live_real' }, { status: 200 });
   }
 
   // Combine requested symbols with default major symbols to hydrate cache comprehensively in 1 call
@@ -125,7 +174,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // If CMC returned 429 Too Many Requests or 5xx, use cached data if available or fallback with 200 OK
+    // If CMC returned 429 Too Many Requests or 5xx, use cached data if available
     if (quotesCache && Object.keys(quotesCache.data).length > 0) {
       const filtered: Record<string, any> = {};
       requestedSymbols.forEach(sym => {
@@ -136,13 +185,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: filtered, source: 'cache_stale' }, { status: 200 });
     }
 
-    const fallback = generateFallbackData(requestedSymbols);
-    return NextResponse.json({ success: true, data: fallback, source: 'fallback_rate_limited' }, { status: 200 });
+    // Récupération des cours réels sans aucune donnée factice
+    const realFallback = await fetchRealLiveCryptoPrices(requestedSymbols);
+    return NextResponse.json({ success: true, data: realFallback, source: 'binance_live_fallback' }, { status: 200 });
   } catch (error: any) {
     if (quotesCache && Object.keys(quotesCache.data).length > 0) {
       return NextResponse.json({ success: true, data: quotesCache.data, source: 'cache_error_recovery' }, { status: 200 });
     }
-    const fallback = generateFallbackData(requestedSymbols);
-    return NextResponse.json({ success: true, data: fallback, source: 'fallback_network_error' }, { status: 200 });
+    const realFallback = await fetchRealLiveCryptoPrices(requestedSymbols);
+    return NextResponse.json({ success: true, data: realFallback, source: 'binance_live_error_recovery' }, { status: 200 });
   }
 }

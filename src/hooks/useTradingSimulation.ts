@@ -707,36 +707,8 @@ export function useTradingEngine() {
           const botPosition = activePositionsRef.current.find(p => p.botId === bot.id);
 
           if (botPosition) {
-            // DCA or volume generation if a position is already open
+            // Surveillance active du trade ouvert (DCA intelligent si applicable)
             const currentPrice = livePricesRef.current[botPosition.pair] || botPosition.entryPrice;
-
-            if (bot.strategy === 'Pump.fun Sniper Bot' && bot.autoVolume) {
-              const mintAddress = botPosition.pair.split(':')[1];
-              if (mintAddress) {
-                const action = Math.random() > 0.50 ? 'buy' : 'sell';
-                const microSol = (0.01 + Math.random() * 0.02).toFixed(4);
-                const subWallet = Math.floor(Math.random() * 5) + 1;
-                const fee = bot.priorityFee || 0.005;
-
-                addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel] Envoi transaction de micro-${action === 'buy' ? 'achat' : 'vente'} de ${microSol} SOL via sous-portefeuille #${subWallet}...`, 'info');
-
-                executeRealPumpTrade({
-                  action: action,
-                  mint: mintAddress,
-                  amount: action === 'buy' ? parseFloat(microSol) : '50%',
-                  denominatedInSol: action === 'buy',
-                  slippage: 15,
-                  priorityFee: fee,
-                  customPrivateKey: subWalletsRef.current[subWallet - 1]?.privateKey
-                }).then((res) => {
-                  if (res && res.success && res.txHash) {
-                     addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Succès] Micro-${action === 'buy' ? 'achat' : 'vente'} validé ! Hash: ${res.txHash.slice(0, 10)}... Jeton Bumpé.`, 'info');
-                  } else {
-                     addBotLogRef.current(bot.id, "Volume Gen", `[Auto-Bump Réel Échec] ${res.error || 'Erreur réseau Solana.'}`, 'error');
-                  }
-                });
-              }
-            }
 
             const maxDcaEntries = 3;
             const currentEntries = botPosition.dcaCount || 1;
@@ -1093,19 +1065,17 @@ export function useTradingEngine() {
               const volumes = fetchedCandles.map(c => c.volume || 0);
 
               if (bot.strategy === 'RSI Pullback' && closes.length >= 2) {
-                const buyThreshold = 42 - (mult - 1.0) * 5;
-                const sellThreshold = 58 + (mult - 1.0) * 5;
+                const buyThreshold = 35 - (mult - 1.0) * 4;
+                const sellThreshold = 65 + (mult - 1.0) * 4;
                 const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2];
                 const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2];
 
-                const isRealMode = tradingModeRef.current === 'REAL';
-
-                if (lastRsi < buyThreshold && isBullishReversal && (isRealMode || Math.random() < triggerChance)) {
+                if (lastRsi <= buyThreshold && isBullishReversal) {
                   signal = 'BUY';
-                  reason = `RSI Survente (${lastRsi.toFixed(1)} < ${buyThreshold.toFixed(1)}) confirmé par un retournement haussier (Fermeture: ${closes[closes.length - 1].toFixed(5)} > ${closes[closes.length - 2].toFixed(5)})`;
-                } else if (lastRsi > sellThreshold && isBearishReversal && (isRealMode || Math.random() < triggerChance)) {
+                  reason = `RSI Survente (${lastRsi.toFixed(1)} <= ${buyThreshold.toFixed(1)}) confirmé par un retournement haussier`;
+                } else if (lastRsi >= sellThreshold && isBearishReversal) {
                   signal = 'SELL';
-                  reason = `RSI Surachat (${lastRsi.toFixed(1)} > ${sellThreshold.toFixed(1)}) confirmé par un retournement baissier (Fermeture: ${closes[closes.length - 1].toFixed(5)} < ${closes[closes.length - 2].toFixed(5)})`;
+                  reason = `RSI Surachat (${lastRsi.toFixed(1)} >= ${sellThreshold.toFixed(1)}) confirmé par un retournement baissier`;
                 }
               } else if (bot.strategy === 'EMA Cross' && closes.length >= 20) {
                 const getEMA = (values: number[], period: number): number[] => {
@@ -1136,39 +1106,36 @@ export function useTradingEngine() {
 
                 const lastVol = volumes[lastIdx] || 0;
                 const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
-                const volumeConfirm = lastVol > avgVol * 1.05;
-                const isRealMode = tradingModeRef.current === 'REAL';
+                const volumeConfirm = lastVol >= avgVol * 1.02;
 
-                if (goldenCross && volumeConfirm && (isRealMode || Math.random() < triggerChance)) {
+                if (goldenCross && volumeConfirm) {
                   signal = 'BUY';
-                  reason = `Crossover haussier EMA 9/20 confirmé par pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)`;
-                } else if (deathCross && volumeConfirm && (isRealMode || Math.random() < triggerChance)) {
+                  reason = `Crossover haussier EMA 9/20 confirmé par volume`;
+                } else if (deathCross && volumeConfirm) {
                   signal = 'SELL';
-                  reason = `Crossover baissier EMA 9/20 confirmé par pic de volume (+${((lastVol/avgVol - 1)*100).toFixed(0)}%)`;
+                  reason = `Crossover baissier EMA 9/20 confirmé par volume`;
                 }
               } else if (bot.strategy === 'BB Mean Reversion') {
                 const bbInds = calculateIndicators(fetchedCandles, ['Bollinger Bands']) || {};
                 if (bbInds.bollingerBands && bbInds.bollingerBands.lower && bbInds.bollingerBands.upper && closes.length >= 2) {
-                  // Re-calculate bands with standard deviation of 1.7 for higher responsiveness
                   const mean = closes.slice(-20).reduce((s, v) => s + v, 0) / Math.min(20, closes.length);
                   let varianceSum = 0;
                   const slice = closes.slice(-20);
                   slice.forEach(v => { varianceSum += Math.pow(v - mean, 2); });
                   const stdDev = Math.sqrt(varianceSum / slice.length) || 1e-5;
                   
-                  const lower = mean - 1.7 * stdDev;
-                  const upper = mean + 1.7 * stdDev;
+                  const lower = mean - 2.0 * stdDev;
+                  const upper = mean + 2.0 * stdDev;
                   
                   const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2];
                   const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2];
-                  const isRealMode = tradingModeRef.current === 'REAL';
 
-                  if (lastClose <= lower && isBullishRebound && (isRealMode || Math.random() < triggerChance)) {
+                  if (lastClose <= lower && isBullishRebound) {
                     signal = 'BUY';
-                    reason = `Rebond de survente BB (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})`;
-                  } else if (lastClose >= upper && isBearishRebound && (isRealMode || Math.random() < triggerChance)) {
+                    reason = `Rebond de survente BB basse (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})`;
+                  } else if (lastClose >= upper && isBearishRebound) {
                     signal = 'SELL';
-                    reason = `Correction de surachat BB (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})`;
+                    reason = `Correction de surachat BB haute (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})`;
                   }
                 }
               } else if (bot.strategy === 'SuperTrend Momentum') {
@@ -1345,7 +1312,9 @@ export function useTradingEngine() {
                     continue;
                   }
                   
-                  calculatedTradeAmt = Math.min(bot.capital, Math.max(effectiveMinMargin, availableTradeBal * 0.95));
+                  const reserveForGas = Math.max(0.002, (bot.priorityFee || 0.001) * 2);
+                  const maxAffordable = Math.max(effectiveMinMargin, availableTradeBal - reserveForGas);
+                  calculatedTradeAmt = Math.min(bot.capital > 0 ? bot.capital : maxAffordable, maxAffordable);
                   if (calculatedTradeAmt > availableTradeBal) {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde du sous-wallet (${availableTradeBal.toFixed(4)} SOL).`, 'error');
                     continue;
@@ -1385,11 +1354,11 @@ export function useTradingEngine() {
                   entryPrice: lastClose,
                   currentPrice: lastClose,
                   amount: calculatedTradeAmt,
-                  leverage: bot.strategy === 'AI Autopilot (Machine à Cash)'
+                  leverage: isRealMode ? 1 : (bot.strategy === 'AI Autopilot (Machine à Cash)'
                     ? (bot.riskProfile === 'CONSERVATIVE' ? 5 : bot.riskProfile === 'AGGRESSIVE' ? 20 : 10)
-                    : 10,
-                  sl: parseFloat(slPrice.toFixed(5)),
-                  tp: parseFloat(tpPrice.toFixed(5)),
+                    : 10),
+                  sl: slPrice,
+                  tp: tpPrice,
                   timestamp: Date.now(),
                   botId: bot.id,
                   highestPrice: lastClose,
@@ -1663,11 +1632,10 @@ export function useTradingEngine() {
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
     const isLong = p.type === 'BUY';
     const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
-    const maxGain = amt * lev * 5;
-    // RÈGLE ANTI-PERTE ABSOLUE : Le Stop Loss limite la perte à un maximum de 8% du montant engagé (en SOL comme en USD)
+    // RÈGLE ANTI-PERTE STRICTE : En mode RÉEL, la perte maximale est strictement bridée à 8% du montant engagé
     const isRealSol = posMode === 'REAL' || tradingModeRef.current === 'REAL';
     const maxLossLimit = isRealSol ? -(amt * 0.08) : -Math.min(amt, Math.max(amt * 0.05, 1));
-    const profit = Math.max(maxLossLimit, Math.min(maxGain, rawProfit));
+    const profit = Math.max(maxLossLimit, rawProfit);
 
     let mintAddress = '';
     if (p.mint && p.mint.length >= 32 && p.mint.length <= 44) {
