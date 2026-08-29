@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAppState } from '@/context/AppContext';
 import { evaluateFleetWithLeo, executeLeoOrder, LeoFleetStatus } from '@/services/leoOrchestratorService';
+import { getSolUsdRate } from '@/lib/utils';
 
 /**
  * Rendu Cyber-Luxe Premium des messages de Léo sans astérisques bruts (Optimisé Mobile & Desktop)
@@ -110,7 +111,8 @@ export default function LeoCommanderWidget() {
   const refreshFleetData = async () => {
     setIsScanning(true);
     try {
-      const data = await evaluateFleetWithLeo(state, {}, 180);
+      const liveSol = getSolUsdRate() || 105.2;
+      const data = await evaluateFleetWithLeo(state, {}, liveSol);
       setFleetStatus(data);
     } catch (e) {}
     setIsScanning(false);

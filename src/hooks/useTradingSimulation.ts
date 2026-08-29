@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppState } from '@/context/AppContext';
 import { saveFullState, saveBotLearnings } from '@/lib/firebase';
-import { formatSmartPnl, getRealMarketBasePrice } from '@/lib/utils';
+import { formatSmartPnl, getRealMarketBasePrice, getSolUsdRate } from '@/lib/utils';
 import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
@@ -1770,22 +1770,43 @@ export function useTradingEngine() {
           localStorage.setItem('trade_accrued_profit_sol', newAccrued.toString());
         }
 
+        // 1. Restitution intégrale du capital investi (amt) PLUS le gain net (netProfitSol)
+        const totalReturnSol = amt + netProfitSol;
+
         setSolanaBalance(prev => {
           const currentBal = prev !== null ? prev : 0;
-          const nextBal = currentBal + netProfitSol;
+          const nextBal = currentBal + totalReturnSol;
           if (typeof window !== 'undefined') localStorage.setItem('trade_solana_balance', nextBal.toString());
           return nextBal;
         });
+
         let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
         if (currentSolUsdPrice <= 1) {
           const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
-          currentSolUsdPrice = savedCmc > 1 ? savedCmc : 150;
+          currentSolUsdPrice = savedCmc > 1 ? savedCmc : (getSolUsdRate() || 105.20);
         }
         setBalance(prev => {
-          const nextUsd = prev + (netProfitSol * currentSolUsdPrice);
+          const nextUsd = prev + (totalReturnSol * currentSolUsdPrice);
           if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
           return nextUsd;
         });
+
+        // Mise à jour des performances cumulées du Bot (sans jamais écraser netProfit à 0)
+        if (p.botId) {
+          setBots(prev => prev.map(b => {
+            if (b.id !== p.botId) return b;
+            const newTrades = (b.tradesCount || 0) + 1;
+            const oldWins = Math.round(((b.winRate || 50) / 100) * (b.tradesCount || 0));
+            const newWins = oldWins + 1;
+            return {
+              ...b,
+              netProfit: (b.netProfit || 0) + netProfitSol,
+              pnl: (b.pnl || 0) + netProfitSol,
+              tradesCount: newTrades,
+              winRate: Math.round((newWins / newTrades) * 100)
+            };
+          }));
+        }
 
         // 2. Add completed transaction to history
         if (setTransactions) {
@@ -1825,9 +1846,6 @@ export function useTradingEngine() {
               const logMsg = `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL transféré au wallet ${masterPubKey.slice(0, 8)}... Tx: ${txId.slice(0, 16)}... (Solscan: https://solscan.io/tx/${txId})`;
               if (p.botId) {
                 addBotLog(p.botId, botObj?.strategy || 'Bot', logMsg, 'trade');
-                setBots(prev => prev.map(b =>
-                  b.id === p.botId ? { ...b, netProfit: 0, pnl: 0 } : b
-                ));
               }
             } else if (sweepRes && sweepRes.error) {
               const errMsg = `[ℹ️ PROFIT CRÉDITÉ AU WALLET] +${netProfitSol < 0.001 ? netProfitSol.toFixed(6) : netProfitSol.toFixed(4)} SOL ajoutés au solde. Sweep on-chain: ${sweepRes.error}`;
@@ -1851,13 +1869,29 @@ export function useTradingEngine() {
         let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
         if (currentSolUsdPrice <= 1) {
           const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
-          currentSolUsdPrice = savedCmc > 1 ? savedCmc : 150;
+          currentSolUsdPrice = savedCmc > 1 ? savedCmc : (getSolUsdRate() || 105.20);
         }
         setBalance(prev => {
           const nextUsd = Math.max(0, prev + (returnedCapitalSol * currentSolUsdPrice));
           if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
           return nextUsd;
         });
+
+        // Enregistrer la perte sur le bot pour un historique sincère
+        if (p.botId) {
+          setBots(prev => prev.map(b => {
+            if (b.id !== p.botId) return b;
+            const newTrades = (b.tradesCount || 0) + 1;
+            const oldWins = Math.round(((b.winRate || 50) / 100) * (b.tradesCount || 0));
+            return {
+              ...b,
+              netProfit: (b.netProfit || 0) + profit,
+              pnl: (b.pnl || 0) + profit,
+              tradesCount: newTrades,
+              winRate: Math.round((oldWins / newTrades) * 100)
+            };
+          }));
+        }
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));

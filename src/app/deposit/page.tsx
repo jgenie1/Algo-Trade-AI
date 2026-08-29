@@ -104,10 +104,30 @@ export default function DepositPage() {
     setIsUnlockingVault(true);
     setTimeout(() => {
       if (isReal) {
-        setReserveVaultSol(prev => Math.max(0, prev - amt));
+        setReserveVaultSol(prev => {
+          const next = Math.max(0, prev - amt);
+          localStorage.setItem('trade_reserve_vault_sol', next.toString());
+          return next;
+        });
+        setSolanaBalance(prev => {
+          const next = (prev || 0) + amt;
+          localStorage.setItem('trade_solana_balance', next.toString());
+          return next;
+        });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
       } else {
-        setReserveVault(prev => Math.max(0, prev - amt));
-        setBalance(prev => prev + amt);
+        setReserveVault(prev => {
+          const next = Math.max(0, prev - amt);
+          localStorage.setItem('trade_reserve_vault', next.toString());
+          return next;
+        });
+        setBalance(prev => {
+          const next = prev + amt;
+          localStorage.setItem('trade_balance', next.toString());
+          return next;
+        });
       }
       setTransactions(prev => [{
         id: 'tx_vault_' + Math.random().toString(36).substring(2, 9),

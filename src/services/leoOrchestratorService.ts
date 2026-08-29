@@ -58,7 +58,7 @@ export interface LeoCommandResult {
 export async function evaluateFleetWithLeo(
   state: any,
   livePrices: Record<string, number> = {},
-  solPriceUsd: number = 180
+  solPriceUsd: number = 105.2
 ): Promise<LeoFleetStatus> {
   const isReal = state?.tradingMode === 'REAL' || state?.tradeMode === 'REAL';
   const freeCashUsd = isReal ? (state?.balance || 0) * solPriceUsd : (state?.balance || 0);
@@ -155,7 +155,8 @@ export async function executeLeoOrder(
 ): Promise<LeoCommandResult> {
   const normalized = command.toLowerCase().trim();
   const isRealMode = state?.tradingMode === 'REAL' || state?.tradeMode === 'REAL';
-  const fleet = await evaluateFleetWithLeo(state, livePrices);
+  const solPriceUsd = resolveLivePrice('SOL', livePrices) || getRealMarketBasePrice('SOL') || 105.2;
+  const fleet = await evaluateFleetWithLeo(state, livePrices, solPriceUsd);
   const activePositions: Position[] = state?.activePositions || state?.positions || [];
 
   // 1. COMMANDE : FERMETURE / LIQUIDATION RÉELLE DE TOUTES LES POSITIONS
@@ -256,7 +257,7 @@ export async function executeLeoOrder(
     if (totalProfitUsd > 0) {
       const skim = totalProfitUsd * 0.10;
       if (isRealMode && actions.setReserveVaultSol) {
-        actions.setReserveVaultSol(prev => prev + (skim / 180));
+        actions.setReserveVaultSol(prev => prev + (skim / solPriceUsd));
       } else if (actions.setReserveVault) {
         actions.setReserveVault(prev => {
           const updated = prev + skim;
@@ -319,7 +320,7 @@ export async function executeLeoOrder(
 
       // Créditer le coffre-fort
       if (isRealMode && actions.setReserveVaultSol) {
-        const solVal = skimAmountUsd / 180;
+        const solVal = skimAmountUsd / solPriceUsd;
         actions.setReserveVaultSol(prev => {
           const next = prev + solVal;
           if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault_sol', next.toString());

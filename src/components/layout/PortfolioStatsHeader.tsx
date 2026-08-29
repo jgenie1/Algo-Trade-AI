@@ -109,7 +109,7 @@ export default function PortfolioStatsHeader({
   const realBalance = isEvmWallet ? evmBalance : solanaBalance;
   const realCurrency = isEvmWallet ? evmCurrencyLabel : 'SOL';
   const realVaultVal = isEvmWallet ? 0 : (Number(reserveVaultSol) || 0);
-  const realEquity = (realBalance || 0) + realVaultVal + realAllocatedSol + realUnrealizedPnL + realBotsPnL;
+  const realEquity = (realBalance || 0) + realVaultVal + realAllocatedSol + realUnrealizedPnL;
 
   const realBalanceDisplay = realBalance !== null
     ? formatSmartCrypto(realBalance, realCurrency)

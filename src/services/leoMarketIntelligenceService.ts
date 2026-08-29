@@ -75,11 +75,11 @@ export async function scanWebAndMarketIntelligence(livePrices: Record<string, nu
   } catch (e) {}
 
   const majorCryptos = [
-    { sym: 'SOL', name: 'Solana', base: 180 },
-    { sym: 'BTC', name: 'Bitcoin', base: 92000 },
-    { sym: 'ETH', name: 'Ethereum', base: 3400 },
-    { sym: 'BNB', name: 'Binance Coin', base: 650 },
-    { sym: 'XRP', name: 'Ripple', base: 2.10 }
+    { sym: 'SOL', name: 'Solana', base: 105.2 },
+    { sym: 'BTC', name: 'Bitcoin', base: 78200 },
+    { sym: 'ETH', name: 'Ethereum', base: 2450 },
+    { sym: 'BNB', name: 'Binance Coin', base: 693 },
+    { sym: 'XRP', name: 'Ripple', base: 1.95 }
   ];
 
   majorCryptos.forEach(crypto => {
@@ -87,7 +87,7 @@ export async function scanWebAndMarketIntelligence(livePrices: Record<string, nu
     const currentPrice = cmcQuote?.price || livePrices[crypto.sym] || livePrices[`${crypto.sym}-USD`] || getRealMarketBasePrice(crypto.sym) || crypto.base;
     const change24h = typeof cmcQuote?.percent_change_24h === 'number' 
       ? cmcQuote.percent_change_24h 
-      : ((currentPrice - crypto.base) / crypto.base) * 100;
+      : 0.0;
     const volume24h = cmcQuote?.volume_24h || currentPrice * 150000;
 
     const alpha = Math.min(95, Math.max(40, Math.round(70 + change24h * 2)));
@@ -103,7 +103,7 @@ export async function scanWebAndMarketIntelligence(livePrices: Record<string, nu
       alphaScore: alpha,
       signal,
       reasoning: cmcQuote 
-        ? `Données vérifiées CoinMarketCap Pro. Volume 24h : $${(volume24h / 1e6).toFixed(1)}M. Tendance solide.` 
+        ? `Données vérifiées en direct. Volume 24h : $${(volume24h / 1e6).toFixed(1)}M. Tendance solide.` 
         : `Tendance directionnelle solide. Liquidité institutionnelle abondante.`,
       targetBot: 'Bot 3 — Trend Momentum Master'
     });
@@ -111,9 +111,9 @@ export async function scanWebAndMarketIntelligence(livePrices: Record<string, nu
 
   // 3. Scrutage Macro Forex & Matières Premières
   const macroAssets = [
-    { sym: 'FX:EURUSD', name: 'EUR/USD', base: 1.085 },
-    { sym: 'FX:USDJPY', name: 'USD/JPY', base: 154.2 },
-    { sym: 'GOLD', name: 'Or (Gold / USD)', base: 2650 }
+    { sym: 'FX:EURUSD', name: 'EUR/USD', base: 1.158 },
+    { sym: 'FX:USDJPY', name: 'USD/JPY', base: 155.0 },
+    { sym: 'GOLD', name: 'Or (Gold / USD)', base: 4504 }
   ];
 
   macroAssets.forEach(macro => {

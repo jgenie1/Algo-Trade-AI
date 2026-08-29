@@ -119,6 +119,11 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
           localStorage.setItem('trade_reserve_vault_sol', updated.toString());
           return updated;
         });
+        setFetchedSolBalance(prev => {
+          const next = Math.max(0, (prev || 0) - amountToLock);
+          localStorage.setItem('trade_solana_balance', next.toString());
+          return next;
+        });
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
         }
@@ -225,7 +230,14 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
           localStorage.setItem('trade_reserve_vault_sol', updated.toString());
           return updated;
         });
-        setFetchedSolBalance(prev => prev !== null ? prev + amt : amt);
+        setFetchedSolBalance(prev => {
+          const next = (prev || 0) + amt;
+          localStorage.setItem('trade_solana_balance', next.toString());
+          return next;
+        });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
       } else {
         setReserveVault(prev => {
           const updated = Math.max(0, prev - amt);

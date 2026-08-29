@@ -85,13 +85,13 @@ export default function PositionRiskCalculator({ solanaBalance }: PositionRiskCa
         <div>
           <span className="text-[9px] text-white/40 block font-headline uppercase">Perte Max Risquée</span>
           <span className="text-sm font-extrabold text-rose-400">
-            {isReal ? `${maxRiskAmount.toFixed(2)} SOL` : `$${maxRiskAmount.toFixed(2)}`}
+            {isReal ? `${maxRiskAmount < 0.01 ? maxRiskAmount.toFixed(4) : maxRiskAmount.toFixed(2)} SOL` : `$${maxRiskAmount.toFixed(2)}`}
           </span>
         </div>
         <div>
           <span className="text-[9px] text-white/40 block font-headline uppercase">Taille Ordre Recommandée (1/3)</span>
           <span className="text-sm font-extrabold text-[#c2ff0c]">
-            {isReal ? `${recommendedTradeSize.toFixed(2)} SOL` : `$${recommendedTradeSize.toFixed(2)}`}
+            {isReal ? `${recommendedTradeSize < 0.01 ? recommendedTradeSize.toFixed(4) : recommendedTradeSize.toFixed(2)} SOL` : `$${recommendedTradeSize.toFixed(2)}`}
           </span>
         </div>
         <div className="col-span-2 sm:col-span-1">

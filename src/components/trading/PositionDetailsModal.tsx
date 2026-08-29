@@ -6,8 +6,16 @@ import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-
 import type { Position } from '@/types';
+import { resolveLivePrice } from '@/lib/symbolUtils';
+
+function formatDisplayPrice(val: number): string {
+  if (!val || isNaN(val)) return '0.00';
+  if (val >= 1000) return val.toFixed(2);
+  if (val >= 1) return val.toFixed(4);
+  if (val >= 0.0001) return val.toFixed(6);
+  return val.toFixed(8);
+}
 
 interface PositionDetailsModalProps {
   position: Position;
@@ -22,7 +30,7 @@ export default function PositionDetailsModal({
   livePrices,
   handleClosePosition
 }: PositionDetailsModalProps) {
-  const current = livePrices[position.pair] || position.entryPrice;
+  const current = resolveLivePrice(position.pair, livePrices) || (typeof position.currentPrice === 'number' && !isNaN(position.currentPrice) ? position.currentPrice : position.entryPrice);
   const priceDiff = current - position.entryPrice;
   const pctDiff = position.entryPrice > 0 ? (priceDiff / position.entryPrice) : 0;
   const isLong = position.type === 'BUY' || (position.type as string) === 'LONG';
@@ -83,20 +91,20 @@ export default function PositionDetailsModal({
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Prix d&apos;Entrée</span>
             <span className="text-sm font-bold text-white font-body">
-              {position.entryPrice.toFixed(position.entryPrice > 100 ? 2 : 5)} {isSol ? 'SOL' : ''}
+              {formatDisplayPrice(position.entryPrice)} {isSol ? 'SOL' : '$'}
             </span>
           </div>
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Prix Actuel</span>
             <span className="text-sm font-bold text-[#c2ff0c] font-body">
-              {current.toFixed(position.entryPrice > 100 ? 2 : 5)} {isSol ? 'SOL' : ''}
+              {formatDisplayPrice(current)} {isSol ? 'SOL' : '$'}
             </span>
           </div>
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Stop Loss (SL Trade)</span>
             <span className="text-sm font-bold text-rose-400 font-body block">
               {position.sl 
-                ? (position.sl < 100 ? `-${position.sl}%` : `${position.sl.toFixed(position.entryPrice > 100 ? 2 : 5)}`)
+                ? (position.sl < 100 ? `-${position.sl}%` : `${formatDisplayPrice(position.sl)}`)
                 : '-3,00% (Sécurité)'}
             </span>
             <span className="text-[9px] text-rose-300/80 font-mono block mt-0.5">
@@ -106,7 +114,7 @@ export default function PositionDetailsModal({
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Take Profit (TP)</span>
             <span className="text-sm font-bold text-emerald-400 font-body">
-              {position.tp ? `${position.tp.toFixed(position.entryPrice > 100 ? 2 : 5)}` : 'Aucun'}
+              {position.tp ? `${formatDisplayPrice(position.tp)}` : 'Aucun'}
             </span>
           </div>
         </div>
