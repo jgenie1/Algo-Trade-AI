@@ -438,7 +438,19 @@ export async function executeLeoOrder(
     }
 
     const currentPrice = resolveLivePrice(targetSymbol, livePrices) || getRealMarketBasePrice(targetSymbol) || 180;
-    const marginAmount = isRealMode ? 0.25 : 75; // 0.25 SOL ou 75 $
+    let rawAvailSol = 0.05;
+    if (typeof window !== 'undefined') {
+      const storedSubs = localStorage.getItem('trade_sub_wallets');
+      if (storedSubs) {
+        try {
+          const subs = JSON.parse(storedSubs);
+          const firstFunded = subs.find((s: any) => (s.balance || 0) > 0.001);
+          if (firstFunded) rawAvailSol = firstFunded.balance;
+        } catch {}
+      }
+    }
+    const realMarginSol = Math.min(0.25, Math.max(0.005, rawAvailSol * 0.85));
+    const marginAmount = isRealMode ? parseFloat(realMarginSol.toFixed(4)) : 75;
     const leverage = 20;
 
     // Déduire la marge du solde et persister

@@ -1115,9 +1115,42 @@ export default function TradingBotsManager({
                     </div>
 
                     {assignedBots.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-400 bg-black/20 rounded-lg border border-dashed border-white/10">
-                        Aucun robot n&apos;est actuellement assigné au Sous-Wallet #{num}.
-                        <p className="text-[11px] text-slate-500 mt-1">Vous pouvez sélectionner le Sous-Wallet #{num} lors de la création d&apos;un bot ci-dessous.</p>
+                      <div className="p-4 text-center text-xs text-slate-300 bg-purple-950/20 rounded-lg border border-purple-500/30 space-y-3">
+                        <p className="font-semibold text-white">
+                          Aucun robot n&apos;est actuellement assigné au Sous-Wallet #{num}.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            const newBot: BotInstance = {
+                              id: 'bot_' + Math.random().toString(36).substring(2, 9),
+                              pair: num === 1 ? 'SOL:MEME' : 'BTC',
+                              strategy: num === 1 ? 'Pump.fun Sniper Bot' : 'AI Autopilot (Machine à Cash)',
+                              timeframe: num === 1 ? '0' : '5',
+                              capital: parseFloat((Math.min(0.25, Math.max(0.01, (bal || 0.05) * 0.9))).toFixed(4)),
+                              status: 'RUNNING',
+                              createdAt: Date.now(),
+                              totalTrades: 0,
+                              winningTrades: 0,
+                              consecutiveLosses: 0,
+                              netProfit: 0,
+                              selectivityMultiplier: 1.0,
+                              pumpMode: 'PRECOCE',
+                              priorityFee: 0.001,
+                              subWallet: num,
+                              mode: tradingMode
+                            };
+                            setBots(prev => [...(Array.isArray(prev) ? prev : []), newBot]);
+                            if (typeof window !== 'undefined') {
+                              window.dispatchEvent(new Event('web3_wallet_updated'));
+                            }
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-lg uppercase px-3 py-1.5 h-8 font-headline flex items-center gap-1.5 mx-auto"
+                        >
+                          <Zap className="h-3.5 w-3.5 fill-white" />
+                          ⚡ Assigner & Démarrer Bot #{num} Immédiatement
+                        </Button>
                       </div>
                     ) : (
                       assignedBots.map(b => (
@@ -1126,12 +1159,23 @@ export default function TradingBotsManager({
                             <div className="font-bold text-xs text-white">
                               {b.strategy}
                             </div>
-                            <Badge className={cn(
-                              "text-[9px] font-bold uppercase border-none px-2 py-0.5 rounded",
-                              b.status === 'RUNNING' ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
-                            )}>
-                              {b.status === 'RUNNING' ? 'En Cours' : 'En Pause'}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge className={cn(
+                                "text-[9px] font-bold uppercase border-none px-2 py-0.5 rounded",
+                                b.status === 'RUNNING' ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
+                              )}>
+                                {b.status === 'RUNNING' ? 'En Cours' : 'En Pause'}
+                              </Badge>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setBots(prev => prev.map(item => item.id === b.id ? { ...item, status: b.status === 'RUNNING' ? 'STOPPED' : 'RUNNING' } : item))}
+                                className="h-6 px-2 text-[10px] font-bold text-purple-300 hover:bg-white/10"
+                              >
+                                {b.status === 'RUNNING' ? 'Mettre en pause' : '▶️ Démarrer'}
+                              </Button>
+                            </div>
                           </div>
                           <div className="flex items-center justify-between text-xs font-mono text-slate-300">
                             <span>Paire: {b.pair === 'ALL' ? 'Scan Multi-Actifs' : b.pair}</span>
