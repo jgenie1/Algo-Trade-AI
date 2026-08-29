@@ -23,6 +23,14 @@ interface ActivePositionsTableProps {
   handleClosePosition: (pos: any) => void;
 }
 
+function formatDisplayPrice(val: number): string {
+  if (!val || isNaN(val)) return '0.00';
+  if (val >= 1000) return val.toFixed(2);
+  if (val >= 1) return val.toFixed(4);
+  if (val >= 0.0001) return val.toFixed(6);
+  return val.toFixed(8);
+}
+
 export default function ActivePositionsTable({
   livePrices,
   setSelectedPosition,
@@ -162,8 +170,8 @@ export default function ActivePositionsTable({
 
                     {/* Dynamic price precision formatting */}
                     <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 bg-black/40 p-3 rounded-xl border border-white/10">
-                      <div>Entrée: <span className="text-white font-extrabold">{entry.toFixed(entry > 50 ? 2 : 4)}</span></div>
-                      <div>Prix Direct: <span className="text-white font-extrabold">{current.toFixed(current > 50 ? 2 : 4)}</span></div>
+                      <div>Entrée: <span className="text-white font-extrabold">{formatDisplayPrice(entry)}</span></div>
+                      <div>Prix Direct: <span className="text-white font-extrabold">{formatDisplayPrice(current)}</span></div>
                     </div>
 
                     <div className="flex gap-2 pt-1">
@@ -246,9 +254,9 @@ export default function ActivePositionsTable({
                           </Badge>
                         </TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{lev}x</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(2)} {isSolMode ? 'SOL' : '$'}</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{entry.toFixed(entry > 50 ? 2 : 4)}</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-[#c2ff0c] font-extrabold">{current.toFixed(current > 50 ? 2 : 4)}</TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(isSolMode ? 4 : 2)} {isSolMode ? 'SOL' : '$'}</TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{formatDisplayPrice(entry)}</TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-[#c2ff0c] font-extrabold">{formatDisplayPrice(current)}</TableCell>
                         <TableCell className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <span className="relative flex h-2 w-2 shrink-0">

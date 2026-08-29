@@ -20,7 +20,8 @@ import {
   getMultipleSolanaBalances, 
   disperseSolToSubWallets,
   sweepSubWalletProfitToMaster,
-  analyzePumpCoinWithSniperPrompt 
+  analyzePumpCoinWithSniperPrompt,
+  calculatePumpCoinPriceInSol
 } from '@/services/pumpFunService';
 import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
 import { resolveLivePrice, canonicalizePair } from '@/lib/symbolUtils';
@@ -497,8 +498,8 @@ export function useTradingEngine() {
 
                 // Fallback to Pump.fun live bonding curve reserves
                 const coin = await fetchPumpCoin(mint);
-                if (coin && coin.virtual_token_reserves > 0) {
-                  const lastClose = coin.virtual_sol_reserves / coin.virtual_token_reserves;
+                if (coin) {
+                  const lastClose = calculatePumpCoinPriceInSol(coin);
                   newPrices[pairVal] = lastClose;
                   const oldPrice = livePrices[pairVal];
                   if (oldPrice) {
@@ -820,7 +821,24 @@ export function useTradingEngine() {
             }
 
             const targetPair = `SOL:${matchingCoin.mint}:${matchingCoin.symbol}`;
-            const lastClose = matchingCoin.virtual_sol_reserves / matchingCoin.virtual_token_reserves;
+            let lastClose = 0;
+            try {
+              const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${matchingCoin.mint}`, { cache: 'no-store' });
+              if (dexRes.ok) {
+                const dexData = await dexRes.json();
+                if (dexData && Array.isArray(dexData.pairs) && dexData.pairs.length > 0) {
+                  const p = dexData.pairs[0];
+                  const pNative = parseFloat(p.priceNative);
+                  if (!isNaN(pNative) && pNative > 0) {
+                    lastClose = pNative;
+                  }
+                }
+              }
+            } catch (e) {}
+
+            if (!lastClose || isNaN(lastClose) || lastClose <= 0) {
+              lastClose = calculatePumpCoinPriceInSol(matchingCoin);
+            }
 
             if (usingWs) {
               liveWsCoinsRef.current = liveWsCoinsRef.current.filter(c => c.mint !== matchingCoin.mint);
@@ -933,8 +951,8 @@ export function useTradingEngine() {
               }
 
               const orderId = 'pos_' + Math.random().toString(36).substring(2, 9);
-              const slDistance = 0.15;
-              const tpDistance = 0.80;
+              const slDistance = 0.08;
+              const tpDistance = 0.25;
 
               setLivePrices(prev => ({ ...prev, [targetPair]: lastClose }));
 
@@ -949,8 +967,8 @@ export function useTradingEngine() {
                 currentPrice: lastClose,
                 amount: posTradeAmount,
                 leverage: 1,
-                sl: parseFloat(slPrice.toFixed(5)),
-                tp: parseFloat(tpPrice.toFixed(5)),
+                sl: slPrice,
+                tp: tpPrice,
                 timestamp: Date.now(),
                 botId: bot.id,
                 highestPrice: lastClose,
@@ -1474,40 +1492,69 @@ export function useTradingEngine() {
       if (positions.length === 0) return;
 
       positions.forEach(p => {
-        const current = resolveLivePrice(p.pair, livePricesRef.current) || getRealMarketBasePrice(p.pair);
+        const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && p.currentPrice > 0 ? p.currentPrice : getRealMarketBasePrice(p.pair));
 
         if (!current || current <= 0) return;
 
         const isLong = p.type === 'BUY' || p.type === 'LONG';
         const entry = typeof p.entryPrice === 'number' && p.entryPrice > 0 ? p.entryPrice : current;
 
-        // Initialisation automatique et sécurisée du Stop-Loss si non défini (4% de distance max)
-        if (!p.sl || isNaN(p.sl)) {
-          p.sl = isLong ? parseFloat((entry * 0.96).toFixed(5)) : parseFloat((entry * 1.04).toFixed(5));
-        }
-        if (!p.tp || isNaN(p.tp)) {
-          p.tp = isLong ? parseFloat((entry * 1.08).toFixed(5)) : parseFloat((entry * 0.92).toFixed(5));
+        // Anti-Erreur d'Échelle (Sanity Check) :
+        // Si l'écart de prix dépasse un facteur 8 (écart d'unité API externe), ne pas couper sauvagement !
+        if (entry > 0 && (current / entry > 8 || current / entry < 0.125)) {
+          p.entryPrice = current;
+          return;
         }
 
-        // Trailing Stop Loss dynamique (LONG & SHORT)
+        const isMemeToken = p.pair.startsWith('SOL:');
+
+        // Initialisation automatique et sécurisée du Stop-Loss et Take-Profit
+        if (!p.sl || isNaN(p.sl)) {
+          const slRatio = isMemeToken ? 0.08 : 0.03;
+          p.sl = isLong ? (entry * (1 - slRatio)) : (entry * (1 + slRatio));
+        }
+        if (!p.tp || isNaN(p.tp)) {
+          const tpRatio = isMemeToken ? 0.25 : 0.06;
+          p.tp = isLong ? (entry * (1 + tpRatio)) : (entry * (1 - tpRatio));
+        }
+
+        // VERROUILLAGE DES PROFITS & TRAILING STOP INTELLIGENT (LONG & SHORT)
         if (isLong) {
           const currentHighest = p.highestPrice || entry;
           if (current > currentHighest) {
             p.highestPrice = current;
-            const trailingPct = p.pair.startsWith('SOL:') ? 0.06 : 0.02;
-            const newSl = parseFloat((current * (1 - trailingPct)).toFixed(5));
+            const gainPct = entry > 0 ? (current - entry) / entry : 0;
+
+            // RÈGLE D'OR : Dès que la position atteint +4% de profit, le Stop-Loss passe en Breakeven sécurisé (+1.5% garanti)
+            if (gainPct >= 0.04) {
+              const breakEvenSl = entry * 1.015;
+              if (!p.sl || breakEvenSl > p.sl) {
+                p.sl = breakEvenSl;
+              }
+            }
+
+            // Trailing Stop : suit les sommets avec marge de 5% (Meme) ou 2% (Crypto Majeure)
+            const trailingPct = isMemeToken ? 0.05 : 0.02;
+            const newSl = current * (1 - trailingPct);
             if (!p.sl || newSl > p.sl) {
               p.sl = newSl;
               setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: current, sl: newSl } : item));
             }
           }
         } else {
-          // Trailing Stop pour position SHORT (suit le point le plus bas)
+          // Trailing Stop pour position SHORT
           const currentLowest = p.lowestPrice || entry;
           if (current < currentLowest) {
             p.lowestPrice = current;
-            const trailingPct = p.pair.startsWith('SOL:') ? 0.06 : 0.02;
-            const newSl = parseFloat((current * (1 + trailingPct)).toFixed(5));
+            const gainPct = entry > 0 ? (entry - current) / entry : 0;
+            if (gainPct >= 0.04) {
+              const breakEvenSl = entry * 0.985;
+              if (!p.sl || breakEvenSl < p.sl) {
+                p.sl = breakEvenSl;
+              }
+            }
+            const trailingPct = isMemeToken ? 0.05 : 0.02;
+            const newSl = current * (1 + trailingPct);
             if (!p.sl || newSl < p.sl) {
               p.sl = newSl;
               setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, lowestPrice: current, sl: newSl } : item));
@@ -1523,29 +1570,30 @@ export function useTradingEngine() {
         const lev = p.leverage || 1;
         const liveProfit = pctDiff * (p.amount || 1) * lev * (isLong ? 1 : -1);
 
-        // Protection Stop-Loss stricte : coupure immédiate si la perte atteint 4% du montant
-        const maxAllowedLoss = -Math.max((p.amount || 1) * 0.04, 1);
+        // Protection Stop-Loss stricte : coupure à max 8% de perte du montant engagé
+        const maxLossRatio = isMemeToken ? 0.08 : 0.035;
+        const maxAllowedLoss = -(p.amount || 1) * maxLossRatio;
         if (liveProfit <= maxAllowedLoss) {
           shouldClose = true;
-          closeReason = `Arrêt Stop-Loss Anti-Perte (Perte limitée à max 4%)`;
+          closeReason = `Arrêt Stop-Loss Sécurisé (Perte limitée à max ${(maxLossRatio * 100).toFixed(0)}%)`;
         }
 
         if (!shouldClose) {
           if (isLong) {
             if (p.sl && current <= p.sl) {
               shouldClose = true;
-              closeReason = `Stop-Loss déclenché (${current.toFixed(5)} <= ${p.sl})`;
+              closeReason = current >= entry ? `Take-Profit Trailing Sécurisé (+${((current - entry) / entry * 100).toFixed(1)}%)` : `Stop-Loss déclenché`;
             } else if (p.tp && current >= p.tp) {
               shouldClose = true;
-              closeReason = `Take Profit déclenché (${current.toFixed(5)} >= ${p.tp})`;
+              closeReason = `Take Profit Atteint (+${((current - entry) / entry * 100).toFixed(1)}%)`;
             }
           } else {
             if (p.sl && current >= p.sl) {
               shouldClose = true;
-              closeReason = `Stop-Loss déclenché (${current.toFixed(5)} >= ${p.sl})`;
+              closeReason = current <= entry ? `Take-Profit Trailing Sécurisé (+${((entry - current) / entry * 100).toFixed(1)}%)` : `Stop-Loss déclenché`;
             } else if (p.tp && current <= p.tp) {
               shouldClose = true;
-              closeReason = `Take Profit déclenché (${current.toFixed(5)} <= ${p.tp})`;
+              closeReason = `Take Profit Atteint (+${((entry - current) / entry * 100).toFixed(1)}%)`;
             }
           }
         }
@@ -1606,6 +1654,8 @@ export function useTradingEngine() {
     const p = activePositionsRef.current.find(x => x.id === posId);
     if (!p) return;
 
+    const posMode = p.mode || 'DEMO';
+    const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : (getRealMarketBasePrice(p.pair || '') || exitPrice);
     const priceDiff = exitPrice - entry;
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
@@ -1614,12 +1664,10 @@ export function useTradingEngine() {
     const isLong = p.type === 'BUY';
     const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
     const maxGain = amt * lev * 5;
-    // RÈGLE ANTI-PERTE ABSOLUE : Le Stop Loss limite la perte à un maximum de 5% du montant engagé
-    const maxLoss = -Math.min(amt, Math.max(amt * 0.05, 1));
-    const profit = Math.max(maxLoss, Math.min(maxGain, rawProfit));
-
-    const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
-    const posMode = p.mode || 'DEMO';
+    // RÈGLE ANTI-PERTE ABSOLUE : Le Stop Loss limite la perte à un maximum de 8% du montant engagé (en SOL comme en USD)
+    const isRealSol = posMode === 'REAL' || tradingModeRef.current === 'REAL';
+    const maxLossLimit = isRealSol ? -(amt * 0.08) : -Math.min(amt, Math.max(amt * 0.05, 1));
+    const profit = Math.max(maxLossLimit, Math.min(maxGain, rawProfit));
 
     let mintAddress = '';
     if (p.mint && p.mint.length >= 32 && p.mint.length <= 44) {
@@ -1823,6 +1871,30 @@ export function useTradingEngine() {
             console.warn("[SOLANA PROFIT SWEEP ERROR]", err);
           });
         }
+      } else {
+        // En cas de perte ou clôture sans gain, recréditer le capital restant (amt + profit) au solde SOL
+        const returnedCapitalSol = Math.max(0, amt + profit);
+        setSolanaBalance(prev => {
+          const currentBal = prev !== null ? prev : 0;
+          const nextBal = currentBal + returnedCapitalSol;
+          if (typeof window !== 'undefined') localStorage.setItem('trade_solana_balance', nextBal.toString());
+          return nextBal;
+        });
+        let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
+        if (currentSolUsdPrice <= 1) {
+          const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
+          currentSolUsdPrice = savedCmc > 1 ? savedCmc : 150;
+        }
+        setBalance(prev => {
+          const nextUsd = Math.max(0, prev + (returnedCapitalSol * currentSolUsdPrice));
+          if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
+          return nextUsd;
+        });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+          window.dispatchEvent(new Event('storage'));
+        }
       }
     }
     
@@ -1869,7 +1941,14 @@ export function useTradingEngine() {
 
     const sourceLabel = p.botId ? p.botId : 'manual';
     const logBotName = p.botId ? p.botId : 'Ordre Manuel';
-    addBotLog(sourceLabel, logBotName, `Position fermée à ${exitPrice.toFixed(5)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${formatSmartPnl(profit, posMode === 'REAL')} ${posMode === 'REAL' ? 'SOL' : '$'}`, 'trade');
+    const formatPriceClean = (val: number) => {
+      if (!val || isNaN(val)) return '0.00';
+      if (val >= 1000) return val.toFixed(2);
+      if (val >= 1) return val.toFixed(4);
+      if (val >= 0.0001) return val.toFixed(6);
+      return val.toFixed(9);
+    };
+    addBotLog(sourceLabel, logBotName, `Position fermée à ${formatPriceClean(exitPrice)} (${reason}). Résultat: ${profit >= 0 ? '+' : ''}${formatSmartPnl(profit, posMode === 'REAL')} ${posMode === 'REAL' ? 'SOL' : '$'}`, 'trade');
       
     if (profit < 0) {
       let learningEffect = '';

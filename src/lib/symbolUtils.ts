@@ -5,7 +5,17 @@
 
 export function cleanSymbol(symbol: string): string {
   if (!symbol) return '';
-  return symbol
+  let s = symbol.trim();
+  if (s.startsWith('SOL:')) {
+    const parts = s.split(':');
+    if (parts.length >= 3 && parts[2]) {
+      return parts[2].toUpperCase();
+    }
+    if (parts.length >= 2 && parts[1]) {
+      return parts[1];
+    }
+  }
+  return s
     .replace('FX:', '')
     .replace('-USD', '')
     .replace('USD', '')
@@ -51,21 +61,33 @@ export function resolveLivePrice(pair: string, livePrices: Record<string, number
   // 1. Direct match
   if (livePrices[pair] && livePrices[pair] > 0) return livePrices[pair];
 
-  // 2. Canonical match
+  // 2. Solana format match: 'SOL:mint:symbol' or 'SOL:mint'
+  if (pair.startsWith('SOL:')) {
+    const parts = pair.split(':');
+    const mint = parts[1];
+    if (mint) {
+      if (livePrices[mint] && livePrices[mint] > 0) return livePrices[mint];
+      if (livePrices[`SOL:${mint}`] && livePrices[`SOL:${mint}`] > 0) return livePrices[`SOL:${mint}`];
+    }
+    const sym = parts[2];
+    if (sym) {
+      if (livePrices[sym] && livePrices[sym] > 0) return livePrices[sym];
+      if (livePrices[`${sym}-USD`] && livePrices[`${sym}-USD`] > 0) return livePrices[`${sym}-USD`];
+      if (livePrices[`${sym}USDT`] && livePrices[`${sym}USDT`] > 0) return livePrices[`${sym}USDT`];
+    }
+  }
+
+  // 3. Canonical match
   const canonical = canonicalizePair(pair);
   if (livePrices[canonical] && livePrices[canonical] > 0) return livePrices[canonical];
 
-  // 3. Clean symbol match
+  // 4. Clean symbol match
   const clean = cleanSymbol(pair);
-  if (livePrices[clean] && livePrices[clean] > 0) return livePrices[clean];
-  if (livePrices[`${clean}-USD`] && livePrices[`${clean}-USD`] > 0) return livePrices[`${clean}-USD`];
-  if (livePrices[`FX:${clean}USD`] && livePrices[`FX:${clean}USD`] > 0) return livePrices[`FX:${clean}USD`];
-  if (livePrices[`${clean}USDT`] && livePrices[`${clean}USDT`] > 0) return livePrices[`${clean}USDT`];
-
-  // 4. Solana format match
-  if (pair.startsWith('SOL:')) {
-    const mint = pair.replace('SOL:', '');
-    if (livePrices[mint] && livePrices[mint] > 0) return livePrices[mint];
+  if (clean) {
+    if (livePrices[clean] && livePrices[clean] > 0) return livePrices[clean];
+    if (livePrices[`${clean}-USD`] && livePrices[`${clean}-USD`] > 0) return livePrices[`${clean}-USD`];
+    if (livePrices[`FX:${clean}USD`] && livePrices[`FX:${clean}USD`] > 0) return livePrices[`FX:${clean}USD`];
+    if (livePrices[`${clean}USDT`] && livePrices[`${clean}USDT`] > 0) return livePrices[`${clean}USDT`];
   }
 
   return 0;
