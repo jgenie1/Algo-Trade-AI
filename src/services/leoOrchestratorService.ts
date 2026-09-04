@@ -147,6 +147,7 @@ export async function executeLeoOrder(
     setReserveVaultSol?: React.Dispatch<React.SetStateAction<number>>;
     setBots: React.Dispatch<React.SetStateAction<BotInstance[]>>;
     setBalance?: React.Dispatch<React.SetStateAction<number>>;
+    setSolanaBalance?: React.Dispatch<React.SetStateAction<number | null>>;
     setBotLogs?: React.Dispatch<React.SetStateAction<BotLog[]>>;
     setTransactions?: React.Dispatch<React.SetStateAction<Transaction[]>>;
   },
@@ -240,7 +241,26 @@ export async function executeLeoOrder(
     actions.setActivePositions(prev => prev.filter(p => !positionsToClose.some(c => c.id === p.id)));
 
     // 2. Rapatrier les fonds vers le solde
-    if (actions.setBalance) {
+    if (isRealMode) {
+      if (actions.setSolanaBalance) {
+        actions.setSolanaBalance(prev => {
+          const cur = prev !== null ? prev : 0;
+          const nextBal = cur + (totalReturnUsd / solPriceUsd);
+          if (typeof window !== 'undefined') localStorage.setItem('trade_solana_balance', nextBal.toString());
+          return nextBal;
+        });
+      }
+      if (actions.setBalance) {
+        actions.setBalance(prev => {
+          const nextBal = Math.max(0, prev + totalReturnUsd);
+          if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextBal.toString());
+          return nextBal;
+        });
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('web3_wallet_updated'));
+      }
+    } else if (actions.setBalance) {
       actions.setBalance(prev => {
         const nextBal = Math.max(0, prev + totalReturnUsd);
         if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextBal.toString());
@@ -257,7 +277,11 @@ export async function executeLeoOrder(
     if (totalProfitUsd > 0) {
       const skim = totalProfitUsd * 0.10;
       if (isRealMode && actions.setReserveVaultSol) {
-        actions.setReserveVaultSol(prev => prev + (skim / solPriceUsd));
+        actions.setReserveVaultSol(prev => {
+          const next = prev + (skim / solPriceUsd);
+          if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault_sol', next.toString());
+          return next;
+        });
       } else if (actions.setReserveVault) {
         actions.setReserveVault(prev => {
           const updated = prev + skim;
@@ -310,7 +334,40 @@ export async function executeLeoOrder(
     let skimAmountUsd = totalWin > 0 ? totalWin * 0.10 : Math.min(25, currentBalance * 0.05);
     skimAmountUsd = Math.max(10, Math.min(currentBalance, parseFloat(skimAmountUsd.toFixed(2))));
 
-    if (currentBalance >= skimAmountUsd && actions.setBalance) {
+    let canLock = false;
+
+    if (isRealMode) {
+      const currentSol = parseFloat(localStorage.getItem('trade_solana_balance') || '0') || (state?.solanaBalance || 0);
+      const solVal = parseFloat((skimAmountUsd / solPriceUsd).toFixed(4));
+      if (currentSol >= solVal && solVal > 0) {
+        canLock = true;
+        if (actions.setSolanaBalance) {
+          actions.setSolanaBalance(prev => {
+            const next = Math.max(0, (prev || 0) - solVal);
+            if (typeof window !== 'undefined') localStorage.setItem('trade_solana_balance', next.toString());
+            return next;
+          });
+        }
+        if (actions.setReserveVaultSol) {
+          actions.setReserveVaultSol(prev => {
+            const next = (prev || 0) + solVal;
+            if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault_sol', next.toString());
+            return next;
+          });
+        }
+        if (actions.setBalance) {
+          actions.setBalance(prev => {
+            const next = Math.max(0, prev - skimAmountUsd);
+            if (typeof window !== 'undefined') localStorage.setItem('trade_balance', next.toString());
+            return next;
+          });
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
+      }
+    } else if (currentBalance >= skimAmountUsd && actions.setBalance) {
+      canLock = true;
       // Déduire du solde disponible
       actions.setBalance(prev => {
         const next = Math.max(0, prev - skimAmountUsd);
@@ -318,22 +375,16 @@ export async function executeLeoOrder(
         return next;
       });
 
-      // Créditer le coffre-fort
-      if (isRealMode && actions.setReserveVaultSol) {
-        const solVal = skimAmountUsd / solPriceUsd;
-        actions.setReserveVaultSol(prev => {
-          const next = prev + solVal;
-          if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault_sol', next.toString());
-          return next;
-        });
-      } else if (actions.setReserveVault) {
+      if (actions.setReserveVault) {
         actions.setReserveVault(prev => {
           const next = prev + skimAmountUsd;
           if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault', next.toString());
           return next;
         });
       }
+    }
 
+    if (canLock) {
       // Ajouter à la liste des transactions
       if (actions.setTransactions) {
         actions.setTransactions(prev => [
@@ -384,7 +435,7 @@ export async function executeLeoOrder(
       return {
         success: true,
         actionTaken: "LOCK_PROFITS",
-        message: `👑 Commandant, votre Coffre-Fort contient actuellement $${state?.reserveVault || 0}. Le solde disponible actuel est insuffisant pour un nouveau transfert.`
+        message: `👑 Commandant, votre Coffre-Fort contient actuellement $${isRealMode ? ((Number(state?.reserveVaultSol) || 0) * solPriceUsd).toFixed(2) : (state?.reserveVault || 0)}. Le solde disponible actuel est insuffisant pour un nouveau transfert.`
       };
     }
   }

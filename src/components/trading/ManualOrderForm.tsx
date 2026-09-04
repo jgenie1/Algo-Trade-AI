@@ -81,6 +81,23 @@ export default function ManualOrderForm({
     return () => clearInterval(interval);
   }, [tradingMode]);
 
+  // Synchronisation automatique de la paire sélectionnée lors du basculement Démo <-> Réel
+  React.useEffect(() => {
+    if (tradingMode === 'REAL') {
+      if (!selectedPair.startsWith('SOL:')) {
+        if (trendingCoins.length > 0) {
+          setSelectedPair(`SOL:${trendingCoins[0].mint}:${trendingCoins[0].symbol}`);
+        } else {
+          setSelectedPair('SOL:DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263:BONK');
+        }
+      }
+    } else if (tradingMode === 'DEMO') {
+      if (selectedPair.startsWith('SOL:')) {
+        setSelectedPair('FX:EURUSD');
+      }
+    }
+  }, [tradingMode, trendingCoins.length]);
+
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingOrderRef.current) return;

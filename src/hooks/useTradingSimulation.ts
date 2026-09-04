@@ -618,7 +618,7 @@ export function useTradingEngine() {
   const balanceRef = useRef(balance);
   const solanaBalanceRef = useRef(solanaBalance);
 
-  const closePositionByIdRef = useRef<(posId: string, exitPrice: number, reason: string) => void>(() => {});
+  const closePositionByIdRef = useRef<(posIdOrPos: string | Position, exitPrice: number, reason: string) => void>(() => {});
   const refreshWalletRef = useRef<() => void>(() => {});
   const addBotLogRef = useRef<(botId: string, botName: string, message: string, type: 'info' | 'trade' | 'error') => void>(() => {});
 
@@ -1630,9 +1630,10 @@ export function useTradingEngine() {
     }
   };
 
-  const closePositionById = async (posId: string, exitPrice: number, reason: string) => {
-    const p = activePositionsRef.current.find(x => x.id === posId);
+  const closePositionById = async (posIdOrPos: string | Position, exitPrice: number, reason: string) => {
+    const p = typeof posIdOrPos === 'object' ? posIdOrPos : activePositionsRef.current.find(x => x.id === posIdOrPos);
     if (!p) return;
+    const posId = p.id;
 
     const posMode = p.mode || 'DEMO';
     const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
@@ -2152,7 +2153,7 @@ export function useTradingEngine() {
     // Mise à jour optimiste immédiate de l'interface
     setActivePositions(prev => prev.filter(x => x.id !== p.id));
     try {
-      await closePositionById(p.id, current, "Fermeture manuelle");
+      await closePositionById(p, current, "Fermeture manuelle");
     } catch (e: any) {
       console.warn("[Close Position] Erreur de clôture:", e);
     }
@@ -2166,7 +2167,7 @@ export function useTradingEngine() {
     for (const p of active) {
       const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : (p.entryPrice || 1));
       try {
-        await closePositionById(p.id, current, "Clôture globale");
+        await closePositionById(p, current, "Clôture globale");
       } catch (e: any) {
         console.warn("[Close All] Erreur de clôture sur position:", p.id, e);
       }

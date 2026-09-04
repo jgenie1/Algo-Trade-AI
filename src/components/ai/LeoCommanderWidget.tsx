@@ -147,6 +147,14 @@ export default function LeoCommanderWidget() {
     setIsLeoThinking(true);
 
     try {
+      const liveSol = getSolUsdRate() || 105.2;
+      const livePrices: Record<string, number> = {
+        'SOL': liveSol,
+        'SOL-USD': liveSol,
+        'BTC': 78200,
+        'ETH': 2450,
+        'BNB': 693
+      };
       const result = await executeLeoOrder(
         textToSend, 
         state, 
@@ -157,10 +165,11 @@ export default function LeoCommanderWidget() {
           setReserveVaultSol: state.setReserveVaultSol,
           setBots: state.setBots,
           setBalance: state.setBalance,
+          setSolanaBalance: (state as any).setSolanaBalance,
           setBotLogs: state.setBotLogs,
           setTransactions: state.setTransactions
         },
-        {},
+        livePrices,
         newLogs
       );
 

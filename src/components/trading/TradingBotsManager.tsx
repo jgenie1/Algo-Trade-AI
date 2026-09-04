@@ -430,9 +430,24 @@ export default function TradingBotsManager({
 
   const handleClearAllBots = () => {
     if (bots.length === 0) return;
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer tous les robots de trading configurés ?")) {
-      setBots([]);
-      addBotLog('system', 'System', `🗑️ Tous les robots de trading ont été réinitialisés.`, 'info');
+    const demoRefund = bots.reduce((acc, b) => {
+      if ((b.mode || 'DEMO') === 'DEMO') {
+        return acc + (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0);
+      }
+      return acc;
+    }, 0);
+    if (demoRefund > 0) {
+      setBalance(prev => {
+        const nextBal = prev + demoRefund;
+        if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextBal.toString());
+        return nextBal;
+      });
+    }
+    setBots([]);
+    addBotLog('system', 'System', `🗑️ Tous les robots de trading ont été réinitialisés${demoRefund > 0 ? ` (+$${demoRefund.toFixed(2)} restitués au solde démo)` : ''}.`, 'info');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('web3_wallet_updated'));
+      window.dispatchEvent(new Event('storage'));
     }
   };
 
