@@ -75,6 +75,7 @@ export default function TradingTerminalPage() {
     handleDeleteBot,
     handleDisperseSOL,
     handleClosePosition,
+    handleCloseAllPositions,
     resetDemoData
   } = useTradingEngine();
 
@@ -150,6 +151,7 @@ export default function TradingTerminalPage() {
         livePrices={livePrices}
         setSelectedPosition={setSelectedPosition}
         handleClosePosition={handleClosePosition}
+        handleCloseAllPositions={handleCloseAllPositions}
       />
 
       {/* Navigation Tabs */}

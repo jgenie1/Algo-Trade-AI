@@ -21,6 +21,7 @@ interface ActivePositionsTableProps {
   livePrices: { [key: string]: number };
   setSelectedPosition: (pos: any) => void;
   handleClosePosition: (pos: any) => void;
+  handleCloseAllPositions?: () => void;
 }
 
 function formatDisplayPrice(val: number): string {
@@ -34,7 +35,8 @@ function formatDisplayPrice(val: number): string {
 export default function ActivePositionsTable({
   livePrices,
   setSelectedPosition,
-  handleClosePosition
+  handleClosePosition,
+  handleCloseAllPositions
 }: ActivePositionsTableProps) {
   const { activePositions, tradingMode, isLoading } = useAppState();
   const safePositions = Array.isArray(activePositions) ? activePositions : [];
@@ -70,7 +72,9 @@ export default function ActivePositionsTable({
             {filteredPositions.length > 0 && (
               <Button
                 onClick={() => {
-                  if (confirm(`Fermer toutes les ${filteredPositions.length} positions ouvertes ?`)) {
+                  if (handleCloseAllPositions) {
+                    handleCloseAllPositions();
+                  } else {
                     filteredPositions.forEach(p => handleClosePosition(p));
                   }
                 }}

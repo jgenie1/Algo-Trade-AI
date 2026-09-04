@@ -15,7 +15,8 @@ import {
   executeRealPumpTrade, 
   executeJupiterSwap,
   SOLANA_TOKEN_MINTS,
-  getRealSolanaBalance, 
+  getRealSolanaBalance,
+  fetchLiveWalletBalance,
   checkSolanaNetworkHealth, 
   getMultipleSolanaBalances, 
   disperseSolToSubWallets,
@@ -199,7 +200,6 @@ export function useTradingEngine() {
     if (!isMounted) return;
 
     // Helper: fetch Solana balance for browser wallet address (Phantom/Solflare)
-    // Used when server-side SOLANA_PRIVATE_KEY is not configured
     const fetchBrowserSolanaBalance = async (): Promise<boolean> => {
       try {
         const storedWallet = localStorage.getItem('connected_web3_wallet');
@@ -211,9 +211,8 @@ export function useTradingEngine() {
         setSolanaPubKey(parsed.address);
         setIsSolanaWalletActive(true);
         setWalletChain('Solana');
-        setSolanaBalance((prev) => (prev !== null ? prev : 0));
 
-        // Fetch balance from Solana RPC using public endpoints fallback
+        // Fetch exact balance from Solana RPC using public endpoints fallback
         const { Connection, PublicKey } = await import('@solana/web3.js');
         const pubKey = new PublicKey(parsed.address);
 
@@ -226,15 +225,15 @@ export function useTradingEngine() {
           'https://solana-mainnet.rpc.extrnode.com'
         ].filter(Boolean) as string[];
 
-        const accruedProfit = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_accrued_profit_sol') || '0') : 0;
-        const validAccrued = isNaN(accruedProfit) ? 0 : accruedProfit;
-
         for (const rpcUrl of rpcEndpoints) {
           try {
             const connection = new Connection(rpcUrl, { commitment: 'confirmed' });
             const lamports = await connection.getBalance(pubKey);
-            const sol = (lamports / 1e9) + validAccrued;
+            const sol = lamports / 1e9;
             setSolanaBalance(sol);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('trade_solana_balance', sol.toString());
+            }
             return true;
           } catch (rpcErr) {}
         }
@@ -270,24 +269,36 @@ export function useTradingEngine() {
     };
 
     const updateWalletAndStatus = async () => {
-      const accruedProfit = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_accrued_profit_sol') || '0') : 0;
-      const validAccrued = isNaN(accruedProfit) ? 0 : accruedProfit;
-
-      // 1. Try server-side Solana keypair balance (requires SOLANA_PRIVATE_KEY env var)
-      const serverRes = await getRealSolanaBalance();
-      if (serverRes && serverRes.success && serverRes.balance !== undefined && serverRes.publicKey) {
-        setSolanaBalance(serverRes.balance + validAccrued);
-        setSolanaPubKey(serverRes.publicKey);
-        setIsSolanaWalletActive(true);
-        setWalletChain('Solana');
-      } else {
-        // 2. Fallback: read connected browser wallet from localStorage
-        const solanaOk = await fetchBrowserSolanaBalance();
-        if (!solanaOk) {
-          // 3. Last fallback: try EVM wallet (MetaMask / Trust Wallet)
-          setIsSolanaWalletActive(false);
-          await fetchEvmBalance();
+      // 1. Try direct live wallet balance sync (Phantom / Solflare / Server key / EVM)
+      try {
+        const liveRes = await fetchLiveWalletBalance();
+        if (liveRes && liveRes.success) {
+          if (liveRes.solanaPubKey) {
+            setSolanaPubKey(liveRes.solanaPubKey);
+            setIsSolanaWalletActive(true);
+          }
+          if (liveRes.solanaBalance !== null) {
+            setSolanaBalance(liveRes.solanaBalance);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('trade_solana_balance', liveRes.solanaBalance.toString());
+            }
+          }
+          if (liveRes.evmBalance !== null) {
+            setEvmBalance(liveRes.evmBalance);
+          }
+          if (liveRes.walletChain) {
+            setWalletChain(liveRes.walletChain as 'Solana' | 'BSC' | 'Ethereum' | null);
+          }
+        } else {
+          // Fallback if needed
+          const solanaOk = await fetchBrowserSolanaBalance();
+          if (!solanaOk) {
+            setIsSolanaWalletActive(false);
+            await fetchEvmBalance();
+          }
         }
+      } catch (err) {
+        console.warn('[Wallet] Live balance sync warning:', err);
       }
 
       // 4. Solana network health check (for latency display)
@@ -2135,17 +2146,31 @@ export function useTradingEngine() {
     setBotLogs(prev => prev.filter(l => l.botId !== botId));
   };
 
-  const handleClosePosition = (p: Position) => {
-    const current = livePrices[p.pair] || p.entryPrice;
-    closePositionById(p.id, current, "Fermeture manuelle");
+  const handleClosePosition = async (p: Position) => {
+    if (!p || !p.id) return;
+    const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : (p.entryPrice || 1));
+    // Mise à jour optimiste immédiate de l'interface
+    setActivePositions(prev => prev.filter(x => x.id !== p.id));
+    try {
+      await closePositionById(p.id, current, "Fermeture manuelle");
+    } catch (e: any) {
+      console.warn("[Close Position] Erreur de clôture:", e);
+    }
   };
 
-  const handleCloseAllPositions = () => {
+  const handleCloseAllPositions = async () => {
     const active = [...activePositionsRef.current];
-    active.forEach(p => {
-      const current = livePrices[p.pair] || p.entryPrice;
-      closePositionById(p.id, current, "Clôture globale");
-    });
+    if (active.length === 0) return;
+    // Nettoyage visuel instantané
+    setActivePositions([]);
+    for (const p of active) {
+      const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : (p.entryPrice || 1));
+      try {
+        await closePositionById(p.id, current, "Clôture globale");
+      } catch (e: any) {
+        console.warn("[Close All] Erreur de clôture sur position:", p.id, e);
+      }
+    }
   };
 
   closePositionByIdRef.current = closePositionById;
