@@ -20,8 +20,7 @@ import {
   Bot,
   Trophy,
   Coins,
-  Layers,
-  Crown
+  Layers
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAppState } from '@/context/AppContext';
@@ -32,13 +31,6 @@ export default function MobileQuickActionSheet() {
   const { reserveVault, reserveVaultSol, tradingMode, setBalance, setReserveVault, setReserveVaultSol, setTransactions } = useAppState();
   const [isOpen, setIsOpen] = useState(false);
   const [isSwapOpen, setIsSwapOpen] = useState(false);
-
-  const handleOpenLeo = () => {
-    setIsOpen(false);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('open_leo_commander'));
-    }
-  };
 
   const handleUnlockVaultFast = () => {
     const isReal = tradingMode === 'REAL';
@@ -90,23 +82,6 @@ export default function MobileQuickActionSheet() {
               Accès direct aux fonctionnalités essentielles de trading
             </DialogDescription>
           </DialogHeader>
-
-          {/* Bouton Hero LÉO AI COMMANDER */}
-          <button
-            onClick={handleOpenLeo}
-            className="w-full p-3 bg-gradient-to-r from-amber-500 via-[#f0b90b] to-yellow-600 text-black rounded-2xl flex items-center justify-between shadow-[0_0_20px_rgba(240,185,11,0.4)] active:scale-95 transition-all font-headline"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-black/20 text-black rounded-xl">
-                <Crown className="h-5 w-5" />
-              </div>
-              <div className="text-left">
-                <span className="text-xs font-black block uppercase tracking-wider">LÉO AI COMMANDER</span>
-                <span className="text-[10px] text-black/80 font-medium block">Veille Web & Contrôle des 5 Bots</span>
-              </div>
-            </div>
-            <span className="text-[9px] font-black uppercase bg-black text-[#f0b90b] px-2 py-1 rounded-lg">OUVRIR</span>
-          </button>
 
           <div className="grid grid-cols-2 gap-2.5 py-1 font-body">
             <Link

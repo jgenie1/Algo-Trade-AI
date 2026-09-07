@@ -13,7 +13,6 @@ import DEXSwapModal from '@/components/wallet/DEXSwapModal';
 import PositionDetailsModal from '@/components/trading/PositionDetailsModal';
 import MarketRadarAndChart from '@/components/trading/MarketRadarAndChart';
 import PortfolioStatsHeader from '@/components/layout/PortfolioStatsHeader';
-import LeoCommanderWidget from '@/components/ai/LeoCommanderWidget';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { SwapToken } from '@/services/dexSwapService';
 
@@ -296,9 +295,6 @@ export default function TradingTerminalPage() {
         initialFromToken={swapFromToken}
         initialToToken={swapToToken}
       />
-
-      {/* 👑 Widget Flottant LÉO — Maître Orchestrateur IA */}
-      <LeoCommanderWidget />
     </div>
   );
 }
