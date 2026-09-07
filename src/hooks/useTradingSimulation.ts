@@ -1635,17 +1635,17 @@ export function useTradingEngine() {
     if (!p) return;
     const posId = p.id;
 
-    const posMode = p.mode || 'DEMO';
+    const posMode: 'DEMO' | 'REAL' = p.mode ? p.mode : (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO');
     const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : (getRealMarketBasePrice(p.pair || '') || exitPrice);
     const priceDiff = exitPrice - entry;
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
     const lev = typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1;
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-    const isLong = p.type === 'BUY';
+    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
     const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
     // RÈGLE ANTI-PERTE STRICTE : En mode RÉEL, la perte maximale est strictement bridée à 8% du montant engagé
-    const isRealSol = posMode === 'REAL' || tradingModeRef.current === 'REAL';
+    const isRealSol = posMode === 'REAL';
     const maxLossLimit = isRealSol ? -(amt * 0.08) : -Math.min(amt, Math.max(amt * 0.05, 1));
     const profit = Math.max(maxLossLimit, rawProfit);
 
@@ -1666,11 +1666,11 @@ export function useTradingEngine() {
       }
     }
 
-    const isRealSolanaPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && (mintAddress.length >= 32 && mintAddress.length <= 44 || !!p.txHash);
+    const isRealSolanaPos = posMode === 'REAL' && (mintAddress.length >= 32 && mintAddress.length <= 44 || !!p.txHash);
 
     // Check if this is a Jupiter crypto position (has txHash from Jupiter buy, not a Pump.fun mint)
     const pairSymbolForSell = (p.pair || '').replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
-    const isJupiterCryptoPos = (posMode === 'REAL' || tradingModeRef.current === 'REAL') && !!SOLANA_TOKEN_MINTS[pairSymbolForSell] && !!p.txHash && !(mintAddress.length >= 32 && mintAddress.length <= 44);
+    const isJupiterCryptoPos = posMode === 'REAL' && !!SOLANA_TOKEN_MINTS[pairSymbolForSell] && !!p.txHash && !(mintAddress.length >= 32 && mintAddress.length <= 44);
 
     let sellTxHash: string | undefined = undefined;
 
@@ -2106,7 +2106,13 @@ export function useTradingEngine() {
       }, 50);
     }
 
-    setActivePositions(prev => prev.filter(x => x.id !== posId));
+    setActivePositions(prev => {
+      const next = prev.filter(x => x.id !== posId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('trade_positions', JSON.stringify(next));
+      }
+      return next;
+    });
   };
 
   const handleToggleBot = (botId: string) => {
@@ -2147,11 +2153,20 @@ export function useTradingEngine() {
     setBotLogs(prev => prev.filter(l => l.botId !== botId));
   };
 
-  const handleClosePosition = async (p: Position) => {
+  const handleClosePosition = async (posOrId: Position | string) => {
+    const p = typeof posOrId === 'object' ? posOrId : activePositionsRef.current.find(x => x.id === posOrId);
     if (!p || !p.id) return;
-    const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : (p.entryPrice || 1));
-    // Mise à jour optimiste immédiate de l'interface
-    setActivePositions(prev => prev.filter(x => x.id !== p.id));
+
+    // Mise à jour optimiste immédiate de l'interface et du stockage local
+    setActivePositions(prev => {
+      const next = prev.filter(x => x.id !== p.id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('trade_positions', JSON.stringify(next));
+      }
+      return next;
+    });
+
+    const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : (p.entryPrice || getRealMarketBasePrice(p.pair) || 1));
     try {
       await closePositionById(p, current, "Fermeture manuelle");
     } catch (e: any) {
@@ -2159,19 +2174,29 @@ export function useTradingEngine() {
     }
   };
 
-  const handleCloseAllPositions = async () => {
-    const active = [...activePositionsRef.current];
-    if (active.length === 0) return;
-    // Nettoyage visuel instantané
-    setActivePositions([]);
-    for (const p of active) {
-      const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) ? p.currentPrice : (p.entryPrice || 1));
+  const handleCloseAllPositions = async (targetMode?: 'DEMO' | 'REAL') => {
+    const modeToClose = targetMode || tradingModeRef.current;
+    const allPositions = [...activePositionsRef.current];
+    const positionsToClose = allPositions.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === modeToClose);
+    if (positionsToClose.length === 0) return;
+
+    // Nettoyage visuel instantané des positions du mode actif tout en préservant l'autre mode
+    setActivePositions(prev => {
+      const remaining = prev.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) !== modeToClose);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('trade_positions', JSON.stringify(remaining));
+      }
+      return remaining;
+    });
+
+    await Promise.allSettled(positionsToClose.map(async (p) => {
+      const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : (p.entryPrice || getRealMarketBasePrice(p.pair) || 1));
       try {
         await closePositionById(p, current, "Clôture globale");
       } catch (e: any) {
         console.warn("[Close All] Erreur de clôture sur position:", p.id, e);
       }
-    }
+    }));
   };
 
   closePositionByIdRef.current = closePositionById;

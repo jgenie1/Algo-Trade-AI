@@ -21,7 +21,7 @@ interface ActivePositionsTableProps {
   livePrices: { [key: string]: number };
   setSelectedPosition: (pos: any) => void;
   handleClosePosition: (pos: any) => void;
-  handleCloseAllPositions?: () => void;
+  handleCloseAllPositions?: (targetMode?: 'DEMO' | 'REAL') => void;
 }
 
 function formatDisplayPrice(val: number): string {
@@ -71,15 +71,16 @@ export default function ActivePositionsTable({
             {/* Bouton Tout Fermer */}
             {filteredPositions.length > 0 && (
               <Button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (handleCloseAllPositions) {
-                    handleCloseAllPositions();
+                    handleCloseAllPositions(tradingMode);
                   } else {
                     filteredPositions.forEach(p => handleClosePosition(p));
                   }
                 }}
                 size="sm"
-                className="h-7 px-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-bold rounded-lg transition-all active:scale-95"
+                className="h-7 px-2.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-bold rounded-lg transition-all active:scale-95 cursor-pointer"
               >
                 Tout Fermer ({filteredPositions.length})
               </Button>
@@ -278,17 +279,23 @@ export default function ActivePositionsTable({
                         <TableCell className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <Button
-                              onClick={() => setSelectedPosition(p)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPosition(p);
+                              }}
                               variant="outline"
                               size="sm"
-                              className="h-8 px-2.5 bg-white/5 hover:bg-white/15 text-slate-200 border-white/15 text-xs font-bold rounded-lg flex items-center gap-1"
+                              className="h-8 px-2.5 bg-white/5 hover:bg-white/15 text-slate-200 border-white/15 text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
                             >
                               <Eye className="h-3.5 w-3.5 text-purple-400" /> Détails
                             </Button>
                             <Button
-                              onClick={() => handleClosePosition(p)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleClosePosition(p);
+                              }}
                               size="sm"
-                              className="h-8 px-3 bg-rose-600/30 hover:bg-rose-600/40 border border-rose-500/40 text-rose-200 text-xs font-bold rounded-lg"
+                              className="h-8 px-3 bg-rose-600/30 hover:bg-rose-600/40 border border-rose-500/40 text-rose-200 text-xs font-bold rounded-lg cursor-pointer active:scale-95 transition-all"
                             >
                               Fermer
                             </Button>

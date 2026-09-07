@@ -249,16 +249,19 @@ export default function PositionDetailsModal({
         <div className="flex gap-3 pt-2">
           <Button
             onClick={() => {
-              handleClosePosition(position);
+              if (position) {
+                handleClosePosition(position);
+              }
               onClose();
             }}
-            className="flex-1 h-11 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/30 rounded-xl text-xs font-semibold font-headline uppercase transition-all duration-200 border-none"
+            className="flex-1 h-11 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 hover:border-rose-500/50 rounded-xl text-xs font-bold font-headline uppercase transition-all duration-200 cursor-pointer active:scale-95"
           >
-            Fermer la Position (Dump)
+            Fermer la Position
           </Button>
           <Button
             onClick={onClose}
-            className="px-5 h-11 bg-white/10 hover:bg-white/15 text-white border border-white/10 rounded-xl text-xs font-semibold font-headline uppercase transition-all duration-200 border-none"
+            variant="outline"
+            className="px-5 h-11 bg-white/10 hover:bg-white/15 text-white border border-white/15 rounded-xl text-xs font-semibold font-headline uppercase transition-all duration-200 cursor-pointer active:scale-95"
           >
             Retour
           </Button>

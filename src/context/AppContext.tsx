@@ -79,15 +79,15 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
     const sanitizePositions = (arr: any[]): Position[] => {
       if (!Array.isArray(arr)) return [];
-      const seenKeys = new Set<string>();
+      const seenIds = new Set<string>();
       const cleaned: Position[] = [];
 
       for (const p of arr) {
         if (!p || p.pair === 'ALL' || p.pair === 'SOLANA') continue;
         const cleanPair = !p.pair ? 'FX:EURUSD' : p.pair;
-        const key = `${p.botId || 'manual'}_${cleanPair}`;
-        if (seenKeys.has(key)) continue;
-        seenKeys.add(key);
+        const posId = p.id || `pos_${Math.random().toString(36).substring(2, 9)}`;
+        if (seenIds.has(posId)) continue;
+        seenIds.add(posId);
 
         const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
         const amt = rawAmt < 1 ? parseFloat(rawAmt.toFixed(4)) : parseFloat(rawAmt.toFixed(2));
@@ -95,10 +95,11 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
 
-        const calculatedMode: 'DEMO' | 'REAL' = p.mode ? p.mode : 'DEMO';
+        const calculatedMode: 'DEMO' | 'REAL' = p.mode ? p.mode : (cleanPair.startsWith('SOL:') ? 'REAL' : 'DEMO');
 
         cleaned.push({
           ...p,
+          id: posId,
           pair: cleanPair,
           amount: amt,
           entryPrice: entry,
@@ -263,23 +264,31 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     balanceRef.current = balance;
   }, [bots, activePositions, balance]);
 
-  // 3. Save to LocalStorage & Firestore whenever states change (with Debounce)
+  // 3. Immediate local persistence + Debounced Firestore remote save
   useEffect(() => {
-    if (!isInitialized.current || isIncomingSync.current) return;
+    if (!isInitialized.current) return;
 
+    // A. Immediate Synchronous LocalStorage Save (0ms)
+    try {
+      localStorage.setItem('trade_mode', tradingMode);
+      localStorage.setItem('trade_balance', balance.toString());
+      localStorage.setItem('trade_reserve_vault', reserveVault.toString());
+      localStorage.setItem('trade_reserve_vault_sol', reserveVaultSol.toString());
+      localStorage.setItem('trade_positions', JSON.stringify(activePositions));
+      localStorage.setItem('trade_closed', JSON.stringify(closedPositions));
+      localStorage.setItem('trade_bots', JSON.stringify(bots));
+      localStorage.setItem('trade_transactions', JSON.stringify(transactions));
+      localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
+      localStorage.setItem('trade_logs', JSON.stringify(botLogs));
+    } catch (e) {
+      console.warn("LocalStorage save error:", e);
+    }
+
+    if (isIncomingSync.current) return;
+
+    // B. Debounced Firestore Remote Save
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem('trade_mode', tradingMode);
-        localStorage.setItem('trade_balance', balance.toString());
-        localStorage.setItem('trade_reserve_vault', reserveVault.toString());
-        localStorage.setItem('trade_reserve_vault_sol', reserveVaultSol.toString());
-        localStorage.setItem('trade_positions', JSON.stringify(activePositions));
-        localStorage.setItem('trade_closed', JSON.stringify(closedPositions));
-        localStorage.setItem('trade_bots', JSON.stringify(bots));
-        localStorage.setItem('trade_transactions', JSON.stringify(transactions));
-        localStorage.setItem('trade_learnings', JSON.stringify(botLearnings));
-        localStorage.setItem('trade_logs', JSON.stringify(botLogs));
-
         const storedCex = localStorage.getItem('algo_trade_cex_keys');
         const storedNotif = localStorage.getItem('algo_trade_notification_settings');
 
@@ -304,9 +313,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           saveFullState(currentStateObj);
         }
       } catch (e) {
-        console.warn("Storage sync error:", e);
+        console.warn("Firestore sync error:", e);
       }
-    }, 800);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [tradingMode, balance, reserveVault, reserveVaultSol, activePositions, closedPositions, bots, transactions, botLearnings, botLogs]);
