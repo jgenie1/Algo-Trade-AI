@@ -1,14 +1,38 @@
+"use client";
+
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import Header from '@/components/layout/Header';
 import SidebarNav from '@/components/layout/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
-
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
-
+import LandingNavbar from '@/components/layout/LandingNavbar';
 import Link from 'next/link';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isHomePage = pathname === '/';
+
+  if (isHomePage) {
+    return (
+      <div className="min-h-screen bg-[#07050d] relative font-body text-foreground flex flex-col max-w-full overflow-x-hidden">
+        {/* Background ambient light blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#5d2b90]/15 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#c2ff0c]/10 rounded-full blur-[160px] pointer-events-none" />
+        <div className="absolute top-[35%] right-[15%] w-[40%] h-[40%] bg-[#228be6]/8 rounded-full blur-[130px] pointer-events-none" />
+
+        {/* Dedicated Landing Page Top Navigation */}
+        <LandingNavbar />
+
+        {/* Standalone Landing Page Content */}
+        <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider defaultOpen={true} className="min-h-screen bg-[#09070c] relative font-body text-foreground flex max-w-full pb-28 md:pb-0 overflow-y-auto overflow-x-hidden">
       {/* Background ambient light blobs */}
