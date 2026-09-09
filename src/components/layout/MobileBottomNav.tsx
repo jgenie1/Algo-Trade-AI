@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   Home, 
+  Zap,
   Bot, 
   Coins, 
   Wallet, 
@@ -28,13 +29,13 @@ export default function MobileBottomNav() {
   const activeBotsCount = (Array.isArray(bots) ? bots : []).filter(b => b && b.status === 'RUNNING').length;
 
   const leftNavItems = [
-    { href: '/', label: 'Terminal', icon: Home, badge: activePositionsCount > 0 ? activePositionsCount.toString() : undefined },
-    { href: '/strategies', label: 'Bots', icon: Bot, badge: activeBotsCount > 0 ? activeBotsCount.toString() : undefined },
+    { href: '/', label: 'Accueil', icon: Home },
+    { href: '/terminal', label: 'Terminal', icon: Zap, badge: activePositionsCount > 0 ? activePositionsCount.toString() : undefined },
   ];
 
   const rightNavItems = [
+    { href: '/strategies', label: 'Bots', icon: Bot, badge: activeBotsCount > 0 ? activeBotsCount.toString() : undefined },
     { href: '/deposit', label: 'Dépôt', icon: Wallet, badge: vaultAmt > 0 ? (tradingMode === 'REAL' ? 'SOL' : '$') : undefined },
-    { href: '/analytics', label: 'Analytics', icon: BarChart2 },
   ];
 
   return (

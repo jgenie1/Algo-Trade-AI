@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
+  Home,
+  Zap,
   LayoutDashboard, 
   ArrowDownLeft, 
   ArrowUpRight, 
@@ -23,7 +25,8 @@ export default function SidebarNav() {
   const pathname = usePathname();
 
   const mainNavItems = [
-    { href: '/', label: 'Tableau de Bord', icon: LayoutDashboard },
+    { href: '/', label: 'Accueil', icon: Home },
+    { href: '/terminal', label: 'Terminal de Trading', icon: Zap },
     { href: '/erp', label: 'Console ERP Enterprise', icon: Building2 },
     { href: '/analysis', label: 'Analyse IA Chart', icon: LineChart },
     { href: '/deposit', label: 'Dépôt', icon: ArrowDownLeft },
