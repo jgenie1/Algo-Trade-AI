@@ -27,16 +27,16 @@ export default function WithdrawPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [connectedWeb3Wallet, setConnectedWeb3Wallet] = useState<{ name: string; address: string; chain: string } | null>(null);
 
-  const refreshLiveBalance = () => {
+  const refreshLiveBalance = React.useCallback(() => {
     if (tradingMode === 'REAL') {
       fetchLiveWalletBalance().then(res => {
         if (res && res.success) {
           if (res.solanaBalance !== null) setSolanaBalance(res.solanaBalance);
-          if (res.solanaPubKey && !solanaPubKey) setSolanaPubKey(res.solanaPubKey);
+          if (res.solanaPubKey) setSolanaPubKey(prev => prev || res.solanaPubKey);
         }
       });
     }
-  };
+  }, [tradingMode]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -55,7 +55,7 @@ export default function WithdrawPage() {
     const handleWalletUpdated = () => refreshLiveBalance();
     window.addEventListener('web3_wallet_updated', handleWalletUpdated);
     return () => window.removeEventListener('web3_wallet_updated', handleWalletUpdated);
-  }, [tradingMode, isMounted]);
+  }, [tradingMode, isMounted, refreshLiveBalance]);
 
   const handleFillConnectedWeb3Address = async () => {
     if (connectedWeb3Wallet && connectedWeb3Wallet.address) {

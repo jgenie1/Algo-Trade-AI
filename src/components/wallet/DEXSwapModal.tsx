@@ -45,13 +45,15 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     if (!isOpen) return;
 
     const syncBalances = async () => {
-      if (propSolanaBalance !== undefined && propSolanaBalance !== null) {
-        setSolanaBalanceState(propSolanaBalance);
-      } else {
+      let currentSolBal = propSolanaBalance ?? null;
+      if (currentSolBal === null) {
         const res = await getRealSolanaBalance();
         if (res && res.success && res.balance !== undefined) {
+          currentSolBal = res.balance;
           setSolanaBalanceState(res.balance);
         }
+      } else {
+        setSolanaBalanceState(currentSolBal);
       }
 
       const storedWallet = typeof window !== 'undefined' ? localStorage.getItem('connected_web3_wallet') : null;
@@ -69,7 +71,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
       const tokens = await fetchWalletTokenBalances(
         walletAddr,
         chain,
-        solanaBalanceState,
+        currentSolBal,
         activePositions,
         tradingMode,
         balance
@@ -176,7 +178,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
       setFromToken(filtered[0]);
       setToToken(filtered[1]);
     }
-  }, [activeChain]);
+  }, [activeChain, initialFromToken]);
 
   // Mettre à jour la cotation quand l'un des paramètres change
   useEffect(() => {

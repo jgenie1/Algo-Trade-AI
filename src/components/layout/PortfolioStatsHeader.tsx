@@ -77,11 +77,11 @@ export default function PortfolioStatsHeader({
   const safeBots = Array.isArray(bots) ? bots : [];
 
   const demoPositionsCount = safeActivePositions.filter(
-    (p) => p && (p.mode || 'DEMO') === 'DEMO'
+    (p) => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'DEMO'
   ).length;
 
   const realPositions = safeActivePositions.filter(
-    (p) => p && (p.mode || 'DEMO') === 'REAL'
+    (p) => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'
   );
 
   const realAllocatedSol = realPositions.reduce(
@@ -89,7 +89,7 @@ export default function PortfolioStatsHeader({
   );
 
   const realBots = safeBots.filter(
-    (b) => b && (b.mode || 'DEMO') === 'REAL' && b.status === 'RUNNING'
+    (b) => b && (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL' && b.status === 'RUNNING'
   );
 
   const realBotsPnL = realBots.reduce((sum, b) => {

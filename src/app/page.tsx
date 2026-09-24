@@ -47,7 +47,7 @@ export default function HomePage() {
 
   const isReal = tradingMode === 'REAL';
   const runningBotsCount = (bots || []).filter(b => b.status === 'RUNNING').length;
-  const activePositionsCount = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode).length;
+  const activePositionsCount = (activePositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode).length;
 
   const popularTickers = [
     { pair: 'BTC-USD', name: 'Bitcoin', fallback: 95400, isSol: false },
@@ -206,7 +206,7 @@ export default function HomePage() {
 
           {/* Main Title */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-headline tracking-tight leading-[1.15] text-white">
-            L'Intelligence Artificielle au Service du <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#c2ff0c] via-emerald-300 to-teal-400">Trading Quantitatif</span>
+            L&apos;Intelligence Artificielle au Service du <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#c2ff0c] via-emerald-300 to-teal-400">Trading Quantitatif</span>
           </h1>
 
           {/* Subtitle */}
@@ -392,7 +392,7 @@ export default function HomePage() {
                   Terminal de Trading Professionnel avec Graphiques Directs
                 </h3>
                 <p className="text-sm text-slate-300 font-body leading-relaxed">
-                  Passez vos ordres d'achat ou de vente en mode LONG et SHORT avec effet de levier configurable. Les Stop-Loss sont surveillés chaque seconde par notre moteur de protection automatique.
+                  Passez vos ordres d&apos;achat ou de vente en mode LONG et SHORT avec effet de levier configurable. Les Stop-Loss sont surveillés chaque seconde par notre moteur de protection automatique.
                 </p>
                 <ul className="space-y-2 text-xs font-body text-slate-200">
                   <li className="flex items-center gap-2">
@@ -461,7 +461,7 @@ export default function HomePage() {
                   Robots Quantitatifs avec Apprentissage Machine Continu
                 </h3>
                 <p className="text-sm text-slate-300 font-body leading-relaxed">
-                  Activez votre flotte de robots sur plusieurs actifs en simultané. Chaque échec ou réussite est analysé pour affiner les conditions d'entrée et ajuster la sélectivité automatiquement.
+                  Activez votre flotte de robots sur plusieurs actifs en simultané. Chaque échec ou réussite est analysé pour affiner les conditions d&apos;entrée et ajuster la sélectivité automatiquement.
                 </p>
                 <ul className="space-y-2 text-xs font-body text-slate-200">
                   <li className="flex items-center gap-2">
@@ -536,7 +536,7 @@ export default function HomePage() {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-[#c2ff0c]" />
-                    <span>Déverrouillable à tout moment d'un simple clic.</span>
+                    <span>Déverrouillable à tout moment d&apos;un simple clic.</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-[#c2ff0c]" />
@@ -577,10 +577,10 @@ export default function HomePage() {
                   Bilan & Télémétrie
                 </Badge>
                 <h3 className="text-2xl sm:text-3xl font-black font-headline text-white">
-                  Console ERP d'Entreprise & Registre Comptable
+                  Console ERP d&apos;Entreprise & Registre Comptable
                 </h3>
                 <p className="text-sm text-slate-300 font-body leading-relaxed">
-                  Gardez une vue consolidée sur vos soldes, vos dépôts, vos retraits et l'apprentissage de vos modèles avec synchronisation cloud Firestore temps réel.
+                  Gardez une vue consolidée sur vos soldes, vos dépôts, vos retraits et l&apos;apprentissage de vos modèles avec synchronisation cloud Firestore temps réel.
                 </p>
                 <ul className="space-y-2 text-xs font-body text-slate-200">
                   <li className="flex items-center gap-2">
@@ -638,7 +638,7 @@ export default function HomePage() {
             Piliers & Fonctionnalités
           </Badge>
           <h2 className="text-2xl sm:text-4xl font-black font-headline text-white">
-            Une Technologie d'Avance pour vos Investissements
+            Une Technologie d&apos;Avance pour vos Investissements
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 font-body">
             Chaque composant a été conçu pour maximiser le ratio de Sharpe et éliminer les erreurs émotionnelles de trading.
@@ -684,7 +684,7 @@ export default function HomePage() {
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 border-b border-white/10 pb-4">
           <div className="space-y-1">
             <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 uppercase text-[10px] font-extrabold">
-              Stratégies Prêtes à l'Emploi
+              Stratégies Prêtes à l&apos;Emploi
             </Badge>
             <h2 className="text-2xl sm:text-3xl font-black font-headline text-white">
               Déployez des Algorithmes Validés en Quelques Secondes
@@ -829,7 +829,7 @@ export default function HomePage() {
             Prêt à Transformer votre Manière de Trader ?
           </h2>
           <p className="text-sm sm:text-base text-slate-300 font-body">
-            Rejoignez AlgoTrade AI dès aujourd'hui. Démarrage immédiat sans carte bancaire en mode Démo ou tradez en direct sur Solana.
+            Rejoignez AlgoTrade AI dès aujourd&apos;hui. Démarrage immédiat sans carte bancaire en mode Démo ou tradez en direct sur Solana.
           </p>
         </div>
 

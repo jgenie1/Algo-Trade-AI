@@ -64,6 +64,14 @@ export default function ForexAnalysisPage() {
     }
   }, [tradingMode]);
 
+  // Synchronisation de la paire sélectionnée lors du changement de mode Démo / Réel
+  useEffect(() => {
+    const isValid = currencyPairs.some(p => p.value === pair);
+    if (!isValid && currencyPairs.length > 0) {
+      setPair(currencyPairs[0].value);
+    }
+  }, [tradingMode, currencyPairs, pair]);
+
   const handleAnalysis = async () => {
     const chart = chartApiRef.current;
     if (!chart) {

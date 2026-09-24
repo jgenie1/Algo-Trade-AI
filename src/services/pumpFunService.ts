@@ -563,28 +563,64 @@ export async function executeRealPumpTrade(params: {
 
 export async function getRealSolanaBalance(): Promise<{ success: boolean; balance?: number; publicKey?: string; error?: string }> {
   try {
-    const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
-    if (!solanaPrivateKey) {
-      return { success: false, error: "Clé privée non configurée" };
-    }
-    const { Keypair, Connection } = await import('@solana/web3.js');
+    const { Keypair, PublicKey } = await import('@solana/web3.js');
     const { default: bs58 } = await import('bs58');
+    const connection = await getWorkingConnection();
 
-    let signer: any;
-    const trimmed = solanaPrivateKey.trim();
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-      signer = Keypair.fromSecretKey(new Uint8Array(JSON.parse(trimmed)));
-    } else {
-      signer = Keypair.fromSecretKey(bs58.decode(trimmed));
+    // 1. Try signing keypair first
+    const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
+    if (solanaPrivateKey) {
+      let signer: any;
+      const trimmed = solanaPrivateKey.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        signer = Keypair.fromSecretKey(new Uint8Array(JSON.parse(trimmed)));
+      } else {
+        signer = Keypair.fromSecretKey(bs58.decode(trimmed));
+      }
+      const balanceLamports = await connection.getBalance(signer.publicKey);
+      return {
+        success: true,
+        balance: balanceLamports / 1e9,
+        publicKey: signer.publicKey.toBase58()
+      };
     }
 
-    const connection = await getWorkingConnection();
-    const balanceLamports = await connection.getBalance(signer.publicKey);
-    return {
-      success: true,
-      balance: balanceLamports / 1e9,
-      publicKey: signer.publicKey.toBase58()
-    };
+    // 2. Fallback to connected public wallet address (read-only query)
+    if (typeof window !== 'undefined') {
+      let candidateAddr = '';
+      try {
+        const stored = localStorage.getItem('connected_web3_wallet');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if ((parsed.chain === 'Solana' || !parsed.chain) && parsed.address) {
+            candidateAddr = parsed.address;
+          }
+        }
+      } catch (e) {}
+
+      if (!candidateAddr) {
+        candidateAddr = localStorage.getItem('manual_solana_deposit_address') || '';
+      }
+
+      if (!candidateAddr) {
+        const winSol = (window as any).solana || (window as any).phantom?.solana;
+        if (winSol && winSol.publicKey) {
+          candidateAddr = winSol.publicKey.toBase58();
+        }
+      }
+
+      if (candidateAddr && candidateAddr.length >= 32 && candidateAddr.length <= 44 && !candidateAddr.startsWith('0x')) {
+        const pubKey = new PublicKey(candidateAddr);
+        const balanceLamports = await connection.getBalance(pubKey);
+        return {
+          success: true,
+          balance: balanceLamports / 1e9,
+          publicKey: candidateAddr
+        };
+      }
+    }
+
+    return { success: false, error: "Aucun portefeuille ou clé privée Solana configuré" };
   } catch (error: any) {
     return { success: false, error: error.message || "Erreur de connexion RPC" };
   }

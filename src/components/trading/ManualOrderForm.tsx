@@ -48,7 +48,7 @@ export default function ManualOrderForm({
   selectedPair,
   setSelectedPair
 }: ManualOrderFormProps) {
-  const { tradingMode, balance, setBalance, reserveVault, setActivePositions, activePositions } = useAppState();
+  const { tradingMode, balance, setBalance, reserveVault, reserveVaultSol, setActivePositions, activePositions } = useAppState();
 
   // Local Form States
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
@@ -96,7 +96,7 @@ export default function ManualOrderForm({
         setSelectedPair('FX:EURUSD');
       }
     }
-  }, [tradingMode, trendingCoins.length]);
+  }, [tradingMode, trendingCoins, selectedPair, setSelectedPair]);
 
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +112,10 @@ export default function ManualOrderForm({
       : getRealMarketBasePrice(selectedPair);
 
     if (tradingMode === 'REAL') {
+      const currentSolBal = solanaBalance !== null ? solanaBalance : 0;
+      const vaultSol = Number(reserveVaultSol) || 0;
+      const allocatableSol = Math.max(0, currentSolBal - vaultSol);
+
       if (selectedPair.startsWith('SOL:')) {
         const parts = selectedPair.split(':');
         const mintAddress = parts[1];
@@ -123,8 +127,8 @@ export default function ManualOrderForm({
           alert("Le montant doit être supérieur à 0.");
           return;
         }
-        if (solanaBalance === null || orderAmount > solanaBalance) {
-          alert(`Solde SOL insuffisant. Requis: ${orderAmount} SOL, Disponible: ${solanaBalance?.toFixed(3)} SOL`);
+        if (orderAmount > allocatableSol) {
+          alert(`Solde SOL allocable insuffisant (hors Coffre-Fort). Requis: ${orderAmount} SOL, Disponible: ${allocatableSol.toFixed(3)} SOL (Coffre-Fort protégé: ${vaultSol.toFixed(3)} SOL)`);
           return;
         }
 
@@ -164,27 +168,28 @@ export default function ManualOrderForm({
         return;
       }
 
-      // Ordres manuels multi-actifs (Crypto, Forex, Matières Premières) en Mode Réel sur Marge Synthétique
+      // Ordres manuels multi-actifs (Crypto, Forex, Matières Premières) en Mode Réel sur Marge SOL
       if (orderAmount <= 0) {
         alert("Le montant doit être supérieur à 0.");
         return;
       }
-      if (solanaBalance !== null && orderAmount > solanaBalance) {
-        alert(`Solde de marge SOL insuffisant. Requis: ${orderAmount} SOL, Disponible: ${solanaBalance.toFixed(3)} SOL.`);
+      if (orderAmount > allocatableSol) {
+        alert(`Solde de marge SOL insuffisant (hors Coffre-Fort). Requis: ${orderAmount} SOL, Disponible: ${allocatableSol.toFixed(3)} SOL (Coffre-Fort protégé: ${vaultSol.toFixed(3)} SOL).`);
         return;
       }
-    }
+    } else {
+      // Mode DEMO
+      if (orderAmount <= 0) {
+        alert("Le montant doit être supérieur à 0.");
+        return;
+      }
 
-    if (orderAmount <= 0) {
-      alert("Le montant doit être supérieur à 0.");
-      return;
-    }
-
-    const marginRequired = orderAmount;
-    const allocatableBalance = Math.max(0, balance - (reserveVault || 0));
-    if (marginRequired > allocatableBalance) {
-      alert(`Capital allocable insuffisant (hors Coffre-Fort 10%). Marge requise: $${marginRequired}, Capital allocable: $${allocatableBalance.toFixed(2)}. Coffre-Fort protégé: $${(Number(reserveVault) || 0).toFixed(2)}`);
-      return;
+      const marginRequired = orderAmount;
+      const allocatableBalance = Math.max(0, balance - (reserveVault || 0));
+      if (marginRequired > allocatableBalance) {
+        alert(`Capital allocable insuffisant (hors Coffre-Fort 10%). Marge requise: $${marginRequired}, Capital allocable: $${allocatableBalance.toFixed(2)}. Coffre-Fort protégé: $${(Number(reserveVault) || 0).toFixed(2)}`);
+        return;
+      }
     }
 
     const sl = stopLoss ? parseFloat(stopLoss) : undefined;
@@ -212,7 +217,7 @@ export default function ManualOrderForm({
       return [...prev, newPos];
     });
     if (tradingMode === 'DEMO') {
-      setBalance(bal => bal - marginRequired);
+      setBalance(bal => bal - orderAmount);
     } else {
       if (typeof window !== 'undefined') {
         const cur = parseFloat(localStorage.getItem('trade_solana_balance') || '0');

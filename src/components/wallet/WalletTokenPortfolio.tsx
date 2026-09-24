@@ -82,7 +82,9 @@ export default function WalletTokenPortfolio({
 
   const getTokenKey = (t: WalletToken) => t.address || t.symbol;
 
-  const loadTokens = async () => {
+  const positionsCount = Array.isArray(activePositions) ? activePositions.length : 0;
+
+  const loadTokens = React.useCallback(async () => {
     setIsLoadingTokens(true);
     const data = await fetchWalletTokenBalances(
       solanaPubKey,
@@ -100,11 +102,11 @@ export default function WalletTokenPortfolio({
     setSelectedAddresses(initialSelected);
 
     setIsLoadingTokens(false);
-  };
+  }, [solanaPubKey, walletChain, nativeBal, activePositions, tradingMode, balance]);
 
   useEffect(() => {
     loadTokens();
-  }, [solanaPubKey, walletChain, nativeBal, (Array.isArray(activePositions) ? activePositions.length : 0), tradingMode, balance]);
+  }, [loadTokens, positionsCount]);
 
   // Tokens sélectionnés pouvant être vendus en bloc
   const sellableTokens = tokens.filter(t => selectedAddresses.has(getTokenKey(t)) && !t.isStablecoin && t.balance > 0);

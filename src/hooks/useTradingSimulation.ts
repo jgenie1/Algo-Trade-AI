@@ -335,7 +335,7 @@ export function useTradingEngine() {
               if (tradingModeRef.current === 'REAL' && (sub1Bal >= 0.002 || hasFundedSub)) {
                 setBots(prev => {
                   const currentBots = Array.isArray(prev) ? prev : [];
-                  const realBots = currentBots.filter(b => (b.mode || 'DEMO') === 'REAL');
+                  const realBots = currentBots.filter(b => (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL');
 
                   // Si aucun bot réel n'est assigné au sous-wallet #1, créer le Sniper Bot en RUNNING
                   const sub1Bot = realBots.find(b => (b.subWallet || 1) === 1);
@@ -567,7 +567,7 @@ export function useTradingEngine() {
     let totalManualPnL = 0;
     let lockedManualMargin = 0;
 
-    const manualPositions = (Array.isArray(activePositions) ? activePositions : []).filter(p => p && !p.botId && (p.mode || 'DEMO') === tradingMode);
+    const manualPositions = (Array.isArray(activePositions) ? activePositions : []).filter(p => p && !p.botId && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
     manualPositions.forEach(p => {
       const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair || 'SOL');
       const current = livePrices[p.pair] || entry;
@@ -586,7 +586,7 @@ export function useTradingEngine() {
     });
 
     let activeBotsCapitalAndPnL = 0;
-    (Array.isArray(bots) ? bots : []).filter(b => b && (b.mode || 'DEMO') === tradingMode).forEach(b => {
+    (Array.isArray(bots) ? bots : []).filter(b => b && (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode).forEach(b => {
       if (!b || b.status !== 'RUNNING') return;
       const cap = tradingMode === 'REAL' ? 0 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0);
       const botPnL = typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : (typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : 0);

@@ -638,7 +638,7 @@ export default function TradingBotsManager({
     } else if (tradingMode === 'DEMO' && botCapital === 0.5) {
       setBotCapital(1000);
     }
-  }, [tradingMode]);
+  }, [tradingMode, botCapital]);
 
   const handleStartBot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -708,10 +708,10 @@ export default function TradingBotsManager({
   const safeBotLogs = Array.isArray(botLogs) ? botLogs : [];
   const safeBotLearnings = Array.isArray(botLearnings) ? botLearnings : [];
 
-  const filteredBots = safeBots.filter(b => b && (b.mode || 'DEMO') === tradingMode);
+  const filteredBots = safeBots.filter(b => b && (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode);
   const pendingSweepProfits = filteredBots.reduce((sum, b) => sum + ((b.netProfit || b.pnl || 0) > 0 ? (b.netProfit || b.pnl || 0) : 0), 0);
 
-  const filteredClosed = safeClosedPositions.filter(h => h && (h.mode || 'DEMO') === tradingMode);
+  const filteredClosed = safeClosedPositions.filter(h => h && (h.mode || (h.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
 
   const totalGains = filteredClosed.reduce((sum, h) => {
     const val = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : (typeof h.pnl === 'number' && !isNaN(h.pnl) ? h.pnl : 0);

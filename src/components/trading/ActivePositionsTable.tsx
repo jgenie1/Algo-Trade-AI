@@ -40,7 +40,7 @@ export default function ActivePositionsTable({
 }: ActivePositionsTableProps) {
   const { activePositions, tradingMode, isLoading } = useAppState();
   const safePositions = Array.isArray(activePositions) ? activePositions : [];
-  const filteredPositions = safePositions.filter((p: any) => p && (p.mode || 'DEMO') === tradingMode);
+  const filteredPositions = safePositions.filter((p: any) => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
   const isSolMode = tradingMode === 'REAL';
 
   // Calcul du PnL Total En Direct cumulé

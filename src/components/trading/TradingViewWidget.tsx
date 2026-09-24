@@ -362,11 +362,11 @@ const TradingViewWidget: React.FC<TradingViewWidgetProps> = ({
       initializeWidget();
     }
 
+    const currentContainer = containerRef.current;
     return () => {
         if (widgetRef.current) {
             try {
-              const container = containerRef.current;
-              if (container && document.body.contains(container)) {
+              if (currentContainer && document.body.contains(currentContainer)) {
                 if (typeof widgetRef.current.remove === 'function') {
                   widgetRef.current.remove();
                 }

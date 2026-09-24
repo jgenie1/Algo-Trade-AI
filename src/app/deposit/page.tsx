@@ -32,17 +32,17 @@ export default function DepositPage() {
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  const refreshLiveBalance = () => {
+  const refreshLiveBalance = React.useCallback(() => {
     if (tradingMode === 'REAL') {
       fetchLiveWalletBalance().then(res => {
         if (res && res.success) {
           if (res.solanaBalance !== null) setSolanaBalance(res.solanaBalance);
-          if (res.solanaPubKey && !solanaPubKey) setSolanaPubKey(res.solanaPubKey);
+          if (res.solanaPubKey) setSolanaPubKey(prev => prev || res.solanaPubKey);
           if (res.walletChain) setWalletChain(res.walletChain);
         }
       });
     }
-  };
+  }, [tradingMode]);
 
   useEffect(() => {
     if (!isMounted) return;
@@ -77,7 +77,7 @@ export default function DepositPage() {
     const handleWalletUpdated = () => refreshLiveBalance();
     window.addEventListener('web3_wallet_updated', handleWalletUpdated);
     return () => window.removeEventListener('web3_wallet_updated', handleWalletUpdated);
-  }, [tradingMode, isMounted]);
+  }, [tradingMode, isMounted, refreshLiveBalance]);
 
   const handleCopyAddress = () => {
     const addr = solanaPubKey || manualAddress;
