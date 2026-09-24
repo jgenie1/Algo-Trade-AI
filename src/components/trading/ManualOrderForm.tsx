@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import { executeRealPumpTrade, fetchLatestPumpCoins, fetchRealPumpCoins } from '@/services/pumpFunService';
+import { executeRealPumpTrade, executeJupiterSwap, SOLANA_TOKEN_MINTS, fetchLatestPumpCoins, fetchRealPumpCoins } from '@/services/pumpFunService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -175,6 +175,45 @@ export default function ManualOrderForm({
       }
       if (orderAmount > allocatableSol) {
         alert(`Solde de marge SOL insuffisant (hors Coffre-Fort). Requis: ${orderAmount} SOL, Disponible: ${allocatableSol.toFixed(3)} SOL (Coffre-Fort protégé: ${vaultSol.toFixed(3)} SOL).`);
+        return;
+      }
+
+      const pairSymbol = selectedPair.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
+      const isCryptoOnChain = !!SOLANA_TOKEN_MINTS[pairSymbol];
+
+      if (isCryptoOnChain) {
+        addBotLog("manual", "Manuel", `Envoi d'un ordre réel ${orderType} de ${orderAmount} SOL pour ${pairSymbol} via Jupiter DEX (Solana Mainnet)...`, 'info');
+        executeJupiterSwap({
+          action: orderType.toLowerCase() as 'buy' | 'sell',
+          symbol: pairSymbol,
+          amountSol: orderAmount,
+          slippageBps: 150
+        }).then((res) => {
+          if (res && res.success && res.txHash) {
+            addBotLog("manual", "Manuel", `[ORDRE JUPITER CONFIRMÉ ON-CHAIN] Hash: ${res.txHash.slice(0, 16)}... Solscan: https://solscan.io/tx/${res.txHash}`, 'trade');
+            const newRealPos: Position = {
+              id: 'pos_' + Math.random().toString(36).substring(2, 9),
+              pair: selectedPair,
+              type: orderType,
+              entryPrice: currentPrice,
+              currentPrice: currentPrice,
+              amount: orderAmount,
+              leverage: 1,
+              sl,
+              tp,
+              timestamp: Date.now(),
+              txHash: res.txHash,
+              mode: 'REAL' as const
+            };
+            setActivePositions(prev => [...prev, newRealPos]);
+            window.dispatchEvent(new Event('web3_wallet_updated'));
+          } else {
+            addBotLog("manual", "Manuel", `[ÉCHEC ORDRE JUPITER RÉEL] ${res.error || 'Erreur réseau/RPC Solana.'}`, 'error');
+            alert(`Échec de la transaction on-chain Solana : ${res.error || 'Erreur réseau RPC.'}`);
+          }
+        });
+        setStopLoss('');
+        setTakeProfit('');
         return;
       }
     } else {

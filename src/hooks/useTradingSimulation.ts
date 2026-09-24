@@ -1004,19 +1004,14 @@ export function useTradingEngine() {
                   customPrivateKey: botSubWalletKey
                 }).then((res) => {
                   if (res && res.success && res.txHash) {
-                    addBotLogRef.current(bot.id, bot.strategy, `[ACHAT RÉEL RÉUSSI] Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
+                    addBotLogRef.current(bot.id, bot.strategy, `[ACHAT RÉEL ON-CHAIN CONFIRMÉ] Hash: ${res.txHash.slice(0, 16)}... Solscan: https://solscan.io/tx/${res.txHash}`, 'trade');
                     const posWithTx = { ...newPos, txHash: res.txHash, mode: 'REAL' as const };
                     setActivePositions(prev => {
                       if (prev.some(x => x.id === posWithTx.id)) return prev;
                       return [...prev, posWithTx];
                     });
                   } else {
-                    addBotLogRef.current(bot.id, bot.strategy, `[ACHAT RÉEL OPTIMISÉ] Ordre exécuté avec succès sur la blockchain (${res.error ? 'Confirmé localement' : 'En direct'}).`, 'trade');
-                    const posFallback = { ...newPos, txHash: res?.txHash || 'tx_pump_' + Date.now().toString(36), mode: 'REAL' as const };
-                    setActivePositions(prev => {
-                      if (prev.some(x => x.id === posFallback.id)) return prev;
-                      return [...prev, posFallback];
-                    });
+                    addBotLogRef.current(bot.id, bot.strategy, `[ÉCHEC ACHAT RÉEL ON-CHAIN] ${res?.error || 'Transaction refusée sur le réseau Solana.'}`, 'error');
                   }
                 });
               } else {
@@ -1424,17 +1419,13 @@ export function useTradingEngine() {
                     slippageBps: 150
                   }).then(res => {
                     if (res && res.success && res.txHash) {
-                      addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT RÉEL RÉUSSI] Hash: ${res.txHash.slice(0, 16)}... Wallet: ${res.walletUsed?.slice(0, 8) ?? ''}...`, 'trade');
+                      addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT RÉEL CONFIRMÉ] Hash: ${res.txHash.slice(0, 16)}... Solscan: https://solscan.io/tx/${res.txHash}`, 'trade');
                       setActivePositions(prev => {
                         if (prev.some(x => x.id === newPos.id)) return prev;
                         return [...prev, { ...newPos, txHash: res.txHash, mode: 'REAL' as const }];
                       });
                     } else {
-                      addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT OPTIMISÉ] Ordre exécuté avec succès sur ${pairSymbol}. Position active.`, 'trade');
-                      setActivePositions(prev => {
-                        if (prev.some(x => x.id === newPos.id)) return prev;
-                        return [...prev, { ...newPos, txHash: res?.txHash || 'tx_jup_' + Date.now().toString(36), mode: 'REAL' as const }];
-                      });
+                      addBotLogRef.current(bot.id, bot.strategy, `[ÉCHEC JUPITER ACHAT RÉEL] ${res?.error || 'Erreur swap DEX/Solana.'}`, 'error');
                     }
                   });
                 } else if (!isRealMode) {
