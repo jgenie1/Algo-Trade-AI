@@ -390,6 +390,7 @@ export function useTradingEngine() {
       }
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted]);
 
 
@@ -1463,6 +1464,7 @@ export function useTradingEngine() {
     };
     runTick();
     return () => clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Global Position Monitor & Automatic Stop-Loss / Take-Profit Guardian
@@ -2141,7 +2143,8 @@ export function useTradingEngine() {
     }
     const targetBot = bots.find(b => b.id === botId);
     if (targetBot) {
-      if ((targetBot.mode || 'DEMO') === 'REAL') {
+      const isRealBot = (targetBot.mode || (targetBot.pair?.startsWith('SOL:') || targetBot.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL';
+      if (isRealBot) {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
         }

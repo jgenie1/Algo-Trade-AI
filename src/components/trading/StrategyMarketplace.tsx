@@ -233,7 +233,7 @@ export default function StrategyMarketplace() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold font-headline text-white truncate max-w-[140px]">{bot.name}</span>
                     <Badge className={bot.status === 'RUNNING' ? 'bg-emerald-500/20 text-emerald-300 text-[9px]' : 'bg-amber-500/20 text-amber-300 text-[9px]'}>
-                      {bot.status === 'RUNNING' ? 'EN EXÉCUTION' : 'EN PAUSE'}
+                      {bot.status === 'RUNNING' ? 'EN EXÉCUTION' : 'ARRÊTÉ'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-xs">

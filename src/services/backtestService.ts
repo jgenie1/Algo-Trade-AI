@@ -147,8 +147,8 @@ export async function runBacktest(
       } else if (strategy === 'EMA Cross' && emaVals[i] !== undefined && emaVals[i - 1] !== undefined) {
         const fastEma = emaVals[i];
         const prevFast = emaVals[i - 1];
-        if (prevFast <= prevC.close && fastEma > price) signal = 'BUY';
-        else if (prevFast >= prevC.close && fastEma < price) signal = 'SELL';
+        if (prevC.close <= prevFast && price > fastEma) signal = 'BUY';
+        else if (prevC.close >= prevFast && price < fastEma) signal = 'SELL';
       } else if (strategy === 'SuperTrend Momentum' && stDirs[i] && stDirs[i - 1]) {
         if (stDirs[i - 1] === 'DOWN' && stDirs[i] === 'UP') signal = 'BUY';
         else if (stDirs[i - 1] === 'UP' && stDirs[i] === 'DOWN') signal = 'SELL';

@@ -68,7 +68,7 @@ export default function LeaderboardPage() {
   });
 
   const handleCopyStrategy = (entry: LeaderboardEntry) => {
-    const defaultCapital = tradingMode === 'REAL' ? 0.5 : 1000;
+    const defaultCapital = tradingMode === 'REAL' ? 0.1 : 500;
     const isSolanaMeme = entry.defaultPair.startsWith('SOL:');
 
     const newBot = {
@@ -81,8 +81,17 @@ export default function LeaderboardPage() {
       capital: defaultCapital,
       accumulatedProfit: 0,
       active: true,
+      status: 'RUNNING' as const,
+      pnl: 0,
+      pnlPercent: 0,
+      netProfit: 0,
+      tradesCount: 0,
+      winRate: 85,
       stopLoss: entry.stopLossPct,
+      stopLossPct: entry.stopLossPct,
       takeProfit: entry.takeProfitPct,
+      takeProfitPct: entry.takeProfitPct,
+      trailingStopPct: 2.0,
       riskLevel: entry.riskLevel,
       aiModel: entry.aiModel,
       isCopyTrading: true,

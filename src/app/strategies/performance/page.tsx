@@ -16,6 +16,8 @@ export default function PerformancePage() {
 
   const getBotStats = (strategyName: string, pumpMode?: string) => {
     const matchingBots = bots.filter(b => {
+      const bMode = b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO');
+      if (bMode !== tradingMode) return false;
       if (b.strategy !== strategyName) return false;
       if (pumpMode && b.pumpMode !== pumpMode) return false;
       return true;

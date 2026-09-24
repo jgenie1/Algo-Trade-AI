@@ -40,8 +40,8 @@ export default function AnalyticsPage() {
   const safeActivePositions = Array.isArray(activePositions) ? activePositions : [];
   const safeClosedPositions = Array.isArray(closedPositions) ? closedPositions : [];
   
-  const filteredActive = safeActivePositions.filter(p => p && (p.mode || 'DEMO') === tradingMode);
-  const filteredClosed = safeClosedPositions.filter(p => p && (p.mode || 'DEMO') === tradingMode);
+  const filteredActive = safeActivePositions.filter(p => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const filteredClosed = safeClosedPositions.filter(p => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
 
   const winningTrades = filteredClosed.filter(p => p.profit > 0).length;
   const losingTrades = filteredClosed.filter(p => p.profit <= 0).length;
@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
     .sort((a, b) => b.value - a.value).slice(0, 5);
   if (!distribution.length) distribution.push({ name: "Aucun actif", value: 100 });
 
-  const filteredBots = (bots || []).filter(b => (b.mode || 'DEMO') === tradingMode);
+  const filteredBots = (bots || []).filter(b => (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode);
   const runningBots = filteredBots.filter(b => b.status === "RUNNING").length;
   const totalBotProfit = filteredBots.reduce((s, b) => s + (b.netProfit || b.pnl || 0), 0);
 
@@ -132,9 +132,9 @@ export default function AnalyticsPage() {
       sub: sharpe > 1 ? "Excellente performance ajustée du risque" : "Performance normale" },
     { label: "Robots Actifs", icon: <Zap className="h-4 w-4" />, color: "text-[#c2ff0c]", bg: "from-lime-500/10",
       val: <span className="text-xl font-bold text-[#c2ff0c] font-body">{runningBots} / {filteredBots.length}</span>,
-      sub: `${filteredBots.filter(b => b.status === "PAUSED").length} en pause` },
+      sub: `${filteredBots.filter(b => b.status === "STOPPED").length} arrêtés / inactifs` },
     { label: "Durée Moyenne Trade", icon: <Clock className="h-4 w-4" />, color: "text-[#c2ff0c]", bg: "from-amber-500/10",
-      val: <span className="text-xl font-bold text-[#c2ff0c] font-body">14m 32s</span>,
+      val: <span className="text-xl font-bold text-[#c2ff0c] font-body">{avgDurationStr}</span>,
       sub: "Fréquence moyenne des cycles" },
     { label: "Performance Bots", icon: <Trophy className="h-4 w-4" />, color: "text-[#c2ff0c]", bg: "from-purple-500/10",
       val: (

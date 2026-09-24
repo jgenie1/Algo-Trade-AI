@@ -15,7 +15,7 @@ const SOLANA_NETWORK_FEE = 0.00005;
 const PRIORITY_FEE_ESTIMATE = 0.001;
 
 export default function WithdrawPage() {
-  const { tradingMode, setTradingMode, balance, setBalance, transactions, setTransactions } = useAppState();
+  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, reserveVaultSol, transactions, setTransactions } = useAppState();
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
 
@@ -80,9 +80,11 @@ export default function WithdrawPage() {
   };
 
   const handlePercentClick = (pct: number) => {
+    const lockedSol = Number(reserveVaultSol) || 0;
+    const lockedUsd = Number(reserveVault) || 0;
     const maxAvailable = tradingMode === 'REAL'
-      ? Math.max(0, (solanaBalance || 0) - SOLANA_NETWORK_FEE - PRIORITY_FEE_ESTIMATE)
-      : balance;
+      ? Math.max(0, (solanaBalance || 0) - lockedSol - SOLANA_NETWORK_FEE - PRIORITY_FEE_ESTIMATE)
+      : Math.max(0, balance - lockedUsd);
     if (maxAvailable <= 0) { setWithdrawAmount('0'); return; }
     const decimals = tradingMode === 'REAL' ? 4 : 2;
     setWithdrawAmount((maxAvailable * (pct / 100)).toFixed(decimals));
@@ -96,9 +98,19 @@ export default function WithdrawPage() {
     if (isNaN(amt) || amt <= 0) { setErrorMsg("Veuillez entrer un montant valide supérieur à 0."); return; }
     setIsLoading(true);
 
+    const lockedSol = Number(reserveVaultSol) || 0;
+    const lockedUsd = Number(reserveVault) || 0;
+
     if (tradingMode === 'DEMO') {
+      const maxWithdrawableUsd = Math.max(0, balance - lockedUsd);
       setTimeout(() => {
-        if (amt > balance) { setErrorMsg("Solde insuffisant."); setIsLoading(false); return; }
+        if (amt > maxWithdrawableUsd) {
+          setErrorMsg(lockedUsd > 0
+            ? `Solde disponible insuffisant ($${maxWithdrawableUsd.toFixed(2)} disponibles). Votre Coffre-Fort de Réserve ($${lockedUsd.toFixed(2)}) est protégé.`
+            : "Solde insuffisant.");
+          setIsLoading(false);
+          return;
+        }
         setBalance(balance - amt);
         setTransactions(prev => [{
           id: 'tx_' + Math.random().toString(36).substring(2, 9),
@@ -112,6 +124,14 @@ export default function WithdrawPage() {
         setWithdrawAmount('');
       }, 600);
     } else {
+      const maxWithdrawableSol = Math.max(0, (solanaBalance || 0) - lockedSol - SOLANA_NETWORK_FEE - PRIORITY_FEE_ESTIMATE);
+      if (amt > maxWithdrawableSol) {
+        setErrorMsg(lockedSol > 0
+          ? `Solde SOL disponible insuffisant (${maxWithdrawableSol.toFixed(4)} SOL). Votre Coffre-Fort SOL (${lockedSol.toFixed(4)} SOL) est sécurisé.`
+          : "Solde SOL insuffisant pour couvrir le montant et les frais réseau.");
+        setIsLoading(false);
+        return;
+      }
       if (!recipientAddress) { setErrorMsg("Adresse destinataire requise."); setIsLoading(false); return; }
       try {
         const res = await withdrawSolana({ recipient: recipientAddress, amount: amt });

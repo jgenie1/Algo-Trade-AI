@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Paramètres manquants pour passer un ordre' }, { status: 400 });
       }
 
-      const timestamp = Date.now();
+      const timestamp = serverTime;
       const symbol = order.symbol.replace('/', '').replace('-', '').toUpperCase();
       
       let paramsObj: Record<string, string> = {
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
         side: order.side,
         type: order.type || 'MARKET',
         timestamp: timestamp.toString(),
-        recvWindow: '10000'
+        recvWindow: '60000'
       };
 
       if (order.type === 'MARKET') {
@@ -173,8 +173,8 @@ export async function POST(req: NextRequest) {
 
       for (const sym of symbolsToCancel) {
         try {
-          const timestamp = Date.now();
-          const queryString = `symbol=${sym}&timestamp=${timestamp}&recvWindow=10000`;
+          const timestamp = serverTime;
+          const queryString = `symbol=${sym}&timestamp=${timestamp}&recvWindow=60000`;
           const signature = generateBinanceSignature(queryString, apiSecret);
 
           await fetch(`${baseUrl}/openOrders?${queryString}&signature=${signature}`, {

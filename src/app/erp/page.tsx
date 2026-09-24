@@ -36,8 +36,8 @@ export default function SaaSERPPage() {
   const solPriceUsd = getRealMarketBasePrice('SOL') || 145.0;
 
   // Mode filtering
-  const modePositions = (activePositions || []).filter(p => (p.mode || 'DEMO') === tradingMode);
-  const modeBots = (bots || []).filter(b => (b.mode || 'DEMO') === tradingMode);
+  const modePositions = (activePositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const modeBots = (bots || []).filter(b => (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode);
   const modeClosed = (closedPositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
 
   // Manual open positions margin & PnL
