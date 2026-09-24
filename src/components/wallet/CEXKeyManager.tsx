@@ -9,6 +9,7 @@ import { KeyRound, ShieldCheck, CheckCircle2, XCircle, RefreshCw, Eye, EyeOff } 
 import { dispatchAlert } from '@/services/notificationService';
 
 import { saveBinanceAgentConfig } from '@/services/binanceMcpService';
+import { encryptSensitiveData, decryptSensitiveData } from '@/lib/cryptoStorage';
 
 export interface CEXCredentials {
   exchange: 'binance' | 'bybit' | 'okx' | 'coinbase';
@@ -34,17 +35,24 @@ export default function CEXKeyManager() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('algo_trade_cex_keys');
-      if (saved) {
-        try { setExchangeKeys(JSON.parse(saved)); } catch (e) {}
-      }
+      const loadKeys = async () => {
+        const saved = localStorage.getItem('algo_trade_cex_keys');
+        if (saved) {
+          try {
+            const decrypted = await decryptSensitiveData(saved);
+            setExchangeKeys(JSON.parse(decrypted));
+          } catch (e) {}
+        }
+      };
+      loadKeys();
     }
   }, []);
 
-  const handleSaveKeys = (e: React.FormEvent) => {
+  const handleSaveKeys = async (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== 'undefined') {
-      localStorage.setItem('algo_trade_cex_keys', JSON.stringify(exchangeKeys));
+      const encrypted = await encryptSensitiveData(JSON.stringify(exchangeKeys));
+      localStorage.setItem('algo_trade_cex_keys', encrypted);
       if (exchangeKeys.binance) {
         saveBinanceAgentConfig({
           apiKey: exchangeKeys.binance.apiKey,
@@ -54,7 +62,7 @@ export default function CEXKeyManager() {
       }
       window.dispatchEvent(new Event('storage'));
     }
-    setTestResult({ success: true, message: `Clés API pour ${activeTab.toUpperCase()} enregistrées de manière chiffrée !` });
+    setTestResult({ success: true, message: `Clés API pour ${activeTab.toUpperCase()} chiffrées (AES-GCM-256) et enregistrées avec succès !` });
     setTimeout(() => setTestResult(null), 3000);
   };
 

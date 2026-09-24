@@ -33,10 +33,10 @@ export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
 });
 
-export const DEFAULT_USER = 'main_terminal';
+export const DEFAULT_USER = 'guest_default';
 
 /**
- * Récupère l'ID utilisateur actif basé sur le portefeuille Web3 connecté ou le terminal par défaut
+ * Récupère l'ID utilisateur actif basé sur le portefeuille Web3 connecté ou une session invité isolée
  */
 export function getActiveUserId(): string {
   if (typeof window === 'undefined') return DEFAULT_USER;
@@ -51,6 +51,13 @@ export function getActiveUserId(): string {
         return `user_${clean.slice(0, 32)}`;
       }
     }
+
+    let guestId = sessionStorage.getItem('algotrade_guest_session_id');
+    if (!guestId) {
+      guestId = `guest_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
+      sessionStorage.setItem('algotrade_guest_session_id', guestId);
+    }
+    return guestId;
   } catch {}
   return DEFAULT_USER;
 }

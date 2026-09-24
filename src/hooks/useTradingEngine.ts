@@ -28,6 +28,7 @@ import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
 import { resolveLivePrice, canonicalizePair } from '@/lib/symbolUtils';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
+import { encryptSensitiveData, decryptSensitiveData } from '@/lib/cryptoStorage';
 
 function getDerivedMasterPublicKey(): string {
   if (typeof window === 'undefined') return '';
@@ -49,7 +50,7 @@ function getDerivedMasterPublicKey(): string {
     }
   } catch (e) {}
 
-  const privKey = localStorage.getItem('settings_solana_private_key') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+  const privKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
   if (privKey) {
     try {
       const trimmed = privKey.trim();
@@ -168,30 +169,35 @@ export function useTradingEngine() {
   // Load sub-wallets
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const storedSubs = localStorage.getItem('trade_sub_wallets');
-      if (storedSubs) {
-        try {
-          setSubWallets(JSON.parse(storedSubs));
-        } catch (e) {}
-      } else {
-        import('@solana/web3.js').then(({ Keypair }) => {
-          const defaultSubs = Array.from({ length: 5 }).map(() => {
-            const kp = Keypair.generate();
-            // Store private key as Base58 (standard Solana format)
-            const secretKeyBase58 = bs58.encode(kp.secretKey);
-            return {
-              publicKey: kp.publicKey.toBase58(),
-              privateKey: secretKeyBase58,
-              balance: 0
-            };
+      const loadSubWallets = async () => {
+        const storedSubs = localStorage.getItem('trade_sub_wallets');
+        if (storedSubs) {
+          try {
+            const decrypted = await decryptSensitiveData(storedSubs);
+            setSubWallets(JSON.parse(decrypted));
+          } catch (e) {}
+        } else {
+          import('@solana/web3.js').then(async ({ Keypair }) => {
+            const defaultSubs = Array.from({ length: 5 }).map(() => {
+              const kp = Keypair.generate();
+              // Store private key as Base58 (standard Solana format)
+              const secretKeyBase58 = bs58.encode(kp.secretKey);
+              return {
+                publicKey: kp.publicKey.toBase58(),
+                privateKey: secretKeyBase58,
+                balance: 0
+              };
+            });
+            const encrypted = await encryptSensitiveData(JSON.stringify(defaultSubs));
+            localStorage.setItem('trade_sub_wallets', encrypted);
+            setSubWallets(defaultSubs);
+          }).catch(err => {
+            console.warn("Could not load @solana/web3.js sub-wallets:", err);
+            setSubWallets([]);
           });
-          localStorage.setItem('trade_sub_wallets', JSON.stringify(defaultSubs));
-          setSubWallets(defaultSubs);
-        }).catch(err => {
-          console.warn("Could not load @solana/web3.js sub-wallets:", err);
-          setSubWallets([]);
-        });
-      }
+        }
+      };
+      loadSubWallets();
     }
   }, []);
 
@@ -315,17 +321,19 @@ export function useTradingEngine() {
       // 5. Sub-wallet balances (Solana) & Auto-Arming Fleet
       const storedSubs = localStorage.getItem('trade_sub_wallets');
       if (storedSubs) {
-        try {
-          const subs = JSON.parse(storedSubs) as SubWallet[];
-          const pubKeys = subs.map(s => s.publicKey);
-          getMultipleSolanaBalances(pubKeys).then(balRes => {
-            if (balRes && balRes.success && balRes.balances) {
-              const updated = subs.map(s => ({
-                ...s,
-                balance: balRes.balances![s.publicKey] ?? 0
-              }));
-              localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-              setSubWallets(updated);
+        decryptSensitiveData(storedSubs).then(decrypted => {
+          try {
+            const subs = JSON.parse(decrypted) as SubWallet[];
+            const pubKeys = subs.map(s => s.publicKey);
+            getMultipleSolanaBalances(pubKeys).then(async balRes => {
+              if (balRes && balRes.success && balRes.balances) {
+                const updated = subs.map(s => ({
+                  ...s,
+                  balance: balRes.balances![s.publicKey] ?? 0
+                }));
+                const enc = await encryptSensitiveData(JSON.stringify(updated));
+                localStorage.setItem('trade_sub_wallets', enc);
+                setSubWallets(updated);
 
               // ─── Auto-Armement Automatique Flotte Réelle pour Sous-Wallet #1 ───
               const sub1 = updated[0];
@@ -372,8 +380,9 @@ export function useTradingEngine() {
             }
           });
         } catch (e) {}
-      }
-    };
+      });
+    }
+  };
 
     updateWalletAndStatus();
     refreshWalletRef.current = updateWalletAndStatus;
@@ -976,7 +985,7 @@ export function useTradingEngine() {
                     subWalletBal = fundedSub.balance || 0;
                   }
                 }
-                const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+                const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
 
                 if (subWalletBal < 0.001 && !masterKey) {
                   addBotLogRef.current(
@@ -1393,7 +1402,7 @@ export function useTradingEngine() {
                     }
                   }
 
-                  const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+                  const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
 
                   if (subWalletBal < 0.001 && !masterKey) {
                     addBotLogRef.current(
@@ -1671,7 +1680,7 @@ export function useTradingEngine() {
       // Sell via Jupiter for crypto positions bought on-chain
       const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
-      const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+      const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
       const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
         ? subWalletsRef.current[botSubIndex]?.privateKey
         : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
@@ -1708,7 +1717,7 @@ export function useTradingEngine() {
       const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
 
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
-      const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+      const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
       const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
         ? subWalletsRef.current[botSubIndex]?.privateKey
         : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
@@ -1837,7 +1846,7 @@ export function useTradingEngine() {
         // 3. Auto-sweep profit on-chain if sub-wallet is funded
         const botObj = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
         const subIndex = botObj ? (botObj.subWallet || 1) - 1 : 0;
-        const subWalletKey = subWalletsRef.current[subIndex]?.privateKey || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY || '';
+        const subWalletKey = subWalletsRef.current[subIndex]?.privateKey || (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
         const masterPubKey = getDerivedMasterPublicKey();
 
         if (subWalletKey && masterPubKey && masterPubKey.length >= 32 && netProfitSol > 0.000001) {

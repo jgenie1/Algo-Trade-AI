@@ -35,6 +35,7 @@ import type { SubWallet, BotInstance } from '@/types';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
+import { decryptSensitiveData, encryptSensitiveData } from '@/lib/cryptoStorage';
 import { 
   sweepSubWalletProfitToMaster, 
   disperseSolToSubWallets, 
@@ -151,10 +152,16 @@ export default function TradingBotsManager({
   const [localSubWallets, setLocalSubWallets] = useState<SubWallet[]>([]);
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('trade_sub_wallets');
-        if (stored) setLocalSubWallets(JSON.parse(stored));
-      } catch {}
+      const loadSubs = async () => {
+        try {
+          const stored = localStorage.getItem('trade_sub_wallets');
+          if (stored) {
+            const decrypted = await decryptSensitiveData(stored);
+            setLocalSubWallets(JSON.parse(decrypted));
+          }
+        } catch {}
+      };
+      loadSubs();
     }
   }, []);
 
@@ -177,13 +184,23 @@ export default function TradingBotsManager({
     }
   };
 
-  const handleFundDemoFleet = (solAmount = 0.5) => {
+  const saveSubWalletsEncrypted = async (updated: SubWallet[]) => {
+    try {
+      const enc = await encryptSensitiveData(JSON.stringify(updated));
+      localStorage.setItem('trade_sub_wallets', enc);
+      setLocalSubWallets(updated);
+    } catch {
+      localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
+      setLocalSubWallets(updated);
+    }
+  };
+
+  const handleFundDemoFleet = async (solAmount = 0.5) => {
     const updated: SubWallet[] = effectiveSubWallets.map((w: SubWallet) => ({
       ...w,
       balance: solAmount
     }));
-    localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-    setLocalSubWallets(updated);
+    await saveSubWalletsEncrypted(updated);
     addBotLog('system', 'System', `[FLOTTE DÉMO ACTIVÉE] 5 Sous-Wallets virtuels approvisionnés avec ${solAmount} SOL chacun pour tester les robots sans risque !`, 'trade');
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('web3_wallet_updated'));
@@ -204,8 +221,7 @@ export default function TradingBotsManager({
           ...w,
           balance: res.balances![w.publicKey] ?? w.balance ?? 0
         }));
-        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-        setLocalSubWallets(updated);
+        await saveSubWalletsEncrypted(updated);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
           window.dispatchEvent(new Event('storage'));
@@ -237,8 +253,7 @@ export default function TradingBotsManager({
           ...w,
           balance: res.balances ? (res.balances[w.publicKey] ?? (w.balance || 0) + customDisperseAmount) : ((w.balance || 0) + customDisperseAmount)
         }));
-        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-        setLocalSubWallets(updated);
+        await saveSubWalletsEncrypted(updated);
         addBotLog('system', 'System', `[DISPERSE SOL CONFIRMÉ] ${customDisperseAmount} SOL distribué avec succès vers les 5 sous-portefeuilles ! Tx: ${res.txHash.slice(0, 12)}...`, 'trade');
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
@@ -369,8 +384,7 @@ export default function TradingBotsManager({
         ...w,
         balance: (w.balance || 0) + amount
       }) : w);
-      localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-      setLocalSubWallets(updated);
+      await saveSubWalletsEncrypted(updated);
       addBotLog('system', 'System', `[DÉMO] ${amount} SOL alloué au Sous-Wallet #${subNum} !`, 'trade');
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('web3_wallet_updated'));
@@ -396,8 +410,7 @@ export default function TradingBotsManager({
           ...w,
           balance: res.balances ? (res.balances[w.publicKey] ?? (w.balance || 0) + amount) : ((w.balance || 0) + amount)
         }) : w);
-        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-        setLocalSubWallets(updated);
+        await saveSubWalletsEncrypted(updated);
         addBotLog('system', 'System', `[TRANSFERT SOL RÉUSSI] ${amount} SOL transféré vers le Sous-Wallet #${subNum} ! Tx: ${res.txHash.slice(0, 12)}...`, 'trade');
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
@@ -460,8 +473,7 @@ export default function TradingBotsManager({
       const total = effectiveSubWallets.reduce((acc, w) => acc + (w.balance || 0), 0);
       const avg = total / 5;
       const updated = effectiveSubWallets.map(w => ({ ...w, balance: avg }));
-      localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-      setLocalSubWallets(updated);
+      await saveSubWalletsEncrypted(updated);
       setReclaimSuccessMsg(`⚖️ Flotte Démo rééquilibrée : ${avg.toFixed(3)} SOL par sous-portefeuille.`);
       addBotLog('system', 'System', `[RÉÉQUILIBRAGE DÉMO] 5 sous-portefeuilles rééquilibrés à ${avg.toFixed(3)} SOL chacun.`, 'trade');
       return;
@@ -587,8 +599,7 @@ export default function TradingBotsManager({
           ...w,
           balance: res.balances ? (res.balances[w.publicKey] ?? (w.balance || 0) + amountToTransfer) : ((w.balance || 0) + amountToTransfer)
         }) : w);
-        localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-        setLocalSubWallets(updated);
+        await saveSubWalletsEncrypted(updated);
         addBotLog(bot.id, bot.strategy, `[TRANSFERT SOL RÉUSSI] ${amountToTransfer} SOL alloué et transféré vers le Sous-Wallet #${bot.subWallet || 1} ! Tx: ${res.txHash.slice(0, 12)}...`, 'trade');
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
@@ -604,15 +615,14 @@ export default function TradingBotsManager({
     }
   };
 
-  const handleFundBotSubWalletDemo = (bot: BotInstance) => {
+  const handleFundBotSubWalletDemo = async (bot: BotInstance) => {
     const subIdx = (bot.subWallet || 1) - 1;
     const amountToTransfer = typeof bot.capital === 'number' && bot.capital > 0 ? (bot.capital > 50 ? 0.5 : bot.capital) : 0.5;
     const updated = effectiveSubWallets.map((w, i) => i === subIdx ? ({
       ...w,
       balance: (w.balance || 0) + amountToTransfer
     }) : w);
-    localStorage.setItem('trade_sub_wallets', JSON.stringify(updated));
-    setLocalSubWallets(updated);
+    await saveSubWalletsEncrypted(updated);
     addBotLog(bot.id, bot.strategy, `[FLOTTE DÉMO] ${amountToTransfer} SOL virtuel alloué au Sous-Wallet #${bot.subWallet || 1} !`, 'trade');
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('web3_wallet_updated'));

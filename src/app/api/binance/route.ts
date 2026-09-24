@@ -1,19 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { z } from 'zod';
+import { rateLimiter, getClientIp } from '@/lib/rateLimiter';
 
 /**
  * Route API Next.js Backend pour Binance Agent OS & REST API
  * Gère la signature cryptographique HMAC-SHA256 côté serveur pour une sécurité maximale.
  */
 
+const BinanceOrderSchema = z.object({
+  symbol: z.string().min(2).max(20),
+  side: z.enum(['BUY', 'SELL']),
+  type: z.enum(['MARKET', 'LIMIT', 'STOP_LOSS_LIMIT']).optional().default('MARKET'),
+  quantity: z.number().positive().optional(),
+  quoteOrderQty: z.number().positive().optional(),
+  price: z.number().positive().optional(),
+  stopPrice: z.number().positive().optional(),
+});
+
+const BinanceApiRequestSchema = z.object({
+  action: z.enum(['get_account', 'place_order']),
+  apiKey: z.string().min(16).max(128),
+  apiSecret: z.string().min(16).max(128),
+  isTestnet: z.boolean().optional().default(false),
+  region: z.enum(['GLOBAL', 'US', 'TESTNET']).optional(),
+  order: BinanceOrderSchema.optional(),
+});
+
 function generateBinanceSignature(queryString: string, apiSecret: string): string {
   return crypto.createHmac('sha256', apiSecret).update(queryString).digest('hex');
 }
 
 export async function POST(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateLimitStatus = rateLimiter.check(clientIp, 25, 60000); // 25 req/min
+
+  if (rateLimitStatus.limited) {
+    return NextResponse.json(
+      { success: false, error: "Limite de requêtes API Binance atteinte. Veuillez patienter." },
+      { 
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimitStatus.resetTime - Date.now()) / 1000).toString()
+        }
+      }
+    );
+  }
+
   try {
-    const body = await req.json();
-    const { action, apiKey, apiSecret, isTestnet, region, order } = body;
+    const rawBody = await req.json();
+    const parseResult = BinanceApiRequestSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { success: false, error: "Paramètres de requête Binance invalides", details: parseResult.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { action, apiKey, apiSecret, isTestnet, region, order } = parseResult.data;
 
     let baseUrl = 'https://api.binance.com/api/v3';
     if (region === 'US') {

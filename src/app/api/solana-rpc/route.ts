@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimiter, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +16,30 @@ const RPC_FALLBACKS = [
  * proxying RPC calls from the Next.js server to the Solana network.
  */
 export async function POST(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateLimitStatus = rateLimiter.check(clientIp, 60, 60000); // 60 RPC calls/min
+
+  if (rateLimitStatus.limited) {
+    return NextResponse.json(
+      { jsonrpc: '2.0', error: { code: -32005, message: 'Too many RPC requests. Rate limit exceeded.' }, id: 1 },
+      { 
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimitStatus.resetTime - Date.now()) / 1000).toString()
+        }
+      }
+    );
+  }
+
   try {
     const body = await req.json();
+
+    if (!body || typeof body !== 'object' || !body.method || typeof body.method !== 'string') {
+      return NextResponse.json(
+        { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid JSON-RPC Request structure' }, id: body?.id || 1 },
+        { status: 400 }
+      );
+    }
 
     for (const rpcUrl of RPC_FALLBACKS) {
       try {

@@ -9,6 +9,7 @@ import {
 } from '@solana/web3.js';
 import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
 import { getRealMarketBasePrice } from '@/lib/utils';
+import { decryptSensitiveData } from '@/lib/cryptoStorage';
 import bs58 from 'bs58';
 
 export interface PumpCoin {
@@ -853,7 +854,8 @@ export async function rebalanceFleetSubWallets(): Promise<{
     const rawSubWallets = typeof window !== 'undefined' ? localStorage.getItem('trade_sub_wallets') : null;
     if (!rawSubWallets) return { success: false, averageSol: 0, transfersCount: 0, error: 'Aucun sous-wallet trouvé' };
 
-    const subWallets = JSON.parse(rawSubWallets);
+    const decrypted = await decryptSensitiveData(rawSubWallets);
+    const subWallets = JSON.parse(decrypted);
     const keypairs: any[] = [];
     const balances: number[] = [];
 
@@ -932,9 +934,10 @@ export async function closeEmptyTokenAccountsAndRefundRent(params: {
     const rawSubWallets = typeof window !== 'undefined' ? localStorage.getItem('trade_sub_wallets') : null;
     if (!rawSubWallets) return { success: false, closedAccountsCount: 0, refundedSol: 0, error: 'Aucun sous-wallet' };
 
-    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-    const subWallets = JSON.parse(rawSubWallets);
+    const decrypted = await decryptSensitiveData(rawSubWallets);
+    const subWallets = JSON.parse(decrypted);
     const destMaster = new PublicKey(params.destinationMasterPubKey);
+    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
     let closedCount = 0;
 
     for (const sw of subWallets) {
