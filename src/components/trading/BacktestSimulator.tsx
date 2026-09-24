@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Play, TrendingUp, TrendingDown, BarChart2, ShieldAlert, Zap, Layers, RefreshCw } from 'lucide-react';
 import { runBacktest, type BacktestResult } from '@/services/backtestService';
-import { currencyPairs, timeframes } from '@/hooks/useTradingSimulation';
+import { currencyPairs, timeframes } from '@/hooks/useTradingEngine';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';

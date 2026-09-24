@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Wand2, Sparkles, Bot, CheckCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
-import { currencyPairs, timeframes } from '@/hooks/useTradingSimulation';
+import { currencyPairs, timeframes } from '@/hooks/useTradingEngine';
 import { getLearningTelemetrySummary } from '@/services/aiClosedLoopLearningService';
 
 export default function AIStrategyGeneratorForm() {

@@ -24,7 +24,7 @@ import { Slider } from '@/components/ui/slider';
 
 import PositionRiskCalculator from '@/components/trading/PositionRiskCalculator';
 import type { Position } from '@/types';
-import { currencyPairs as allCurrencyPairs } from '@/hooks/useTradingSimulation';
+import { currencyPairs as allCurrencyPairs } from '@/hooks/useTradingEngine';
 const currencyPairs = allCurrencyPairs.filter(c => c.value !== 'ALL');
 
 interface ManualOrderFormProps {

@@ -20,7 +20,7 @@ import {
   SelectContent, 
   SelectItem 
 } from '@/components/ui/select';
-import { currencyPairs, timeframes } from '@/hooks/useTradingSimulation';
+import { currencyPairs, timeframes } from '@/hooks/useTradingEngine';
 import TradingViewWidget from '@/components/trading/TradingViewWidget';
 
 import type { BotLog, BotInstance } from '@/types';
