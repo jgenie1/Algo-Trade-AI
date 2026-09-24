@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { 
   User, 
   ShieldCheck, 
@@ -166,9 +167,12 @@ export default function ProfilePage() {
           <Card className="bg-[#14101a] border-white/10 rounded-2xl overflow-hidden text-center p-6 space-y-4 shadow-xl">
             <div className="relative inline-block mx-auto">
               <div className="w-28 h-28 rounded-full border-2 border-[#c2ff0c] p-1 bg-white/5 overflow-hidden shadow-[0_0_25px_rgba(194,255,12,0.2)] mx-auto">
-                <img 
+                <Image 
                   src={avatarUrl} 
                   alt="User Avatar"
+                  width={112}
+                  height={112}
+                  unoptimized
                   className="w-full h-full object-cover rounded-full"
                 />
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   Wallet, 
   Coins, 
@@ -314,7 +315,7 @@ export default function WalletTokenPortfolio({
                             />
                           )}
                           {token.logoURI ? (
-                            <img src={token.logoURI} alt={token.symbol} className="h-9 w-9 rounded-full bg-black/40 border border-white/10" />
+                            <Image src={token.logoURI} alt={token.symbol} width={36} height={36} unoptimized className="h-9 w-9 rounded-full bg-black/40 border border-white/10 object-cover" />
                           ) : (
                             <div className="h-9 w-9 rounded-full bg-purple-900/40 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs">
                               {token.symbol.slice(0, 2)}
@@ -429,7 +430,7 @@ export default function WalletTokenPortfolio({
                           <TableCell className="py-3.5 border-none">
                             <div className="flex items-center gap-3">
                               {token.logoURI ? (
-                                <img src={token.logoURI} alt={token.symbol} className="h-8 w-8 rounded-full bg-black/40 border border-white/10" />
+                                <Image src={token.logoURI} alt={token.symbol} width={32} height={32} unoptimized className="h-8 w-8 rounded-full bg-black/40 border border-white/10 object-cover" />
                               ) : (
                                 <div className="h-8 w-8 rounded-full bg-purple-900/40 border border-purple-500/30 flex items-center justify-center font-bold text-purple-300 text-xs">
                                   {token.symbol.slice(0, 2)}
