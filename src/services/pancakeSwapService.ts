@@ -158,6 +158,10 @@ export async function depositProfitToBscVault(amountUsdt: number, isRealMode: bo
     localStorage.setItem('bsc_profit_vault_usdt', String(newVaultUsdt));
   }
 
+  if (isRealMode && !realTxHash) {
+    throw new Error("Échec de la transaction réelle sur BSC : Aucune signature de transaction on-chain reçue.");
+  }
+
   const txHash = realTxHash || ('0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''));
 
   return {
@@ -203,8 +207,7 @@ export async function withdrawProfitFromBscVault(amountUsdt: number, isRealMode:
       if (err?.code === 4001 || err?.message?.includes("User rejected")) {
         throw new Error("Retrait annulé : Vous avez refusé la transaction dans MetaMask.");
       }
-      // In dev fallback allow transaction verification log
-      console.warn("Retrait coffre BSC :", err.message || err);
+      throw new Error("Échec de la transaction réelle de retrait sur BSC : " + (err.message || err));
     }
   }
 
@@ -221,6 +224,10 @@ export async function withdrawProfitFromBscVault(amountUsdt: number, isRealMode:
   inMemoryBscVaultUsdt = newVaultUsdt;
   if (typeof window !== 'undefined') {
     localStorage.setItem('bsc_profit_vault_usdt', String(newVaultUsdt));
+  }
+
+  if (isRealMode && !realTxHash) {
+    throw new Error("Échec du retrait réel sur BSC : Aucune signature de transaction on-chain reçue.");
   }
 
   const txHash = realTxHash || ('0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''));

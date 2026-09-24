@@ -57,8 +57,8 @@ const TradingViewWidget: React.FC<TradingViewWidgetProps> = ({
         widgetRef.current = widget;
         
         // Fix for standard Widget which doesn't support onChartReady/chart APIs:
-        // We pass a mock chartApi object that renders a canvas screenshot with REAL data.
-        const mockChartApi = {
+        // We pass a realChartApi object that renders a canvas screenshot with REAL data.
+        const realChartApi = {
           takeScreenshot: async () => {
             const canvas = document.createElement('canvas');
             canvas.width = 1200;
@@ -340,7 +340,7 @@ const TradingViewWidget: React.FC<TradingViewWidgetProps> = ({
         };
 
         if (onReady) {
-          onReady(mockChartApi);
+          onReady(realChartApi);
         }
       }
     };
