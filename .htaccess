@@ -1,0 +1,38 @@
+# ==============================================================================
+# ALGOTRADE AI - HOSTINGER / LITESPEED / APACHE NODE.JS CONFIGURATION
+# ==============================================================================
+
+# Disable directory browsing to prevent 403 Forbidden index errors
+Options -Indexes
+DirectoryIndex disabled
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Direct access for static Next.js assets, public icons, service worker
+  RewriteCond %{REQUEST_URI} ^/_next/static/ [OR]
+  RewriteCond %{REQUEST_URI} ^/icons/ [OR]
+  RewriteCond %{REQUEST_URI} ^/manifest.webmanifest [OR]
+  RewriteCond %{REQUEST_URI} ^/sw.js [OR]
+  RewriteCond %{REQUEST_URI} ^/favicon.ico
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # 2. Reverse Proxy to Node.js backend port (default 3000 or custom)
+  <IfModule mod_proxy.c>
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+  </IfModule>
+</IfModule>
+
+# Ensure proper MIME types for Next.js PWA & static assets
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+  AddType application/javascript .js .mjs
+  AddType text/css .css
+  AddType image/svg+xml .svg
+  AddType image/webp .webp
+  AddType image/png .png
+</IfModule>

@@ -5,6 +5,7 @@ const fs = require('fs');
 
 // Set NODE_ENV to production if not specified
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+process.env.HOSTNAME = process.env.HOSTNAME || '0.0.0.0';
 const port = process.env.PORT || 3000;
 
 const standalonePath = path.join(__dirname, '.next', 'standalone', 'server.js');
