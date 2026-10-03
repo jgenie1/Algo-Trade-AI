@@ -4,6 +4,8 @@
  * entre Solana (SOL/SPL), Ethereum (ETH/ERC20) et Binance Smart Chain (BNB/BEP20).
  */
 
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
+
 export type SupportedChain = 'SOLANA' | 'BSC' | 'ETHEREUM';
 
 export interface ChainNetworkDetails {
@@ -30,6 +32,7 @@ export interface CrossChainRoute {
 export interface TransferResult {
   success: boolean;
   txHash?: string;
+  explorerUrl?: string;
   fromChain: SupportedChain;
   toChain: SupportedChain;
   amountTransferred: number;
@@ -137,14 +140,26 @@ export async function executeCrossChainTransfer(
     const hasSolanaWallet = typeof window !== 'undefined' && (window as any).solana && (window as any).solana.isConnected;
     const ethereumObj = typeof window !== 'undefined' && (window as any).ethereum;
 
-    if (!hasSolanaWallet && !ethereumObj) {
+    if (fromChain === 'SOLANA' && !hasSolanaWallet) {
       return {
         success: false,
         fromChain,
         toChain,
         amountTransferred: 0,
         feeUsd: 0,
-        message: `Échec du transfert réel : Aucun portefeuille Web3 (Phantom/MetaMask) n'est connecté pour signer la transaction de bridge de ${SUPPORTED_CHAINS[fromChain].name} vers ${SUPPORTED_CHAINS[toChain].name}.`,
+        message: `Échec du transfert réel : Aucun portefeuille Solana (Phantom/Solflare) n'est connecté.`,
+        timestamp: Date.now()
+      };
+    }
+
+    if ((fromChain === 'BSC' || fromChain === 'ETHEREUM') && !ethereumObj) {
+      return {
+        success: false,
+        fromChain,
+        toChain,
+        amountTransferred: 0,
+        feeUsd: 0,
+        message: `Échec du transfert réel : Aucun portefeuille EVM (MetaMask) n'est connecté.`,
         timestamp: Date.now()
       };
     }
@@ -183,6 +198,7 @@ export async function executeCrossChainTransfer(
       return {
         success: true,
         txHash: realTxHash,
+        explorerUrl: getExplorerTxUrl(fromChain, realTxHash),
         fromChain,
         toChain,
         amountTransferred: amount,
@@ -206,7 +222,7 @@ export async function executeCrossChainTransfer(
   // Simulation d'exécution exclusivement pour le mode Démo (paper trading)
   await new Promise(resolve => setTimeout(resolve, 1500));
 
-  const demoTxHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  const demoTxHash = 'paper_bridge_' + Date.now();
 
   return {
     success: true,

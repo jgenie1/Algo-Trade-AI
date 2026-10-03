@@ -4,6 +4,7 @@ import React from 'react';
 import { ArrowDownLeft, ArrowUpRight, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import {
   Table,
   TableHeader,
@@ -91,18 +92,24 @@ export default function TransactionHistoryTable({
               </TableCell>
               {tradingMode === 'REAL' && (
                 <TableCell className="py-3 pr-2 text-right border-none">
-                  {tx.txHash ? (
-                    <a
-                      href={`https://solscan.io/tx/${tx.txHash}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 hover:underline font-medium text-xs"
-                    >
-                      Détails
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                  {tx.txHash && !tx.txHash.startsWith('paper_') && !tx.txHash.startsWith('demo_') ? (
+                    (() => {
+                      const chain = (tx.currency === 'BNB' || tx.currency === 'BSC' || tx.currency === 'EVM') ? 'BSC' : 'SOL';
+                      const explorerUrl = getExplorerTxUrl(chain, tx.txHash);
+                      return (
+                        <a
+                          href={explorerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 hover:underline font-medium text-xs"
+                        >
+                          Détails
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      );
+                    })()
                   ) : (
-                    <span className="text-white/20 text-xs">-</span>
+                    <span className="text-white/20 text-xs font-mono">{tx.txHash?.startsWith('paper_') ? 'Simulé' : '-'}</span>
                   )}
                 </TableCell>
               )}

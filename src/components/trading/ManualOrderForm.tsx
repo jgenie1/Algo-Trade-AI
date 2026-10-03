@@ -10,6 +10,7 @@ import {
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { executeRealPumpTrade, executeJupiterSwap, SOLANA_TOKEN_MINTS, fetchLatestPumpCoins, fetchRealPumpCoins } from '@/services/pumpFunService';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +59,7 @@ export default function ManualOrderForm({
   const [takeProfit, setTakeProfit] = useState<string>('');
   const [trendingCoins, setTrendingCoins] = useState<any[]>([]);
   const [trendingCoinsError, setTrendingCoinsError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const isSubmittingOrderRef = useRef(false);
 
@@ -98,54 +100,68 @@ export default function ManualOrderForm({
     }
   }, [tradingMode, trendingCoins, selectedPair, setSelectedPair]);
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingOrderRef.current) return;
+    if (isSubmittingOrderRef.current || isSubmitting) return;
     isSubmittingOrderRef.current = true;
-
-    setTimeout(() => {
-      isSubmittingOrderRef.current = false;
-    }, 500);
+    setIsSubmitting(true);
 
     const currentPrice = (livePrices[selectedPair] && livePrices[selectedPair] > 0) 
       ? livePrices[selectedPair] 
       : getRealMarketBasePrice(selectedPair);
 
-    if (tradingMode === 'REAL') {
-      const currentSolBal = solanaBalance !== null ? solanaBalance : 0;
-      const vaultSol = Number(reserveVaultSol) || 0;
-      const allocatableSol = Math.max(0, currentSolBal - vaultSol);
-
-      if (selectedPair.startsWith('SOL:')) {
-        const parts = selectedPair.split(':');
-        const mintAddress = parts[1];
-        if (!mintAddress || mintAddress.startsWith('ukhh')) {
-          alert("Adresse de contrat Solana invalide.");
+    try {
+      if (tradingMode === 'REAL') {
+        // R1 & R2: Vérification obligatoire du wallet connecté
+        if (!isSolanaWalletActive || !solanaPubKey) {
+          alert("Aucun portefeuille Solana connecté. Veuillez connecter Phantom ou Solflare pour passer un ordre réel on-chain.");
+          addBotLog("manual", "Manuel", "[ORDRE REJETÉ] Aucun portefeuille Solana connecté en Mode Réel.", 'error');
           return;
         }
+
+        const currentSolBal = solanaBalance !== null ? solanaBalance : 0;
+        const vaultSol = Number(reserveVaultSol) || 0;
+        const allocatableSol = Math.max(0, currentSolBal - vaultSol);
+
         if (orderAmount <= 0) {
           alert("Le montant doit être supérieur à 0.");
           return;
         }
+
         if (orderAmount > allocatableSol) {
           alert(`Solde SOL allocable insuffisant (hors Coffre-Fort). Requis: ${orderAmount} SOL, Disponible: ${allocatableSol.toFixed(3)} SOL (Coffre-Fort protégé: ${vaultSol.toFixed(3)} SOL)`);
           return;
         }
 
-        const tokenSymbol = parts[2] || 'TOKEN';
-        addBotLog("manual", "Manuel", `Envoi d'un ordre d'achat réel de ${orderAmount} SOL pour $${tokenSymbol}...`, 'info');
-        
-        executeRealPumpTrade({
-          action: 'buy',
-          mint: mintAddress,
-          amount: orderAmount,
-          denominatedInSol: true,
-          slippage: 15,
-          priorityFee: 0.005
-        }).then((res) => {
+        // Branche 1: Jeton Pump.fun (SOL:mint:symbol)
+        if (selectedPair.startsWith('SOL:')) {
+          const parts = selectedPair.split(':');
+          const mintAddress = parts[1];
+          if (!mintAddress || mintAddress.startsWith('ukhh')) {
+            alert("Adresse de contrat Solana (Mint CA) invalide.");
+            return;
+          }
+
+          const tokenSymbol = parts[2] || 'TOKEN';
+          addBotLog("manual", "Manuel", `Envoi d'un ordre d'achat réel de ${orderAmount} SOL pour $${tokenSymbol}...`, 'info');
+
+          const res = await executeRealPumpTrade({
+            action: 'buy',
+            mint: mintAddress,
+            amount: orderAmount,
+            denominatedInSol: true,
+            slippage: 15,
+            priorityFee: 0.005,
+            walletProvider: typeof window !== 'undefined' ? (window as any).solana : undefined
+          });
+
           if (res && res.success && res.txHash) {
-            addBotLog("manual", "Manuel", `[ACHAT MANUEL RÉEL RÉUSSI] Transaction confirmée ! Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
-            
+            const explorerUrl = res.explorerUrl || getExplorerTxUrl('SOL', res.txHash);
+            addBotLog("manual", "Manuel", `[ACHAT MANUEL RÉEL RÉUSSI] Transaction confirmée ! Hash: ${res.txHash.slice(0, 16)}... Solscan: ${explorerUrl}`, 'trade');
+
+            const sl = stopLoss ? parseFloat(stopLoss) : undefined;
+            const tp = takeProfit ? parseFloat(takeProfit) : undefined;
+
             const newRealPos: Position = {
               id: 'pos_' + Math.random().toString(36).substring(2, 9),
               pair: selectedPair,
@@ -154,43 +170,50 @@ export default function ManualOrderForm({
               currentPrice: currentPrice,
               amount: orderAmount,
               leverage: 1,
+              sl,
+              tp,
               timestamp: Date.now(),
               txHash: res.txHash,
+              mint: mintAddress,
               mode: 'REAL' as const
             };
-            
+
             setActivePositions(prev => [...prev, newRealPos]);
             window.dispatchEvent(new Event('web3_wallet_updated'));
+            setStopLoss('');
+            setTakeProfit('');
           } else {
-            addBotLog("manual", "Manuel", `[ÉCHEC ACHAT MANUEL RÉEL] ${res.error || 'Erreur réseau/RPC Solana.'}`, 'error');
+            const errMsg = res?.error || 'Erreur réseau RPC Solana ou signature refusée par l\'utilisateur.';
+            addBotLog("manual", "Manuel", `[ÉCHEC ACHAT MANUEL RÉEL] ${errMsg}`, 'error');
+            alert(`Échec de la transaction on-chain Solana : ${errMsg}`);
           }
-        });
-        return;
-      }
+          setStopLoss('');
+          setTakeProfit('');
+          return;
+        }
 
-      // Ordres manuels multi-actifs (Crypto, Forex, Matières Premières) en Mode Réel sur Marge SOL
-      if (orderAmount <= 0) {
-        alert("Le montant doit être supérieur à 0.");
-        return;
-      }
-      if (orderAmount > allocatableSol) {
-        alert(`Solde de marge SOL insuffisant (hors Coffre-Fort). Requis: ${orderAmount} SOL, Disponible: ${allocatableSol.toFixed(3)} SOL (Coffre-Fort protégé: ${vaultSol.toFixed(3)} SOL).`);
-        return;
-      }
+        // Branche 2: Jeton Crypto Majeur via Jupiter Aggregator (SOLANA_TOKEN_MINTS)
+        const pairSymbol = selectedPair.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
+        const isCryptoOnChain = !!SOLANA_TOKEN_MINTS[pairSymbol];
 
-      const pairSymbol = selectedPair.replace('FX:', '').replace('-USD', '').replace('=X', '').replace('SOL:', '').split(':').pop()?.split('/')[0]?.toUpperCase() || '';
-      const isCryptoOnChain = !!SOLANA_TOKEN_MINTS[pairSymbol];
+        if (isCryptoOnChain) {
+          const sl = stopLoss ? parseFloat(stopLoss) : undefined;
+          const tp = takeProfit ? parseFloat(takeProfit) : undefined;
 
-      if (isCryptoOnChain) {
-        addBotLog("manual", "Manuel", `Envoi d'un ordre réel ${orderType} de ${orderAmount} SOL pour ${pairSymbol} via Jupiter DEX (Solana Mainnet)...`, 'info');
-        executeJupiterSwap({
-          action: orderType.toLowerCase() as 'buy' | 'sell',
-          symbol: pairSymbol,
-          amountSol: orderAmount,
-          slippageBps: 150
-        }).then((res) => {
+          addBotLog("manual", "Manuel", `Envoi d'un ordre réel ${orderType} de ${orderAmount} SOL pour ${pairSymbol} via Jupiter DEX (Solana Mainnet)...`, 'info');
+
+          const res = await executeJupiterSwap({
+            action: orderType.toLowerCase() as 'buy' | 'sell',
+            symbol: pairSymbol,
+            amountSol: orderAmount,
+            slippageBps: 150,
+            walletProvider: typeof window !== 'undefined' ? (window as any).solana : undefined
+          });
+
           if (res && res.success && res.txHash) {
-            addBotLog("manual", "Manuel", `[ORDRE JUPITER CONFIRMÉ ON-CHAIN] Hash: ${res.txHash.slice(0, 16)}... Solscan: https://solscan.io/tx/${res.txHash}`, 'trade');
+            const explorerUrl = res.explorerUrl || getExplorerTxUrl('SOL', res.txHash);
+            addBotLog("manual", "Manuel", `[ORDRE JUPITER CONFIRMÉ ON-CHAIN] Hash: ${res.txHash.slice(0, 16)}... Solscan: ${explorerUrl}`, 'trade');
+
             const newRealPos: Position = {
               id: 'pos_' + Math.random().toString(36).substring(2, 9),
               pair: selectedPair,
@@ -205,19 +228,28 @@ export default function ManualOrderForm({
               txHash: res.txHash,
               mode: 'REAL' as const
             };
+
             setActivePositions(prev => [...prev, newRealPos]);
             window.dispatchEvent(new Event('web3_wallet_updated'));
           } else {
-            addBotLog("manual", "Manuel", `[ÉCHEC ORDRE JUPITER RÉEL] ${res.error || 'Erreur réseau/RPC Solana.'}`, 'error');
-            alert(`Échec de la transaction on-chain Solana : ${res.error || 'Erreur réseau RPC.'}`);
+            const errMsg = res?.error || 'Erreur réseau RPC Solana ou signature refusée.';
+            addBotLog("manual", "Manuel", `[ÉCHEC ORDRE JUPITER RÉEL] ${errMsg}`, 'error');
+            alert(`Échec de la transaction on-chain Solana : ${errMsg}`);
           }
-        });
-        setStopLoss('');
-        setTakeProfit('');
+
+          setStopLoss('');
+          setTakeProfit('');
+          return;
+        }
+
+        // Branche 3: PAIRES NON SUPPORTÉES ON-CHAIN EN MODE RÉEL -> FAIL-CLOSED STRICT
+        // AUCUN FALLTHROUGH VERS DES POSITIONS SIMULÉES EN MODE RÉEL
+        alert(`[REJET ORDRE RÉEL] La paire "${selectedPair}" n'est pas négociable on-chain sur Solana. Veuillez sélectionner un jeton Solana (Pump.fun ou Jupiter) ou basculer en Mode Démo.`);
+        addBotLog("manual", "Manuel", `[ORDRE REJETÉ] Paire "${selectedPair}" non supportée on-chain en mode réel.`, 'error');
         return;
       }
-    } else {
-      // Mode DEMO
+
+      // --- MODE DEMO (Paper Trading) UNIQUEMENT ---
       if (orderAmount <= 0) {
         alert("Le montant doit être supérieur à 0.");
         return;
@@ -229,47 +261,40 @@ export default function ManualOrderForm({
         alert(`Capital allocable insuffisant (hors Coffre-Fort 10%). Marge requise: $${marginRequired}, Capital allocable: $${allocatableBalance.toFixed(2)}. Coffre-Fort protégé: $${(Number(reserveVault) || 0).toFixed(2)}`);
         return;
       }
-    }
 
-    const sl = stopLoss ? parseFloat(stopLoss) : undefined;
-    const tp = takeProfit ? parseFloat(takeProfit) : undefined;
+      const sl = stopLoss ? parseFloat(stopLoss) : undefined;
+      const tp = takeProfit ? parseFloat(takeProfit) : undefined;
 
-    const isRealMode = tradingMode === 'REAL';
-    const finalLeverage = isRealMode && selectedPair.startsWith('SOL:') ? 1 : leverage;
+      const newPos: Position = {
+        id: 'pos_' + Math.random().toString(36).substring(2, 9),
+        pair: selectedPair,
+        type: orderType,
+        entryPrice: currentPrice,
+        currentPrice: currentPrice,
+        amount: orderAmount,
+        leverage: leverage,
+        sl,
+        tp,
+        timestamp: Date.now(),
+        mode: 'DEMO'
+      };
 
-    const newPos: Position = {
-      id: 'pos_' + Math.random().toString(36).substring(2, 9),
-      pair: selectedPair,
-      type: orderType,
-      entryPrice: currentPrice,
-      currentPrice: currentPrice,
-      amount: orderAmount,
-      leverage: finalLeverage,
-      sl,
-      tp,
-      timestamp: Date.now(),
-      mode: tradingMode
-    };
-
-    setActivePositions(prev => {
-      if (prev.some(x => x.id === newPos.id)) return prev;
-      return [...prev, newPos];
-    });
-    if (tradingMode === 'DEMO') {
+      setActivePositions(prev => {
+        if (prev.some(x => x.id === newPos.id)) return prev;
+        return [...prev, newPos];
+      });
       setBalance(bal => bal - orderAmount);
-    } else {
-      if (typeof window !== 'undefined') {
-        const cur = parseFloat(localStorage.getItem('trade_solana_balance') || '0');
-        if (!isNaN(cur) && cur > 0) {
-          const next = Math.max(0, cur - orderAmount);
-          localStorage.setItem('trade_solana_balance', next.toString());
-        }
-        window.dispatchEvent(new Event('web3_wallet_updated'));
-      }
+
+      setStopLoss('');
+      setTakeProfit('');
+    } catch (err: any) {
+      const errMsg = err?.message || 'Erreur imprévue lors de la transmission de l\'ordre.';
+      addBotLog("manual", "Manuel", `[EXCEPTION ORDRE] ${errMsg}`, 'error');
+      alert(`Erreur : ${errMsg}`);
+    } finally {
+      isSubmittingOrderRef.current = false;
+      setIsSubmitting(false);
     }
-    
-    setStopLoss('');
-    setTakeProfit('');
   };
 
   const activePairPrice = livePrices[selectedPair] || 0;
@@ -542,6 +567,32 @@ export default function ManualOrderForm({
               )}
             </div>
 
+            {/* Optional Stop Loss & Take Profit for Solana */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-rose-300 uppercase font-headline">Stop Loss (Prix / $)</label>
+                <Input
+                  type="number"
+                  step="0.0000001"
+                  value={stopLoss}
+                  placeholder={activePairPrice > 0 ? (activePairPrice * 0.92).toFixed(6) : "Auto -8%"}
+                  onChange={(e) => setStopLoss(e.target.value)}
+                  className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-emerald-300 uppercase font-headline">Take Profit (Prix / $)</label>
+                <Input
+                  type="number"
+                  step="0.0000001"
+                  value={takeProfit}
+                  placeholder={activePairPrice > 0 ? (activePairPrice * 1.25).toFixed(6) : "Auto +25%"}
+                  onChange={(e) => setTakeProfit(e.target.value)}
+                  className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
+                />
+              </div>
+            </div>
+
             {/* Disclaimer & Execution button */}
             <div className="p-3 bg-purple-950/10 border border-purple-500/10 rounded-xl text-[9px] text-purple-300/70 leading-normal font-body">
               ⚡ Les ordres manuels en Mode Réel sont acheminés en direct via votre nœud Chainstack et s&apos;exécutent sur la blockchain Solana. Le levier est forcé à 1x (Spot).
@@ -549,10 +600,10 @@ export default function ManualOrderForm({
 
             <Button
               type="submit"
-              disabled={!isSolanaWalletActive}
+              disabled={!isSolanaWalletActive || isSubmitting}
               className="w-full h-12 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white font-semibold text-xs rounded-xl transition-all duration-300 font-headline uppercase tracking-wider mt-2 hover:shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-500/40"
             >
-              Exécuter l&apos;Achat Réel sur Solana
+              {isSubmitting ? "Signature & Validation On-Chain..." : "Exécuter l'Achat Réel sur Solana"}
             </Button>
           </>
         )}

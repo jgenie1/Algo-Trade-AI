@@ -37,6 +37,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   // Track last synced state string to break Firestore feedback loops
   const lastStateHashRef = useRef<string>('');
 
+  const recentlyClosedIdsRef = useRef<Set<string>>(new Set());
+  const closedPositionsRef = useRef<ClosedPosition[]>([]);
+
   // 1b. Load persisted USD/HTG rate from localStorage AFTER hydration (avoids SSR mismatch)
   useEffect(() => {
     initClientUsdHtgRate();
@@ -52,6 +55,21 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   // 2. Real-time Subscription to Firebase Firestore (scoped to active user / wallet)
   useEffect(() => {
     let unsubscribe: () => void = () => {};
+
+    const handlePositionClosed = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.id) {
+        recentlyClosedIdsRef.current.add(detail.id);
+        setActivePositions(prev => (Array.isArray(prev) ? prev : []).filter(p => p && p.id !== detail.id && (p as any)._id !== detail.id));
+        setTimeout(() => {
+          recentlyClosedIdsRef.current.delete(detail.id);
+        }, 30000);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('position_closed', handlePositionClosed);
+    }
 
     const loadFromLocalStorage = () => {
       const mode = localStorage.getItem('trade_mode') as 'DEMO' | 'REAL';
@@ -69,8 +87,17 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (bal && !isNaN(parseFloat(bal))) setBalance(parseFloat(bal));
       if (vault && !isNaN(parseFloat(vault))) setReserveVault(parseFloat(vault));
       if (vaultSol && !isNaN(parseFloat(vaultSol))) setReserveVaultSol(parseFloat(vaultSol));
+      if (closed) { 
+        try { 
+          const c = JSON.parse(closed); 
+          const cleanClosed = sanitizeClosed(Array.isArray(c) ? c : []);
+          setClosedPositions(cleanClosed);
+          closedPositionsRef.current = cleanClosed;
+        } catch { 
+          setClosedPositions([]); 
+        } 
+      }
       if (pos) { try { const p = JSON.parse(pos); setActivePositions(sanitizePositions(Array.isArray(p) ? p : [])); } catch { setActivePositions([]); } }
-      if (closed) { try { const c = JSON.parse(closed); setClosedPositions(sanitizeClosed(Array.isArray(c) ? c : [])); } catch { setClosedPositions([]); } }
       if (runningBots) { try { const b = JSON.parse(runningBots); setBots(sanitizeBots(Array.isArray(b) ? b : [])); } catch { setBots([]); } }
       if (txs) { try { const t = JSON.parse(txs); setTransactions(Array.isArray(t) ? t : []); } catch { setTransactions([]); } }
       if (learnings) { try { const l = JSON.parse(learnings); setBotLearnings(Array.isArray(l) ? l : []); } catch { setBotLearnings([]); } }
@@ -80,13 +107,14 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     const sanitizePositions = (arr: any[]): Position[] => {
       if (!Array.isArray(arr)) return [];
       const seenIds = new Set<string>();
+      const closedIds = new Set((closedPositionsRef.current || []).map(c => c.id));
       const cleaned: Position[] = [];
 
       for (const p of arr) {
         if (!p || p.pair === 'ALL' || p.pair === 'SOLANA') continue;
         const cleanPair = !p.pair ? 'FX:EURUSD' : p.pair;
         const posId = p.id || `pos_${Math.random().toString(36).substring(2, 9)}`;
-        if (seenIds.has(posId)) continue;
+        if (seenIds.has(posId) || closedIds.has(posId) || recentlyClosedIdsRef.current.has(posId)) continue;
         seenIds.add(posId);
 
         const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
@@ -95,7 +123,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
 
-        const calculatedMode: 'DEMO' | 'REAL' = p.mode ? p.mode : (cleanPair.startsWith('SOL:') ? 'REAL' : 'DEMO');
+        const calculatedMode: 'DEMO' | 'REAL' = p.mode === 'REAL' 
+          ? 'REAL' 
+          : (p.mode === 'DEMO' ? 'DEMO' : (tradingMode === 'REAL' && cleanPair.startsWith('SOL:') ? 'REAL' : 'DEMO'));
 
         cleaned.push({
           ...p,
@@ -152,7 +182,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
             ...c,
             profit: cleanVal,
             pnl: cleanVal,
-            mode: c.mode ? c.mode : (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')
+            mode: c.mode === 'REAL' ? 'REAL' : (c.mode === 'DEMO' ? 'DEMO' : (tradingMode === 'REAL' && c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'))
           } as ClosedPosition;
         });
     };
@@ -170,6 +200,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         docRef,
         (snapshot) => {
           if (snapshot.exists()) {
+            // Ignore local pending writes to prevent feedback loops
+            if (snapshot.metadata?.hasPendingWrites) {
+              return;
+            }
             const data = snapshot.data() as Partial<AppState>;
             
             const incomingHash = JSON.stringify(data);
@@ -180,39 +214,76 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
             isIncomingSync.current = true;
             lastStateHashRef.current = incomingHash;
             
-            if (data.tradeMode !== undefined) {
-              setTradingMode(data.tradeMode);
-              localStorage.setItem('trade_mode', data.tradeMode);
+            if (data.tradeMode !== undefined && (data.tradeMode === 'REAL' || data.tradeMode === 'DEMO')) {
+              setTradingMode(prev => {
+                if (prev === data.tradeMode) return prev;
+                localStorage.setItem('trade_mode', data.tradeMode!);
+                return data.tradeMode!;
+              });
             }
             if (data.balance !== undefined) {
               const val = typeof data.balance === 'number' && !isNaN(data.balance) ? data.balance : (parseFloat(String(data.balance)) || 0);
-              setBalance(val);
-              localStorage.setItem('trade_balance', val.toString());
+              setBalance(prev => {
+                if (prev === val) return prev;
+                localStorage.setItem('trade_balance', val.toString());
+                return val;
+              });
             }
             if (data.reserveVault !== undefined) {
               const val = typeof data.reserveVault === 'number' && !isNaN(data.reserveVault) ? data.reserveVault : (parseFloat(String(data.reserveVault)) || 0);
-              setReserveVault(val);
-              localStorage.setItem('trade_reserve_vault', val.toString());
+              setReserveVault(prev => {
+                if (prev === val) return prev;
+                localStorage.setItem('trade_reserve_vault', val.toString());
+                return val;
+              });
             }
             if (data.reserveVaultSol !== undefined) {
               const val = typeof data.reserveVaultSol === 'number' && !isNaN(data.reserveVaultSol) ? data.reserveVaultSol : (parseFloat(String(data.reserveVaultSol)) || 0);
-              setReserveVaultSol(val);
-              localStorage.setItem('trade_reserve_vault_sol', val.toString());
-            }
-            if (data.positions !== undefined) {
-              const sanitized = sanitizePositions(Array.isArray(data.positions) ? data.positions : []);
-              setActivePositions(sanitized);
-              localStorage.setItem('trade_positions', JSON.stringify(sanitized));
+              setReserveVaultSol(prev => {
+                if (prev === val) return prev;
+                localStorage.setItem('trade_reserve_vault_sol', val.toString());
+                return val;
+              });
             }
             if (data.closedPositions !== undefined) {
               const sanitized = sanitizeClosed(Array.isArray(data.closedPositions) ? data.closedPositions : []);
-              setClosedPositions(sanitized);
-              localStorage.setItem('trade_closed', JSON.stringify(sanitized));
+              setClosedPositions(prev => {
+                const prevSafe = Array.isArray(prev) ? prev : [];
+                if (prevSafe.length === sanitized.length && prevSafe.every((c, i) => c.id === sanitized[i]?.id)) {
+                  return prev;
+                }
+                localStorage.setItem('trade_closed', JSON.stringify(sanitized));
+                closedPositionsRef.current = sanitized;
+                return sanitized;
+              });
+            }
+            if (data.positions !== undefined) {
+              const sanitized = sanitizePositions(Array.isArray(data.positions) ? data.positions : []);
+              setActivePositions(prev => {
+                const prevSafe = Array.isArray(prev) ? prev : [];
+                if (
+                  prevSafe.length === sanitized.length &&
+                  prevSafe.every((p, i) => p.id === sanitized[i]?.id && p.amount === sanitized[i]?.amount && p.entryPrice === sanitized[i]?.entryPrice)
+                ) {
+                  return prev;
+                }
+                localStorage.setItem('trade_positions', JSON.stringify(sanitized));
+                return sanitized;
+              });
             }
             if (data.bots !== undefined) {
               const sanitized = sanitizeBots(Array.isArray(data.bots) ? data.bots : []);
-              setBots(sanitized);
-              localStorage.setItem('trade_bots', JSON.stringify(sanitized));
+              setBots(prev => {
+                const prevSafe = Array.isArray(prev) ? prev : [];
+                if (
+                  prevSafe.length === sanitized.length &&
+                  prevSafe.every((b, i) => b.id === sanitized[i]?.id && b.status === sanitized[i]?.status && b.capital === sanitized[i]?.capital)
+                ) {
+                  return prev;
+                }
+                localStorage.setItem('trade_bots', JSON.stringify(sanitized));
+                return sanitized;
+              });
             }
             if (data.transactions !== undefined) {
               const txArr = Array.isArray(data.transactions) ? data.transactions : [];
@@ -238,7 +309,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
             
             setTimeout(() => {
               isIncomingSync.current = false;
-            }, 200);
+            }, 300);
           }
         },
         () => {
@@ -251,7 +322,11 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
 
     return () => {
       if (unsubscribe) unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('position_closed', handlePositionClosed);
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const botsRef = useRef(bots);
@@ -261,8 +336,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     botsRef.current = Array.isArray(bots) ? bots : [];
     activePositionsRef.current = Array.isArray(activePositions) ? activePositions : [];
+    closedPositionsRef.current = Array.isArray(closedPositions) ? closedPositions : [];
     balanceRef.current = balance;
-  }, [bots, activePositions, balance]);
+  }, [bots, activePositions, closedPositions, balance]);
 
   // 3. Immediate local persistence + Debounced Firestore remote save
   useEffect(() => {

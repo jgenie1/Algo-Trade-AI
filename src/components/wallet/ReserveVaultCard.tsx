@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Unlock, ArrowDownLeft, ShieldCheck, RefreshCw, Zap, CheckCircle2, AlertCircle, Sparkles, Layers, ArrowRightLeft } from 'lucide-react';
+import { Lock, Unlock, ArrowDownLeft, ShieldCheck, RefreshCw, Zap, CheckCircle2, AlertCircle, Sparkles, Layers, ArrowRightLeft, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { formatSolToUsdAndHtg, formatUsdToHtg, cn, formatSmartCrypto, formatSmar
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { getBscProfitVaultStatus, depositProfitToBscVault, withdrawProfitFromBscVault, BscProfitVaultStatus } from '@/services/pancakeSwapService';
 import { SupportedChain, SUPPORTED_CHAINS, getCrossChainRoutes, executeCrossChainTransfer } from '@/services/crossChainRouterService';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
 
 interface ReserveVaultCardProps {
   solanaBalance?: number | null;
@@ -39,7 +40,7 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
   const [selectedLockPct, setSelectedLockPct] = useState<number>(10);
   const [autoReserveWinningTrades, setAutoReserveWinningTrades] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: 'success' | 'error'; explorerUrl?: string } | null>(null);
 
   // Sync propSolBalance to state or auto-fetch live Solana balance in REAL mode
   useEffect(() => {
@@ -169,14 +170,16 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
     setIsProcessing(true);
     try {
       // Execute Cross-Chain Transfer route calculation & execution
-      const routeRes = await executeCrossChainTransfer('SOLANA', 'BSC', amt, 'USDT');
-      const depositRes = await depositProfitToBscVault(amt);
+      await executeCrossChainTransfer('SOLANA', 'BSC', amt, 'USDT', isReal);
+      const depositRes = await depositProfitToBscVault(amt, isReal);
 
       refreshBscStatus();
       setBscDepositAmount('');
+      const explorerUrl = depositRes.txHash ? getExplorerTxUrl('BSC', depositRes.txHash) : undefined;
       setFeedbackMsg({
         text: `Dépôt de $${amt.toFixed(2)} USDT sur BSC réussi ! Tx Hash: ${depositRes.txHash.slice(0, 10)}...`,
-        type: 'success'
+        type: 'success',
+        explorerUrl
       });
     } catch (err: any) {
       setFeedbackMsg({ text: err?.message || "Erreur lors du dépôt sur la BSC.", type: 'error' });
@@ -197,12 +200,14 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
 
     setIsProcessing(true);
     try {
-      const res = await withdrawProfitFromBscVault(amt);
+      const res = await withdrawProfitFromBscVault(amt, isReal);
       refreshBscStatus();
       setBscWithdrawAmount('');
+      const explorerUrl = res.txHash ? getExplorerTxUrl('BSC', res.txHash) : undefined;
       setFeedbackMsg({
         text: `Retrait de $${amt.toFixed(2)} USDT du coffre BSC réussi ! Solde restant: $${res.newBalance.toFixed(2)} USDT`,
-        type: 'success'
+        type: 'success',
+        explorerUrl
       });
     } catch (err: any) {
       setFeedbackMsg({ text: err?.message || "Erreur lors du retrait.", type: 'error' });
@@ -564,11 +569,24 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
       {/* Feedback Toast */}
       {feedbackMsg && (
         <div className={cn(
-          "p-3 rounded-xl text-xs font-body flex items-center gap-2 animate-in fade-in duration-200",
+          "p-3 rounded-xl text-xs font-body flex items-center justify-between gap-2 animate-in fade-in duration-200",
           feedbackMsg.type === 'success' ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300" : "bg-rose-500/10 border border-rose-500/20 text-rose-300"
         )}>
-          {feedbackMsg.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> : <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />}
-          <span>{feedbackMsg.text}</span>
+          <div className="flex items-center gap-2">
+            {feedbackMsg.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> : <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />}
+            <span>{feedbackMsg.text}</span>
+          </div>
+          {feedbackMsg.explorerUrl && (
+            <a
+              href={feedbackMsg.explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-mono text-[11px] text-cyan-400 hover:text-cyan-300 underline shrink-0"
+            >
+              <span>BscScan</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
         </div>
       )}
     </Card>

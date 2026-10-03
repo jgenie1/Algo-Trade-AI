@@ -20,8 +20,9 @@ import {
   CheckCircle2, 
   ShieldCheck 
 } from 'lucide-react';
-import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap, WalletToken, fetchWalletTokenBalances } from '@/services/dexSwapService';
+import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap, DEXSwapResult, WalletToken, fetchWalletTokenBalances } from '@/services/dexSwapService';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import { useAppState } from '@/context/AppContext';
 import { getRealMarketBasePrice } from '@/lib/utils';
 import { cn, formatUsdToHtg, formatSmartNumber } from '@/lib/utils';
@@ -109,7 +110,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
   const [quote, setQuote] = useState<SwapQuote | null>(null);
   const [isQuoting, setIsQuoting] = useState<boolean>(false);
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
-  const [swapResult, setSwapResult] = useState<{ success: boolean; txHash: string; message: string } | null>(null);
+  const [swapResult, setSwapResult] = useState<DEXSwapResult | null>(null);
 
   const getTokenBalance = (token: SwapToken): number => {
     const found = walletTokens.find(t => t.symbol === token.symbol);
@@ -229,7 +230,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     const res = await executeDEXSwap(fromToken, toToken, numAmount, quote, tradingMode === 'REAL');
 
     setIsSwapping(false);
-    setSwapResult({ success: res.success, txHash: res.txHash, message: res.message });
+    setSwapResult(res);
 
     if (res.success) {
       const outQty = parseFloat(quote.outAmount) || 0;
@@ -289,7 +290,19 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
             {swapResult.txHash && (
               <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-left font-mono text-[11px] space-y-1">
                 <span className="text-white/40 block uppercase font-headline">Hash Transaction On-Chain :</span>
-                <span className="text-[#c2ff0c] break-all">{swapResult.txHash}</span>
+                {swapResult.explorerUrl || (tradingMode === 'REAL' && !swapResult.txHash.startsWith('paper_')) ? (
+                  <a
+                    href={swapResult.explorerUrl || getExplorerTxUrl(activeChain, swapResult.txHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#c2ff0c] hover:underline break-all flex items-center gap-1.5 transition-colors"
+                  >
+                    <span>{swapResult.txHash}</span>
+                    <ExternalLink className="h-3 w-3 shrink-0 inline text-[#c2ff0c]" />
+                  </a>
+                ) : (
+                  <span className="text-[#c2ff0c] break-all">{swapResult.txHash}</span>
+                )}
               </div>
             )}
 
