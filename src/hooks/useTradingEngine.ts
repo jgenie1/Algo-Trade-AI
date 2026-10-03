@@ -653,6 +653,8 @@ export function useTradingEngine() {
   const subWalletsRef = useRef(subWallets);
   const tradingModeRef = useRef(tradingMode);
   const balanceRef = useRef(balance);
+  const reserveVaultRef = useRef(reserveVault);
+  const reserveVaultSolRef = useRef(reserveVaultSol);
   const solanaBalanceRef = useRef(solanaBalance);
   const botCooldownsRef = useRef<Record<string, number>>({});
 
@@ -668,8 +670,10 @@ export function useTradingEngine() {
     subWalletsRef.current = subWallets;
     tradingModeRef.current = tradingMode;
     balanceRef.current = balance;
+    reserveVaultRef.current = reserveVault;
+    reserveVaultSolRef.current = reserveVaultSol;
     solanaBalanceRef.current = solanaBalance;
-  }, [bots, activePositions, livePrices, botLearnings, subWallets, tradingMode, balance, solanaBalance]);
+  }, [bots, activePositions, livePrices, botLearnings, subWallets, tradingMode, balance, reserveVault, reserveVaultSol, solanaBalance]);
 
   // Client-side WS
   useEffect(() => {
@@ -937,10 +941,18 @@ export function useTradingEngine() {
               let posTradeAmount = bot.capital;
 
               if (tradingModeRef.current === 'DEMO') {
-                const totalFunds = balanceRef.current + bot.capital;
-                if (totalFunds <= 0) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde insuffisant.`, 'error');
+                const allocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
+                if (allocatable < 1) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
                   continue;
+                }
+                posTradeAmount = parseFloat(Math.min(bot.capital, allocatable).toFixed(2));
+                if (posTradeAmount < 1) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Montant trop faible ($${posTradeAmount.toFixed(2)}).`, 'error');
+                  continue;
+                }
+                if (bot.capital > allocatable) {
+                  setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: posTradeAmount } : item));
                 }
               } else {
                 const botSubIndex = (bot.subWallet || 1) - 1;
@@ -1061,7 +1073,8 @@ export function useTradingEngine() {
                   if (prev.some(x => x.id === newPos.id)) return prev;
                   return [...prev, newPos];
                 });
-                addBotLogRef.current(bot.id, bot.strategy, `Ordre BUY ouvert sur $${matchingCoin.symbol} à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
+                setBalance(bal => Math.max(0, bal - posTradeAmount));
+                addBotLogRef.current(bot.id, bot.strategy, `Ordre BUY ouvert sur $${matchingCoin.symbol} (${posTradeAmount} $) à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
               }
             }
 
@@ -1328,12 +1341,10 @@ export function useTradingEngine() {
 
                 const cleanPair = currentPair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
                 const isRealMode = (bot.mode || tradingModeRef.current) === 'REAL';
-                // En Démo : limiter chaque trade à 5% du capital (max 500 $) pour une gestion saine du risque et un stop loss efficace
-                let calculatedTradeAmt = isRealMode 
-                  ? parseFloat((bot.capital / 3).toFixed(4))
-                  : parseFloat((Math.min(bot.capital * 0.05, 500) || 50).toFixed(2));
+                let calculatedTradeAmt = 0;
 
                 if (isRealMode) {
+                  calculatedTradeAmt = parseFloat((bot.capital / 3).toFixed(4));
                   const botSubIdx = (bot.subWallet || 1) - 1;
                   let subWalletObj = subWalletsRef.current[botSubIdx];
                   let subWalletBal = subWalletObj?.balance || 0;
@@ -1369,10 +1380,20 @@ export function useTradingEngine() {
                     continue;
                   }
                 } else {
-                  const totalFunds = balanceRef.current + bot.capital;
-                  if (totalFunds <= 0) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde insuffisant.`, 'error');
+                  const allocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
+                  if (allocatable < 1) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
                     continue;
+                  }
+                  // En Démo : 5% du capital bot ou max 500 $, plafonné STRICTEMENT par le solde allocable du compte
+                  const baseTradeAmt = Math.min(bot.capital * 0.05, 500) || Math.min(50, bot.capital);
+                  calculatedTradeAmt = parseFloat(Math.min(baseTradeAmt, allocatable).toFixed(2));
+                  if (calculatedTradeAmt < 1) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Montant disponible insuffisant ($${calculatedTradeAmt.toFixed(2)}).`, 'error');
+                    continue;
+                  }
+                  if (bot.capital > allocatable) {
+                    setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: parseFloat(allocatable.toFixed(2)) } : item));
                   }
                 }
 
@@ -1476,7 +1497,8 @@ export function useTradingEngine() {
                     if (prev.some(x => x.id === newPos.id || (x.botId === bot.id && x.pair === newPos.pair))) return prev;
                     return [...prev, newPos];
                   });
-                  addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
+                  setBalance(bal => Math.max(0, bal - calculatedTradeAmt));
+                  addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} (${calculatedTradeAmt} $) à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
                   signalOpened = true;
                 }
                 break;
@@ -2198,19 +2220,60 @@ export function useTradingEngine() {
   const handleToggleBot = (botId: string) => {
     const bot = botsRef.current.find(b => b.id === botId);
     if (!bot) return;
+
     const nextStatus = bot.status === 'RUNNING' ? 'STOPPED' : 'RUNNING';
-    addBotLog(bot.id, bot.strategy, `Bot ${nextStatus === 'RUNNING' ? 'redémarré' : 'mis en pause'}.`, 'info');
-    setBots(prev => prev.map(b => {
-      if (b.id === botId) {
-        const isResetLoss = nextStatus === 'RUNNING' && ((b.pnl ?? 0) <= -b.capital || (b.netProfit ?? 0) <= -b.capital);
-        return {
-          ...b,
-          status: nextStatus,
-          ...(isResetLoss ? { pnl: 0, netProfit: 0, pnlPercent: 0 } : {})
-        };
+
+    if (nextStatus === 'RUNNING') {
+      const isRealBot = (bot.mode || (bot.pair?.startsWith('SOL:') || bot.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL';
+      
+      let allocatable = 0;
+      if (isRealBot) {
+        const botSubIndex = (bot.subWallet || 1) - 1;
+        const subWalletObj = subWalletsRef.current[botSubIndex];
+        const subWalletBal = subWalletObj?.balance || 0;
+        const masterBal = Math.max(0, (solanaBalanceRef.current ?? 0) - (reserveVaultSolRef.current ?? 0));
+        allocatable = subWalletBal > 0.001 ? subWalletBal : masterBal;
+      } else {
+        allocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current ?? 0));
       }
-      return b;
-    }));
+
+      const minRequired = isRealBot ? 0.001 : 1;
+
+      if (allocatable < minRequired) {
+        const currency = isRealBot ? 'SOL' : '$';
+        const msg = `Relance impossible : Solde disponible insuffisant (${isRealBot ? allocatable.toFixed(4) : allocatable.toFixed(2)} ${currency} disponible, minimum requis : ${minRequired} ${currency}).`;
+        addBotLog(bot.id, bot.strategy, msg, 'error');
+        alert(msg);
+        return;
+      }
+
+      // Si le capital précédent du bot dépasse le solde disponible actuel, on le réajuste strictement au solde disponible
+      let newCapital = bot.capital;
+      if (bot.capital > allocatable) {
+        newCapital = isRealBot 
+          ? parseFloat(Math.min(allocatable * 0.95, bot.capital).toFixed(4))
+          : parseFloat(allocatable.toFixed(2));
+        addBotLog(bot.id, bot.strategy, `Bot redémarré : Capital réajusté de ${bot.capital} à ${newCapital} ${isRealBot ? 'SOL' : '$'} pour respecter le solde disponible du compte.`, 'info');
+      } else {
+        addBotLog(bot.id, bot.strategy, `Bot redémarré avec ${newCapital} ${isRealBot ? 'SOL' : '$'}.`, 'info');
+      }
+
+      setBots(prev => prev.map(b => {
+        if (b.id === botId) {
+          const isResetLoss = (b.pnl ?? 0) <= -newCapital || (b.netProfit ?? 0) <= -newCapital;
+          return {
+            ...b,
+            status: 'RUNNING',
+            capital: newCapital,
+            ...(isResetLoss ? { pnl: 0, netProfit: 0, pnlPercent: 0, consecutiveLosses: 0 } : {})
+          };
+        }
+        return b;
+      }));
+    } else {
+      addBotLog(bot.id, bot.strategy, `Bot mis en pause.`, 'info');
+      setBots(prev => prev.map(b => b.id === botId ? { ...b, status: 'STOPPED' } : b));
+    }
   };
 
   const handleDeleteBot = (botId: string) => {
@@ -2226,8 +2289,6 @@ export function useTradingEngine() {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
         }
-      } else {
-        setBalance(bal => bal + targetBot.capital);
       }
     }
     setBots(prev => prev.filter(b => b.id !== botId));

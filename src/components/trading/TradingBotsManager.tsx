@@ -430,9 +430,37 @@ export default function TradingBotsManager({
   // Section 2: Contrôles Globaux de la Flotte de Robots
   const handleStartAllBots = () => {
     if (bots.length === 0) return;
-    const updated = bots.map(b => ({ ...b, status: 'RUNNING' as const }));
+    const isReal = tradingMode === 'REAL';
+    const allocatable = allocatableBalance;
+    const minReq = isReal ? 0.001 : 1;
+
+    let startedCount = 0;
+    const updated = bots.map(b => {
+      const isBotReal = (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL';
+      if (isBotReal !== isReal) return b;
+
+      if (allocatable < minReq) {
+        addBotLog(b.id, b.strategy, `Démarrage impossible : Solde allocable insuffisant.`, 'error');
+        return { ...b, status: 'STOPPED' as const };
+      }
+
+      let newCap = b.capital;
+      if (b.capital > allocatable) {
+        newCap = isReal 
+          ? parseFloat(Math.min(allocatable * 0.95, b.capital).toFixed(4))
+          : parseFloat(allocatable.toFixed(2));
+        addBotLog(b.id, b.strategy, `Bot démarré : Capital réajusté de ${b.capital} à ${newCap} ${isReal ? 'SOL' : '$'} selon le solde disponible.`, 'info');
+      }
+      startedCount++;
+      return {
+        ...b,
+        status: 'RUNNING' as const,
+        capital: newCap
+      };
+    });
+
     setBots(updated);
-    addBotLog('system', 'System', `⚡ TOUS LES ROBOTS ONT ÉTÉ DÉMARRÉS (${bots.length} bots actifs) !`, 'trade');
+    addBotLog('system', 'System', `⚡ ${startedCount} robot(s) démarré(s) avec vérification du solde disponible.`, 'trade');
   };
 
   const handlePauseAllBots = () => {
@@ -444,21 +472,8 @@ export default function TradingBotsManager({
 
   const handleClearAllBots = () => {
     if (bots.length === 0) return;
-    const demoRefund = bots.reduce((acc, b) => {
-      if ((b.mode || 'DEMO') === 'DEMO') {
-        return acc + (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0);
-      }
-      return acc;
-    }, 0);
-    if (demoRefund > 0) {
-      setBalance(prev => {
-        const nextBal = prev + demoRefund;
-        if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextBal.toString());
-        return nextBal;
-      });
-    }
     setBots([]);
-    addBotLog('system', 'System', `🗑️ Tous les robots de trading ont été réinitialisés${demoRefund > 0 ? ` (+$${demoRefund.toFixed(2)} restitués au solde démo)` : ''}.`, 'info');
+    addBotLog('system', 'System', `🗑️ Tous les robots de trading ont été réinitialisés.`, 'info');
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('web3_wallet_updated'));
       window.dispatchEvent(new Event('storage'));
@@ -708,7 +723,6 @@ export default function TradingBotsManager({
       }
       addBotLog(newBot.id, newBot.strategy, `Sniper Bot Solana démarré en réel avec ${newBot.capital} SOL de capital allocation.`, 'info');
     } else {
-      setBalance(bal => bal - botCapital);
       const logPair = newBot.pair === 'ALL' ? 'Scan Global' : newBot.pair.replace('FX:', '').replace('-USD', '').replace('=', '');
       addBotLog(newBot.id, newBot.strategy, `Bot démarré sur ${logPair} (${newBot.timeframe}m) avec ${newBot.capital} $ de capital.`, 'info');
     }
@@ -1196,7 +1210,7 @@ export default function TradingBotsManager({
                                 type="button"
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => setBots(prev => prev.map(item => item.id === b.id ? { ...item, status: b.status === 'RUNNING' ? 'STOPPED' : 'RUNNING' } : item))}
+                                onClick={() => handleToggleBot(b.id)}
                                 className="h-6 px-2 text-[10px] font-bold text-purple-300 hover:bg-white/10"
                               >
                                 {b.status === 'RUNNING' ? 'Mettre en pause' : '▶️ Démarrer'}
@@ -1672,8 +1686,13 @@ export default function TradingBotsManager({
                             </Badge>
                           )}
                         </div>
-                        <div className="text-xs font-extrabold text-slate-200 font-mono mt-1">
-                          Capital: {formatSmartCrypto(((b.mode || tradingMode) === 'REAL' && (b.capital || 0) > 50 ? 0.5 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000)), (b.mode || tradingMode) === 'REAL' ? 'SOL' : '$')}
+                        <div className="text-xs font-extrabold text-slate-200 font-mono mt-1 flex items-center flex-wrap gap-1">
+                          <span>Capital: {formatSmartCrypto(((b.mode || tradingMode) === 'REAL' && (b.capital || 0) > 50 ? 0.5 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000)), (b.mode || tradingMode) === 'REAL' ? 'SOL' : '$')}</span>
+                          {((b.mode || tradingMode) === 'DEMO' && b.capital > allocatableBalance && allocatableBalance > 0) && (
+                            <span className="text-[10px] text-amber-400 font-normal bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
+                              (Ajusté à ${allocatableBalance.toFixed(2)} au lancement)
+                            </span>
+                          )}
                         </div>
                         {tradingMode === 'REAL' && (
                           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
