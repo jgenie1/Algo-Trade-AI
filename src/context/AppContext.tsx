@@ -146,8 +146,12 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (!Array.isArray(arr)) return [];
       return arr.map((b: any) => {
         if (!b) return null;
-        const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000;
-        const cleanCap = (rawCap > 100000 || rawCap <= 0) ? 1000 : parseFloat(rawCap.toFixed(2));
+        const isReal = b.mode === 'REAL' || b.pair?.startsWith('SOL:') || (b.strategy === 'Pump.fun Sniper Bot' && (b.capital || 0) < 50);
+        const defaultCap = isReal ? 0.5 : 1000;
+        const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) && b.capital > 0 ? b.capital : defaultCap;
+        const cleanCap = isReal 
+          ? (rawCap > 50 ? 0.5 : parseFloat(rawCap.toFixed(4))) 
+          : (rawCap > 100000 ? 1000 : parseFloat(rawCap.toFixed(2)));
         const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
         const boundedProfit = Math.max(-cleanCap, Math.min(cleanCap * 10, rawProfit));
         const cleanProfit = parseFloat(boundedProfit.toFixed(2));
@@ -157,7 +161,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           capital: cleanCap,
           netProfit: cleanProfit,
           pnl: cleanProfit,
-          mode: b.mode ? b.mode : (b.strategy === 'Pump.fun Sniper Bot' && cleanCap < 100 ? 'REAL' : 'DEMO')
+          mode: isReal ? 'REAL' : 'DEMO'
         } as BotInstance;
       }).filter(Boolean) as BotInstance[];
     };

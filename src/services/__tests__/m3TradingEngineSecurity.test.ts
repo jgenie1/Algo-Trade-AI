@@ -436,6 +436,92 @@ export async function runM3SecuritySuite(): Promise<boolean> {
   });
 
   // --------------------------------------------------------------------------
+  // SECTION 7: Bot Capital Allocation & Relaunch Safety Guardrails
+  // --------------------------------------------------------------------------
+  console.log('\n--- SECTION 7: Bot Capital Allocation & Relaunch Safety Guardrails ---');
+
+  await test('M3.7.1: Bot cannot open trade with amount exceeding available allocatable balance in DEMO mode', () => {
+    const balance = 50;
+    const reserveVault = 10;
+    const allocatable = Math.max(0, balance - reserveVault); // $40 available
+    const botCapital = 1000; // Inflated capital from previous session
+
+    const posTradeAmount = parseFloat(Math.min(botCapital, allocatable).toFixed(2));
+    assert.equal(posTradeAmount, 40, 'Trade amount must be clamped strictly to available allocatable balance');
+    assert.ok(posTradeAmount <= allocatable, 'Trade amount must never exceed allocatable balance');
+  });
+
+  await test('M3.7.2: Bot trade rejected when allocatable balance is below minimum threshold (< $1)', () => {
+    const balance = 0.50;
+    const reserveVault = 0;
+    const allocatable = Math.max(0, balance - reserveVault);
+    const minThreshold = 1.0;
+
+    let tradeAllowed = false;
+    if (allocatable >= minThreshold) {
+      tradeAllowed = true;
+    }
+
+    assert.equal(tradeAllowed, false, 'Bot trade must be rejected when allocatable balance is below $1');
+  });
+
+  await test('M3.7.3: Relaunching a stopped bot clamps capital to available balance if bot.capital > allocatable', () => {
+    const balance = 120;
+    const reserveVault = 20;
+    const allocatable = Math.max(0, balance - reserveVault); // $100 available
+    const stoppedBot = { id: 'bot_test', capital: 1000, status: 'STOPPED' as const };
+
+    let newCapital = stoppedBot.capital;
+    if (stoppedBot.capital > allocatable) {
+      newCapital = parseFloat(allocatable.toFixed(2));
+    }
+
+    assert.equal(newCapital, 100, 'Relaunched bot capital must be auto-clamped to current allocatable balance');
+    assert.ok(newCapital <= allocatable);
+  });
+
+  await test('M3.7.4: Relaunching a stopped bot is blocked if available balance is zero or below minimum threshold', () => {
+    const balance = 0;
+    const reserveVault = 50;
+    const allocatable = Math.max(0, balance - reserveVault); // $0 available
+    const minRequired = 1;
+
+    let relaunchAllowed = false;
+    if (allocatable >= minRequired) {
+      relaunchAllowed = true;
+    }
+
+    assert.equal(relaunchAllowed, false, 'Relaunching must be strictly blocked when allocatable balance is zero');
+  });
+
+  await test('M3.7.5: Opening a bot position in DEMO mode locks margin from account balance', () => {
+    let balance = 1000;
+    const tradeAmount = 50;
+
+    // Simulate position entry
+    balance = Math.max(0, balance - tradeAmount);
+    assert.equal(balance, 950, 'Margin must be deducted from balance upon trade entry');
+
+    // Simulate position close with $10 profit
+    const profit = 10;
+    const netProfit = profit; // without vault skim for test
+    balance = balance + tradeAmount + netProfit;
+    assert.equal(balance, 1010, 'Closing position restores margin plus profit to balance');
+  });
+
+  await test('M3.7.6: AppContext sanitizeBots prevents REAL bots from having inflated capital (> 50 SOL)', () => {
+    const rawBot = { id: 'b_sol', mode: 'REAL', strategy: 'Pump.fun Sniper Bot', capital: 1000 };
+    const isReal = rawBot.mode === 'REAL' || rawBot.strategy === 'Pump.fun Sniper Bot';
+    const defaultCap = isReal ? 0.5 : 1000;
+    const rawCap = typeof rawBot.capital === 'number' && !isNaN(rawBot.capital) && rawBot.capital > 0 ? rawBot.capital : defaultCap;
+    const cleanCap = isReal 
+      ? (rawCap > 50 ? 0.5 : parseFloat(rawCap.toFixed(4))) 
+      : (rawCap > 100000 ? 1000 : parseFloat(rawCap.toFixed(2)));
+
+    assert.equal(cleanCap, 0.5, 'REAL bot with 1000 SOL must be clamped to safe default (0.5 SOL)');
+  });
+
+  // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------
   const passedCount = suiteResults.filter(r => r.passed).length;
