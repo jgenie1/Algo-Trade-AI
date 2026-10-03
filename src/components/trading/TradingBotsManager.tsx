@@ -36,6 +36,7 @@ import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCr
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
 import { decryptSensitiveData, encryptSensitiveData } from '@/lib/cryptoStorage';
+import { getExplorerTxUrl, getExplorerAddressUrl } from '@/utils/explorerLinks';
 import { 
   sweepSubWalletProfitToMaster, 
   disperseSolToSubWallets, 
@@ -1038,7 +1039,7 @@ export default function TradingBotsManager({
                             <span>{isCopied ? 'Copié' : 'Copier'}</span>
                           </button>
                           <a
-                            href={`https://solscan.io/account/${w.publicKey}`}
+                            href={getExplorerAddressUrl('SOL', w.publicKey)}
                             target="_blank"
                             rel="noreferrer"
                             className="p-1 hover:bg-white/10 rounded text-purple-300 hover:text-white transition-all flex items-center gap-1 text-[11px] underline"
@@ -1856,12 +1857,12 @@ export default function TradingBotsManager({
                         <p className="text-xs text-white font-body font-medium leading-relaxed">{l.learningEffect}</p>
                         {l.txHash ? (
                           <a
-                            href={`https://solscan.io/tx/${l.txHash}`}
+                            href={getExplorerTxUrl((l as any).chain || 'SOL', l.txHash)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 underline font-mono mt-1"
                           >
-                            🔗 Confirmé sur Solscan: {l.txHash.slice(0, 10)}...{l.txHash.slice(-6)}
+                            🔗 Confirmé sur {(l as any).chain?.toUpperCase().includes('BSC') ? 'BscScan' : 'Solscan'}: {l.txHash.slice(0, 10)}...{l.txHash.slice(-6)}
                           </a>
                         ) : null}
                       </div>
@@ -2217,7 +2218,7 @@ export default function TradingBotsManager({
                 <span>SOL Distribué avec succès on-chain !</span>
               </div>
               <a
-                href={`https://solscan.io/tx/${localDisperseTx}`}
+                href={getExplorerTxUrl('SOL', localDisperseTx)}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-emerald-200 underline flex items-center gap-1 hover:text-white"

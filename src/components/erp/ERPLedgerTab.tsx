@@ -16,6 +16,7 @@ import {
   Download
 } from 'lucide-react';
 import { cn, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
 
 interface TransactionItem {
   id: string;
@@ -229,25 +230,41 @@ export default function ERPLedgerTab({
                         </Badge>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold font-headline">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                          CONFIRMÉ
-                        </span>
+                        {(tx.mode || tradingMode) === 'REAL' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold font-headline">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                            CONFIRMÉ ON-CHAIN
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-400/90 font-bold font-headline">
+                            SIMULATION DÉMO
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {tx.txHash ? (
-                          <a
-                            href={`https://solscan.io/tx/${tx.txHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-cyan-400 hover:text-cyan-300 font-mono text-[11px] inline-flex items-center gap-1 underline underline-offset-2"
-                          >
-                            {tx.txHash.slice(0, 8)}...
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : (
-                          <span className="text-white/20 font-mono text-[10px]">Livre Interne</span>
-                        )}
+                        {(() => {
+                          const isRealTx = (tx.mode || tradingMode) === 'REAL' && tx.txHash && !tx.txHash.startsWith('paper_') && !tx.txHash.startsWith('demo_');
+                          if (isRealTx) {
+                            const chain = (tx.currency === 'BNB' || tx.currency === 'BSC' || tx.currency === 'EVM') ? 'BSC' : 'SOL';
+                            const explorerUrl = getExplorerTxUrl(chain, tx.txHash!);
+                            return (
+                              <a
+                                href={explorerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-cyan-400 hover:text-cyan-300 font-mono text-[11px] inline-flex items-center gap-1 underline underline-offset-2"
+                              >
+                                {tx.txHash!.slice(0, 8)}...
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            );
+                          }
+                          return (
+                            <span className="text-white/25 font-mono text-[10px] italic">
+                              {(tx.mode || tradingMode) === 'REAL' ? 'Livre Interne' : 'Simulé (Paper Trade)'}
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );

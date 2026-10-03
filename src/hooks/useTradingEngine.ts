@@ -29,6 +29,7 @@ import { resolveLivePrice, canonicalizePair } from '@/lib/symbolUtils';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { encryptSensitiveData, decryptSensitiveData } from '@/lib/cryptoStorage';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
 
 function getDerivedMasterPublicKey(): string {
   if (typeof window === 'undefined') return '';
@@ -426,6 +427,30 @@ export function useTradingEngine() {
 
         bws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
 
+        let pendingPrices: Record<string, number> = {};
+        let pendingDirections: Record<string, 'up' | 'down' | 'flat'> = {};
+        let batchTimer: NodeJS.Timeout | null = null;
+        let lastFlush = Date.now();
+
+        const flushBatch = () => {
+          if (batchTimer) {
+            clearTimeout(batchTimer);
+            batchTimer = null;
+          }
+          const toUpdate = { ...pendingPrices };
+          const dirsToUpdate = { ...pendingDirections };
+          pendingPrices = {};
+          pendingDirections = {};
+          lastFlush = Date.now();
+
+          if (Object.keys(toUpdate).length > 0) {
+            setLivePrices(prev => ({ ...prev, ...toUpdate }));
+            if (Object.keys(dirsToUpdate).length > 0) {
+              setPriceDirections(dirs => ({ ...dirs, ...dirsToUpdate }));
+            }
+          }
+        };
+
         bws.onmessage = (event) => {
           try {
             const raw = JSON.parse(event.data);
@@ -447,17 +472,18 @@ export function useTradingEngine() {
               if (pairKey) {
                 const livePrice = parseFloat(raw.c);
                 if (!isNaN(livePrice) && livePrice > 0) {
-                  setLivePrices(prev => {
-                    const oldPrice = prev[pairKey];
-                    if (oldPrice === livePrice) return prev;
-                    if (oldPrice) {
-                      setPriceDirections(dirs => ({
-                        ...dirs,
-                        [pairKey]: livePrice > oldPrice ? 'up' : livePrice < oldPrice ? 'down' : 'flat'
-                      }));
-                    }
-                    return { ...prev, [pairKey]: livePrice };
-                  });
+                  const oldPrice = livePricesRef.current[pairKey];
+                  if (oldPrice && oldPrice !== livePrice) {
+                    pendingDirections[pairKey] = livePrice > oldPrice ? 'up' : 'down';
+                  }
+                  pendingPrices[pairKey] = livePrice;
+
+                  const now = Date.now();
+                  if (now - lastFlush >= 300) {
+                    flushBatch();
+                  } else if (!batchTimer) {
+                    batchTimer = setTimeout(flushBatch, 300 - (now - lastFlush));
+                  }
                 }
               }
             }
@@ -466,6 +492,7 @@ export function useTradingEngine() {
 
         bws.onerror = () => {};
         bws.onclose = () => {
+          if (batchTimer) clearTimeout(batchTimer);
           reconnectTimer = setTimeout(connectBinanceWs, 3000);
         };
       } catch (e) {}
@@ -627,6 +654,7 @@ export function useTradingEngine() {
   const tradingModeRef = useRef(tradingMode);
   const balanceRef = useRef(balance);
   const solanaBalanceRef = useRef(solanaBalance);
+  const botCooldownsRef = useRef<Record<string, number>>({});
 
   const closePositionByIdRef = useRef<(posIdOrPos: string | Position, exitPrice: number, reason: string) => void>(() => {});
   const refreshWalletRef = useRef<() => void>(() => {});
@@ -725,6 +753,10 @@ export function useTradingEngine() {
 
       for (const bot of runningBots) {
         try {
+          if (botCooldownsRef.current[bot.id] && Date.now() < botCooldownsRef.current[bot.id]) {
+            continue;
+          }
+
           const botPosition = activePositionsRef.current.find(p => p.botId === bot.id);
 
           if (botPosition) {
@@ -735,7 +767,8 @@ export function useTradingEngine() {
             const currentEntries = botPosition.dcaCount || 1;
             const targetAllocated = bot.capital;
             
-            if (bot.strategy !== 'Pump.fun Sniper Bot' && currentEntries < maxDcaEntries && botPosition.amount < targetAllocated) {
+            const isBotPosReal = botPosition.mode === 'REAL' || tradingModeRef.current === 'REAL';
+            if (!isBotPosReal && bot.strategy !== 'Pump.fun Sniper Bot' && currentEntries < maxDcaEntries && botPosition.amount < targetAllocated) {
               const dcaThreshold = 0.98;
               
               if (currentPrice <= botPosition.entryPrice * dcaThreshold) {
@@ -1013,7 +1046,7 @@ export function useTradingEngine() {
                   customPrivateKey: botSubWalletKey
                 }).then((res) => {
                   if (res && res.success && res.txHash) {
-                    addBotLogRef.current(bot.id, bot.strategy, `[ACHAT RÉEL ON-CHAIN CONFIRMÉ] Hash: ${res.txHash.slice(0, 16)}... Solscan: https://solscan.io/tx/${res.txHash}`, 'trade');
+                    addBotLogRef.current(bot.id, bot.strategy, `[ACHAT RÉEL ON-CHAIN CONFIRMÉ] Hash: ${res.txHash.slice(0, 16)}... Solscan: ${getExplorerTxUrl('SOL', res.txHash)}`, 'trade');
                     const posWithTx = { ...newPos, txHash: res.txHash, mode: 'REAL' as const };
                     setActivePositions(prev => {
                       if (prev.some(x => x.id === posWithTx.id)) return prev;
@@ -1428,7 +1461,7 @@ export function useTradingEngine() {
                     slippageBps: 150
                   }).then(res => {
                     if (res && res.success && res.txHash) {
-                      addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT RÉEL CONFIRMÉ] Hash: ${res.txHash.slice(0, 16)}... Solscan: https://solscan.io/tx/${res.txHash}`, 'trade');
+                      addBotLogRef.current(bot.id, bot.strategy, `[JUPITER ACHAT RÉEL CONFIRMÉ] Hash: ${res.txHash.slice(0, 16)}... Solscan: ${getExplorerTxUrl('SOL', res.txHash)}`, 'trade');
                       setActivePositions(prev => {
                         if (prev.some(x => x.id === newPos.id)) return prev;
                         return [...prev, { ...newPos, txHash: res.txHash, mode: 'REAL' as const }];
@@ -1491,13 +1524,25 @@ export function useTradingEngine() {
         const isMemeToken = p.pair.startsWith('SOL:');
 
         // Initialisation automatique et sécurisée du Stop-Loss et Take-Profit
+        let slUpdated = false;
+        let calculatedSl = p.sl;
+        let calculatedTp = p.tp;
+
         if (!p.sl || isNaN(p.sl)) {
           const slRatio = isMemeToken ? 0.08 : 0.03;
-          p.sl = isLong ? (entry * (1 - slRatio)) : (entry * (1 + slRatio));
+          calculatedSl = isLong ? (entry * (1 - slRatio)) : (entry * (1 + slRatio));
+          p.sl = calculatedSl;
+          slUpdated = true;
         }
         if (!p.tp || isNaN(p.tp)) {
           const tpRatio = isMemeToken ? 0.25 : 0.06;
-          p.tp = isLong ? (entry * (1 + tpRatio)) : (entry * (1 - tpRatio));
+          calculatedTp = isLong ? (entry * (1 + tpRatio)) : (entry * (1 - tpRatio));
+          p.tp = calculatedTp;
+          slUpdated = true;
+        }
+
+        if (slUpdated) {
+          setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, sl: calculatedSl, tp: calculatedTp } : item));
         }
 
         // VERROUILLAGE DES PROFITS & TRAILING STOP INTELLIGENT (LONG & SHORT)
@@ -1581,7 +1626,11 @@ export function useTradingEngine() {
         }
 
         if (shouldClose) {
-          closePositionByIdRef.current(p.id, current, closeReason);
+          try {
+            closePositionByIdRef.current(p.id, current, closeReason);
+          } catch (e) {
+            console.warn('[Auto SL/TP Close Error]', e);
+          }
         }
       });
     };
@@ -1589,7 +1638,7 @@ export function useTradingEngine() {
     const interval = setInterval(checkStops, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tradingMode, bots, activePositions]);
+  }, [tradingMode]);
 
   const addBotLog = (botId: string, botName: string, message: string, type: 'info' | 'trade' | 'error') => {
     const newLog = {
@@ -1637,7 +1686,9 @@ export function useTradingEngine() {
     if (!p) return;
     const posId = p.id;
 
-    const posMode: 'DEMO' | 'REAL' = p.mode ? p.mode : (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO');
+    const posMode: 'DEMO' | 'REAL' = p.mode === 'REAL' 
+      ? 'REAL' 
+      : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
     const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : (getRealMarketBasePrice(p.pair || '') || exitPrice);
     const priceDiff = exitPrice - entry;
@@ -1676,16 +1727,18 @@ export function useTradingEngine() {
 
     let sellTxHash: string | undefined = undefined;
 
+    const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
+    const sourceLabel = p.botId || 'manual';
+    const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
+    const browserWalletProvider = typeof window !== 'undefined' ? (window as any).solana : undefined;
+
     if (isJupiterCryptoPos) {
       // Sell via Jupiter for crypto positions bought on-chain
-      const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
       const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
       const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
         ? subWalletsRef.current[botSubIndex]?.privateKey
         : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
-      const sourceLabel = p.botId || 'manual';
-      const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
 
       addBotLog(sourceLabel, botOrManualName, `[JUPITER VENTE RÉELLE] Vente on-chain ${pairSymbolForSell} via Jupiter...`, 'info');
 
@@ -1695,6 +1748,7 @@ export function useTradingEngine() {
           symbol: pairSymbolForSell,
           amountSol: p.amount,
           customPrivateKey: botSubWalletKey,
+          walletProvider: browserWalletProvider,
           slippageBps: 150
         });
 
@@ -1702,19 +1756,17 @@ export function useTradingEngine() {
           sellTxHash = res.txHash;
           addBotLog(sourceLabel, botOrManualName, `[JUPITER VENTE RÉUSSIE] Hash: ${res.txHash.slice(0, 16)}... SOL reçus.`, 'trade');
         } else {
-          addBotLog(sourceLabel, botOrManualName, `[INFO VENTE JUPITER] ${res?.error || 'Simulation'}. Clôture locale exécutée.`, 'info');
+          const errMsg = res?.error || 'Transaction refusée ou échouée';
+          addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE JUPITER] ${errMsg}. Clôture annulée : position conservée.`, 'error');
         }
       } catch (sellErr: any) {
-        addBotLog(p.botId || 'manual', 'Bot', `[INFO VENTE JUPITER] ${sellErr.message || 'Erreur réseau'}. Clôture locale exécutée.`, 'info');
+        addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE JUPITER] ${sellErr.message || 'Erreur réseau'}. Clôture annulée : position conservée.`, 'error');
       }
     } else if (isRealSolanaPos && mintAddress && !mintAddress.startsWith('ukhh')) {
       const parts = (p.pair || '').split(':');
       const cleanSymbol = parts[2] || parts[0] || 'TOKEN';
-      const botConfig = p.botId ? botsRef.current.find(b => b.id === p.botId) : null;
       const priority = botConfig?.priorityFee || (typeof window !== 'undefined' ? parseFloat(localStorage.getItem('settings_priority_fee') || '0.001') : 0.001);
       const targetPool = 'auto'; 
-      const sourceLabel = p.botId || 'manual';
-      const botOrManualName = p.botId ? (botConfig?.strategy || 'Bot') : 'Manuel';
 
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
       const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
@@ -1733,6 +1785,7 @@ export function useTradingEngine() {
           slippage: 15,
           priorityFee: priority,
           customPrivateKey: botSubWalletKey,
+          walletProvider: browserWalletProvider,
           pool: targetPool
         });
 
@@ -1740,10 +1793,28 @@ export function useTradingEngine() {
           sellTxHash = res.txHash;
           addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE RÉUSSIE - SOL CRÉDITÉ BLOCKCHAIN] Hash: ${res.txHash.slice(0, 16)}...`, 'trade');
         } else {
-          addBotLog(sourceLabel, botOrManualName, `[INFO VENTE SOL] ${res?.error || 'Simulation'}. Clôture locale exécutée.`, 'info');
+          const errMsg = res?.error || 'Transaction refusée ou échouée';
+          addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE SOL] ${errMsg}. Clôture annulée : position conservée.`, 'error');
         }
       } catch (sellErr: any) {
-        addBotLog(sourceLabel, botOrManualName, `[INFO VENTE SOL] ${sellErr.message || 'Réseau'}. Clôture locale exécutée.`, 'info');
+        addBotLog(sourceLabel, botOrManualName, `[ÉCHEC VENTE SOL] ${sellErr.message || 'Réseau'}. Clôture annulée : position conservée.`, 'error');
+      }
+    }
+
+    // PROTECTION FAIL-CLOSED ABSOLUE EN MODE RÉEL (F8 & R2)
+    // Si la vente on-chain n'a pas été confirmée par un txHash vérifié, bloquer net :
+    // Zéro crédit de balance virtuelle, zéro écriture d'historique, conservation intégrale de la position.
+    if (posMode === 'REAL') {
+      if (!sellTxHash) {
+        addBotLog(
+          sourceLabel,
+          botOrManualName,
+          `[VENTE ON-CHAIN NON CONFIRMÉE] La transaction de vente n'a pas généré de signature on-chain valide (rejet utilisateur, fonds insuffisants ou erreur RPC). Clôture annulée : la position reste active et aucun solde virtuel n'a été crédité.`,
+          'error'
+        );
+        throw new Error(
+          `[Échec Vente On-Chain] Transaction refusée ou non confirmée. La position reste active et aucun solde n'a été crédité.`
+        );
       }
     }
 
@@ -1857,7 +1928,7 @@ export function useTradingEngine() {
           }).then(sweepRes => {
             const txId = sweepRes?.txHash || sweepRes?.signature;
             if (sweepRes && sweepRes.success && txId) {
-              const logMsg = `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL transféré au wallet ${masterPubKey.slice(0, 8)}... Tx: ${txId.slice(0, 16)}... (Solscan: https://solscan.io/tx/${txId})`;
+              const logMsg = `[✅ PROFIT ON-CHAIN CONFIRMÉ] ${netProfitSol.toFixed(6)} SOL transféré au wallet ${masterPubKey.slice(0, 8)}... Tx: ${txId.slice(0, 16)}... (Solscan: ${getExplorerTxUrl('SOL', txId)})`;
               if (p.botId) {
                 addBotLog(p.botId, botObj?.strategy || 'Bot', logMsg, 'trade');
               }
@@ -1955,7 +2026,6 @@ export function useTradingEngine() {
       setTimeout(() => refreshWalletRef.current(), 4000);
     }
 
-    const sourceLabel = p.botId ? p.botId : 'manual';
     const logBotName = p.botId ? p.botId : 'Ordre Manuel';
     const formatPriceClean = (val: number) => {
       if (!val || isNaN(val)) return '0.00';
@@ -2108,8 +2178,16 @@ export function useTradingEngine() {
       }, 50);
     }
 
+    if (p.botId) {
+      botCooldownsRef.current[p.botId] = Date.now() + 30000;
+    }
+
+    if (typeof window !== 'undefined' && posId) {
+      window.dispatchEvent(new CustomEvent('position_closed', { detail: { id: posId } }));
+    }
+
     setActivePositions(prev => {
-      const next = prev.filter(x => x.id !== posId);
+      const next = (Array.isArray(prev) ? prev : []).filter(x => x && x.id !== posId && (x as any)._id !== posId);
       if (typeof window !== 'undefined') {
         localStorage.setItem('trade_positions', JSON.stringify(next));
       }
@@ -2157,49 +2235,94 @@ export function useTradingEngine() {
   };
 
   const handleClosePosition = async (posOrId: Position | string) => {
-    const p = typeof posOrId === 'object' ? posOrId : activePositionsRef.current.find(x => x.id === posOrId);
-    if (!p || !p.id) return;
+    const targetId = typeof posOrId === 'string' ? posOrId : (posOrId?.id || '');
+    const p = typeof posOrId === 'object' ? posOrId : activePositionsRef.current.find(x => x && x.id === targetId);
+    if (!p) return;
+    const finalId = p.id || targetId;
 
-    // Mise à jour optimiste immédiate de l'interface et du stockage local
-    setActivePositions(prev => {
-      const next = prev.filter(x => x.id !== p.id);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('trade_positions', JSON.stringify(next));
-      }
-      return next;
-    });
+    if (p.botId) {
+      botCooldownsRef.current[p.botId] = Date.now() + 30000;
+    }
 
     const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : (p.entryPrice || getRealMarketBasePrice(p.pair) || 1));
-    try {
-      await closePositionById(p, current, "Fermeture manuelle");
-    } catch (e: any) {
-      console.warn("[Close Position] Erreur de clôture:", e);
+
+    const posMode: 'DEMO' | 'REAL' = p.mode === 'REAL' 
+      ? 'REAL' 
+      : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+
+    // Pour les positions DEMO, suppression optimiste immédiate
+    if (posMode === 'DEMO') {
+      if (typeof window !== 'undefined' && finalId) {
+        window.dispatchEvent(new CustomEvent('position_closed', { detail: { id: finalId } }));
+      }
+      setActivePositions(prev => {
+        const next = (Array.isArray(prev) ? prev : []).filter(x => x && x.id !== finalId && (x as any)._id !== finalId);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('trade_positions', JSON.stringify(next));
+        }
+        return next;
+      });
+    }
+
+    // Pour les positions RÉELLES, la clôture on-chain DOIT réussir avant toute suppression de l'UI
+    await closePositionById(p, current, "Fermeture manuelle");
+
+    if (posMode !== 'DEMO') {
+      if (typeof window !== 'undefined' && finalId) {
+        window.dispatchEvent(new CustomEvent('position_closed', { detail: { id: finalId } }));
+      }
+      setActivePositions(prev => {
+        const next = (Array.isArray(prev) ? prev : []).filter(x => x && x.id !== finalId && (x as any)._id !== finalId);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('trade_positions', JSON.stringify(next));
+        }
+        return next;
+      });
     }
   };
 
   const handleCloseAllPositions = async (targetMode?: 'DEMO' | 'REAL') => {
     const modeToClose = targetMode || tradingModeRef.current;
     const allPositions = [...activePositionsRef.current];
-    const positionsToClose = allPositions.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === modeToClose);
+    const positionsToClose = allPositions.filter(p => {
+      const mode = p.mode === 'REAL' ? 'REAL' : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+      return mode === modeToClose;
+    });
     if (positionsToClose.length === 0) return;
 
-    // Nettoyage visuel instantané des positions du mode actif tout en préservant l'autre mode
-    setActivePositions(prev => {
-      const remaining = prev.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) !== modeToClose);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('trade_positions', JSON.stringify(remaining));
+    positionsToClose.forEach(p => {
+      if (p.botId) {
+        botCooldownsRef.current[p.botId] = Date.now() + 30000;
       }
-      return remaining;
     });
 
-    await Promise.allSettled(positionsToClose.map(async (p) => {
+    // En mode DEMO uniquement, nettoyage optimiste instantané
+    if (modeToClose === 'DEMO') {
+      positionsToClose.forEach(p => {
+        if (typeof window !== 'undefined' && p.id) {
+          window.dispatchEvent(new CustomEvent('position_closed', { detail: { id: p.id } }));
+        }
+      });
+      setActivePositions(prev => {
+        const remaining = (Array.isArray(prev) ? prev : []).filter(p => {
+          const mode = p.mode === 'REAL' ? 'REAL' : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+          return mode !== modeToClose;
+        });
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('trade_positions', JSON.stringify(remaining));
+        }
+        return remaining;
+      });
+    }
+
+    for (const p of positionsToClose) {
       const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : (p.entryPrice || getRealMarketBasePrice(p.pair) || 1));
       try {
         await closePositionById(p, current, "Clôture globale");
       } catch (e: any) {
         console.warn("[Close All] Erreur de clôture sur position:", p.id, e);
       }
-    }));
+    }
   };
 
   closePositionByIdRef.current = closePositionById;
