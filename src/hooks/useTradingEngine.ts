@@ -777,9 +777,18 @@ export function useTradingEngine() {
               
               if (currentPrice <= botPosition.entryPrice * dcaThreshold) {
                 const newEntryCount = currentEntries + 1;
-                const chunkAmount = targetAllocated / maxDcaEntries;
+                const dcaAllocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
+                const remainingBudget = Math.max(0, targetAllocated - botPosition.amount);
+                const chunkAmount = parseFloat(Math.min(targetAllocated / maxDcaEntries, remainingBudget, dcaAllocatable).toFixed(2));
+                if (chunkAmount < 1) {
+                  continue;
+                }
                 const newAmount = botPosition.amount + chunkAmount;
                 const newAvgEntry = ((botPosition.entryPrice * botPosition.amount) + (currentPrice * chunkAmount)) / newAmount;
+
+                // Verrouiller la marge DCA immédiatement (synchro ref pour les bots suivants du même tick)
+                balanceRef.current = Math.max(0, balanceRef.current - chunkAmount);
+                setBalance(bal => Math.max(0, bal - chunkAmount));
                 
                 setActivePositions(prev => prev.map(p => {
                   if (p.id === botPosition.id) {
@@ -798,7 +807,7 @@ export function useTradingEngine() {
                 }));
                 
                 const cleanPair = botPosition.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-                addBotLogRef.current(bot.id, bot.strategy, `[DCA Accumulation ${newEntryCount}/${maxDcaEntries}] Position renforcée sur ${cleanPair} à ${currentPrice.toFixed(5)} (P.R.U recalculé: ${newAvgEntry.toFixed(5)})`, 'trade');
+                addBotLogRef.current(bot.id, bot.strategy, `[DCA Accumulation ${newEntryCount}/${maxDcaEntries}] Position renforcée de ${chunkAmount} $ sur ${cleanPair} à ${currentPrice.toFixed(5)} (P.R.U recalculé: ${newAvgEntry.toFixed(5)})`, 'trade');
               }
             }
             continue;
@@ -1073,6 +1082,7 @@ export function useTradingEngine() {
                   if (prev.some(x => x.id === newPos.id)) return prev;
                   return [...prev, newPos];
                 });
+                balanceRef.current = Math.max(0, balanceRef.current - posTradeAmount);
                 setBalance(bal => Math.max(0, bal - posTradeAmount));
                 addBotLogRef.current(bot.id, bot.strategy, `Ordre BUY ouvert sur $${matchingCoin.symbol} (${posTradeAmount} $) à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
               }
@@ -1497,6 +1507,7 @@ export function useTradingEngine() {
                     if (prev.some(x => x.id === newPos.id || (x.botId === bot.id && x.pair === newPos.pair))) return prev;
                     return [...prev, newPos];
                   });
+                  balanceRef.current = Math.max(0, balanceRef.current - calculatedTradeAmt);
                   setBalance(bal => Math.max(0, bal - calculatedTradeAmt));
                   addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} (${calculatedTradeAmt} $) à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
                   signalOpened = true;
