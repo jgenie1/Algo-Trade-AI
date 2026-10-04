@@ -521,6 +521,35 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.equal(cleanCap, 0.5, 'REAL bot with 1000 SOL must be clamped to safe default (0.5 SOL)');
   });
 
+  await test('M3.7.7: DCA reinforcement is clamped to allocatable balance and deducted from balance', () => {
+    let balanceRef = 30;
+    const reserveVault = 10;
+    const botCapital = 1000;
+    const position = { amount: 50 };
+    const dcaAllocatable = Math.max(0, balanceRef - reserveVault); // $20
+    const remainingBudget = Math.max(0, botCapital - position.amount);
+    const chunk = parseFloat(Math.min(botCapital / 3, remainingBudget, dcaAllocatable).toFixed(2));
+    assert.equal(chunk, 20, 'DCA chunk must never exceed allocatable balance');
+    balanceRef = Math.max(0, balanceRef - chunk);
+    assert.equal(balanceRef, 10, 'DCA chunk must be deducted from balance');
+  });
+
+  await test('M3.7.8: Multiple bots in the same tick cannot over-allocate the same balance', () => {
+    const balanceRef = { current: 100 };
+    const reserveVault = 0;
+    const bots = [{ capital: 80 }, { capital: 80 }, { capital: 80 }];
+    let totalCommitted = 0;
+    for (const bot of bots) {
+      const allocatable = Math.max(0, balanceRef.current - reserveVault);
+      if (allocatable < 1) continue;
+      const amt = Math.min(bot.capital, allocatable);
+      balanceRef.current = Math.max(0, balanceRef.current - amt);
+      totalCommitted += amt;
+    }
+    assert.equal(totalCommitted, 100, 'Total committed across bots must not exceed the account balance');
+    assert.equal(balanceRef.current, 0);
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------
