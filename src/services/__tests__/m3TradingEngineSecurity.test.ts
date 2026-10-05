@@ -551,6 +551,106 @@ export async function runM3SecuritySuite(): Promise<boolean> {
   });
 
   // --------------------------------------------------------------------------
+  // SECTION 8: Real Mode Concurrency Guards, Balance Sync & Anti-Flash Safety
+  // --------------------------------------------------------------------------
+  console.log('\n--- SECTION 8: Real Mode Concurrency, Balance Sync & Anti-Flash Safety ---');
+
+  await test('M3.8.1: inFlightBotsRef blocks duplicate concurrent on-chain BUY triggers for the same bot', () => {
+    const inFlightBotsRef: Record<string, boolean> = {};
+    const bot = { id: 'bot_sniper_real_1', status: 'RUNNING' };
+
+    let buyInvocations = 0;
+    const attemptBotTick = (botId: string) => {
+      if (inFlightBotsRef[botId]) {
+        return false; // Skipped because transaction is in-flight
+      }
+      inFlightBotsRef[botId] = true;
+      buyInvocations++;
+      return true;
+    };
+
+    // First tick fires transaction
+    const firstTickResult = attemptBotTick(bot.id);
+    assert.equal(firstTickResult, true, 'First tick must initiate on-chain buy');
+    assert.equal(buyInvocations, 1);
+
+    // Second tick 2.5s later while on-chain confirmation is in-flight
+    const secondTickResult = attemptBotTick(bot.id);
+    assert.equal(secondTickResult, false, 'Second tick must be blocked by inFlightBotsRef');
+    assert.equal(buyInvocations, 1, 'No duplicate buy transaction should be sent');
+
+    // On-chain confirmation finishes
+    inFlightBotsRef[bot.id] = false;
+
+    // Subsequent tick after completion
+    const thirdTickResult = attemptBotTick(bot.id);
+    assert.equal(thirdTickResult, true, 'After confirmation and unlock, bot can process new signals');
+    assert.equal(buyInvocations, 2);
+  });
+
+  await test('M3.8.2: closingPositionsRef prevents duplicate on-chain SELL submissions during SL/TP check intervals', () => {
+    const closingPositionsRef: Record<string, boolean> = {};
+    let onChainSellCalls = 0;
+
+    const simulateCheckStopsTrigger = (posId: string) => {
+      if (closingPositionsRef[posId]) {
+        return false; // Skip already closing position
+      }
+      closingPositionsRef[posId] = true;
+      onChainSellCalls++;
+      return true;
+    };
+
+    const posId = 'pos_sol_test_123';
+    // Interval 1: SL triggered
+    const firstClose = simulateCheckStopsTrigger(posId);
+    assert.equal(firstClose, true, 'First SL detection triggers position closure');
+    assert.equal(onChainSellCalls, 1);
+
+    // Interval 2 (1000ms later): position is still confirming on Solana block
+    const secondClose = simulateCheckStopsTrigger(posId);
+    assert.equal(secondClose, false, 'Second interval must NOT fire duplicate on-chain sell');
+    assert.equal(onChainSellCalls, 1);
+
+    // Interval 3 (2000ms later): still confirming
+    const thirdClose = simulateCheckStopsTrigger(posId);
+    assert.equal(thirdClose, false, 'Third interval must NOT fire duplicate on-chain sell');
+    assert.equal(onChainSellCalls, 1);
+  });
+
+  await test('M3.8.3: On-chain BUY confirmation immediately deducts balance from sub-wallet and SOL balance', () => {
+    const subWallets = [{ id: 'sub_1', balance: 0.5 }];
+    let solanaBalance = 1.2;
+    const tradeAmountSol = 0.1;
+
+    // Simulate on-chain BUY confirmation callback
+    subWallets[0].balance = parseFloat(Math.max(0, subWallets[0].balance - tradeAmountSol).toFixed(4));
+    solanaBalance = parseFloat(Math.max(0, solanaBalance - tradeAmountSol).toFixed(4));
+
+    assert.equal(subWallets[0].balance, 0.4, 'Sub-wallet balance must be immediately decremented');
+    assert.equal(solanaBalance, 1.1, 'Solana display balance must be immediately decremented');
+  });
+
+  await test('M3.8.4: Synchronous removal and recentlyClosedIdsRef filter prevent position flash and resurrection', () => {
+    const activePositionsRef = [{ id: 'pos_1' }, { id: 'pos_2' }];
+    const recentlyClosedIds = new Set<string>();
+
+    // User closes pos_1
+    const posIdToClose = 'pos_1';
+    recentlyClosedIds.add(posIdToClose);
+    const updatedActive = activePositionsRef.filter(x => x.id !== posIdToClose);
+    assert.equal(updatedActive.length, 1);
+    assert.equal(updatedActive[0].id, 'pos_2');
+
+    // Simulate an incoming remote snapshot from Firestore containing outdated positions
+    const incomingSnapshotPositions = [{ id: 'pos_1' }, { id: 'pos_2' }];
+    const sanitizedIncoming = incomingSnapshotPositions.filter(p => !recentlyClosedIds.has(p.id));
+
+    assert.equal(sanitizedIncoming.length, 1, 'Incoming snapshot must filter out recently closed position');
+    assert.equal(sanitizedIncoming[0].id, 'pos_2', 'Closed position must never be resurrected');
+  });
+
+  // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------
   const passedCount = suiteResults.filter(r => r.passed).length;

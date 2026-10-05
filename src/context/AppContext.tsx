@@ -113,9 +113,19 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       for (const p of arr) {
         if (!p || p.pair === 'ALL' || p.pair === 'SOLANA') continue;
         const cleanPair = !p.pair ? 'FX:EURUSD' : p.pair;
-        const posId = p.id || `pos_${Math.random().toString(36).substring(2, 9)}`;
-        if (seenIds.has(posId) || closedIds.has(posId) || recentlyClosedIdsRef.current.has(posId)) continue;
+        const posId = p.id || (p as any)._id || `pos_${Math.random().toString(36).substring(2, 9)}`;
+        if (
+          seenIds.has(posId) ||
+          closedIds.has(posId) ||
+          recentlyClosedIdsRef.current.has(posId) ||
+          (p.id && (closedIds.has(p.id) || recentlyClosedIdsRef.current.has(p.id))) ||
+          ((p as any)._id && (closedIds.has((p as any)._id) || recentlyClosedIdsRef.current.has((p as any)._id)))
+        ) {
+          continue;
+        }
         seenIds.add(posId);
+        if (p.id) seenIds.add(p.id);
+        if ((p as any)._id) seenIds.add((p as any)._id);
 
         const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
         const amt = rawAmt < 1 ? parseFloat(rawAmt.toFixed(4)) : parseFloat(rawAmt.toFixed(2));
@@ -262,7 +272,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
               });
             }
             if (data.positions !== undefined) {
-              const sanitized = sanitizePositions(Array.isArray(data.positions) ? data.positions : []);
+              const sanitized = sanitizePositions(Array.isArray(data.positions) ? data.positions : [])
+                .filter(p => p && !recentlyClosedIdsRef.current.has(p.id) && !recentlyClosedIdsRef.current.has((p as any)._id));
               setActivePositions(prev => {
                 const prevSafe = Array.isArray(prev) ? prev : [];
                 if (

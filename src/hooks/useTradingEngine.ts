@@ -657,6 +657,8 @@ export function useTradingEngine() {
   const reserveVaultSolRef = useRef(reserveVaultSol);
   const solanaBalanceRef = useRef(solanaBalance);
   const botCooldownsRef = useRef<Record<string, number>>({});
+  const inFlightBotsRef = useRef<Record<string, boolean>>({});
+  const closingPositionsRef = useRef<Record<string, boolean>>({});
 
   const closePositionByIdRef = useRef<(posIdOrPos: string | Position, exitPrice: number, reason: string) => void>(() => {});
   const refreshWalletRef = useRef<() => void>(() => {});
@@ -758,6 +760,10 @@ export function useTradingEngine() {
       for (const bot of runningBots) {
         try {
           if (botCooldownsRef.current[bot.id] && Date.now() < botCooldownsRef.current[bot.id]) {
+            continue;
+          }
+
+          if (inFlightBotsRef.current[bot.id]) {
             continue;
           }
 
@@ -1057,6 +1063,7 @@ export function useTradingEngine() {
 
                 addBotLogRef.current(bot.id, bot.strategy, `Envoi transaction d'achat réelle SOL pour $${matchingCoin.symbol} (${posTradeAmount.toFixed(4)} SOL)...`, 'info');
                 
+                inFlightBotsRef.current[bot.id] = true;
                 executeRealPumpTrade({
                   action: 'buy',
                   mint: matchingCoin.mint,
@@ -1073,9 +1080,38 @@ export function useTradingEngine() {
                       if (prev.some(x => x.id === posWithTx.id)) return prev;
                       return [...prev, posWithTx];
                     });
+
+                    // Synchronisation immédiate du solde sous-wallet
+                    if (subWalletsRef.current[botSubIndex]) {
+                      subWalletsRef.current[botSubIndex].balance = Math.max(0, (subWalletsRef.current[botSubIndex].balance || 0) - posTradeAmount);
+                      setSubWallets([...subWalletsRef.current]);
+                    }
+
+                    // Déduction immédiate du solde SOL d'affichage
+                    setSolanaBalance(prev => {
+                      const next = prev !== null ? Math.max(0, prev - posTradeAmount) : null;
+                      if (typeof window !== 'undefined' && next !== null) {
+                        localStorage.setItem('trade_solana_balance', next.toString());
+                      }
+                      return next;
+                    });
+
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new Event('web3_wallet_updated'));
+                      window.dispatchEvent(new Event('storage'));
+                    }
+
+                    if (refreshWalletRef.current) {
+                      setTimeout(() => refreshWalletRef.current(), 1500);
+                      setTimeout(() => refreshWalletRef.current(), 4000);
+                    }
                   } else {
                     addBotLogRef.current(bot.id, bot.strategy, `[ÉCHEC ACHAT RÉEL ON-CHAIN] ${res?.error || 'Transaction refusée sur le réseau Solana.'}`, 'error');
                   }
+                }).catch((err: any) => {
+                  addBotLogRef.current(bot.id, bot.strategy, `[ERREUR ACHAT RÉEL] ${err?.message || 'Erreur réseau Solana'}`, 'error');
+                }).finally(() => {
+                  inFlightBotsRef.current[bot.id] = false;
                 });
               } else {
                 setActivePositions(prev => {
@@ -1484,6 +1520,7 @@ export function useTradingEngine() {
 
                   addBotLogRef.current(bot.id, bot.strategy, `[JUPITER SWAP RÉEL] Achat on-chain ${pairSymbol} via Jupiter (${calculatedTradeAmt.toFixed(4)} SOL)...`, 'info');
 
+                  inFlightBotsRef.current[bot.id] = true;
                   executeJupiterSwap({
                     action: 'buy',
                     symbol: pairSymbol,
@@ -1497,9 +1534,38 @@ export function useTradingEngine() {
                         if (prev.some(x => x.id === newPos.id)) return prev;
                         return [...prev, { ...newPos, txHash: res.txHash, mode: 'REAL' as const }];
                       });
+
+                      // Synchronisation immédiate du solde sous-wallet
+                      if (subWalletsRef.current[botSubIdx]) {
+                        subWalletsRef.current[botSubIdx].balance = Math.max(0, (subWalletsRef.current[botSubIdx].balance || 0) - calculatedTradeAmt);
+                        setSubWallets([...subWalletsRef.current]);
+                      }
+
+                      // Déduction immédiate du solde SOL d'affichage
+                      setSolanaBalance(prev => {
+                        const next = prev !== null ? Math.max(0, prev - calculatedTradeAmt) : null;
+                        if (typeof window !== 'undefined' && next !== null) {
+                          localStorage.setItem('trade_solana_balance', next.toString());
+                        }
+                        return next;
+                      });
+
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new Event('web3_wallet_updated'));
+                        window.dispatchEvent(new Event('storage'));
+                      }
+
+                      if (refreshWalletRef.current) {
+                        setTimeout(() => refreshWalletRef.current(), 1500);
+                        setTimeout(() => refreshWalletRef.current(), 4000);
+                      }
                     } else {
                       addBotLogRef.current(bot.id, bot.strategy, `[ÉCHEC JUPITER ACHAT RÉEL] ${res?.error || 'Erreur swap DEX/Solana.'}`, 'error');
                     }
+                  }).catch((err: any) => {
+                    addBotLogRef.current(bot.id, bot.strategy, `[ERREUR JUPITER RÉEL] ${err?.message || 'Erreur swap Solana'}`, 'error');
+                  }).finally(() => {
+                    inFlightBotsRef.current[bot.id] = false;
                   });
                 } else if (!isRealMode) {
                   // Virtual execution strictly in DEMO mode
@@ -1659,6 +1725,8 @@ export function useTradingEngine() {
         }
 
         if (shouldClose) {
+          if (closingPositionsRef.current[p.id]) return;
+          closingPositionsRef.current[p.id] = true;
           try {
             closePositionByIdRef.current(p.id, current, closeReason);
           } catch (e) {
@@ -1718,6 +1786,13 @@ export function useTradingEngine() {
     const p = typeof posIdOrPos === 'object' ? posIdOrPos : activePositionsRef.current.find(x => x.id === posIdOrPos);
     if (!p) return;
     const posId = p.id;
+
+    if (closingPositionsRef.current[posId] && typeof posIdOrPos !== 'object') {
+      return;
+    }
+    closingPositionsRef.current[posId] = true;
+
+    try {
 
     const posMode: 'DEMO' | 'REAL' = p.mode === 'REAL' 
       ? 'REAL' 
@@ -2219,6 +2294,8 @@ export function useTradingEngine() {
       window.dispatchEvent(new CustomEvent('position_closed', { detail: { id: posId } }));
     }
 
+    activePositionsRef.current = (Array.isArray(activePositionsRef.current) ? activePositionsRef.current : []).filter(x => x && x.id !== posId && (x as any)._id !== posId);
+
     setActivePositions(prev => {
       const next = (Array.isArray(prev) ? prev : []).filter(x => x && x.id !== posId && (x as any)._id !== posId);
       if (typeof window !== 'undefined') {
@@ -2226,7 +2303,10 @@ export function useTradingEngine() {
       }
       return next;
     });
-  };
+  } finally {
+    delete closingPositionsRef.current[posId];
+  }
+};
 
   const handleToggleBot = (botId: string) => {
     const bot = botsRef.current.find(b => b.id === botId);
