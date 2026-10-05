@@ -1,30 +1,63 @@
 # ==============================================================================
-# ALGOTRADE AI - HOSTINGER / LITESPEED / APACHE NODE.JS CONFIGURATION
+# ALGOTRADE AI - HOSTINGER / LITESPEED / APACHE CONFIGURATION
 # ==============================================================================
 
-# Disable directory browsing to prevent 403 Forbidden index errors
-Options -Indexes
-DirectoryIndex disabled
+# 1. Directory Index & Indexing Permissions
+# IMPORTANT: DO NOT set "DirectoryIndex disabled" -> it causes 403 Forbidden on LiteSpeed/Apache!
+DirectoryIndex index.html index.htm server.js app.js
 
+<IfModule mod_negotiation.c>
+  Options -MultiViews
+</IfModule>
+Options -Indexes +FollowSymLinks
+
+# Grant access to directory
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Allow from all
+</IfModule>
+
+# 2. Phusion Passenger Support (Hostinger CloudLinux / cPanel Node.js Selector)
+<IfModule mod_passenger.c>
+  PassengerAppType node
+  PassengerStartupFile server.js
+  PassengerEnabled on
+</IfModule>
+
+# 3. LiteSpeed & Apache Reverse Proxy Engine
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # 1. Direct access for static Next.js assets, public icons, service worker
-  RewriteCond %{REQUEST_URI} ^/_next/static/ [OR]
-  RewriteCond %{REQUEST_URI} ^/icons/ [OR]
-  RewriteCond %{REQUEST_URI} ^/manifest.webmanifest [OR]
-  RewriteCond %{REQUEST_URI} ^/sw.js [OR]
-  RewriteCond %{REQUEST_URI} ^/favicon.ico
+  # Forward HTTPS protocol header
+  RewriteCond %{HTTPS} on
+  RewriteRule ^ - [E=HTTPS:1]
+
+  # Direct pass-through for existing physical static files
+  # (_next/static, public files, icons, manifest, favicon, robots.txt)
   RewriteCond %{REQUEST_FILENAME} -f
   RewriteRule ^ - [L]
 
-  # 2. Reverse Proxy to Node.js backend port (default 3000 or custom)
-  <IfModule mod_proxy.c>
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
-  </IfModule>
+  # Direct pass-through for existing physical sub-directories (e.g. /icons/), excluding root /
+  RewriteCond %{REQUEST_URI} !^/?$
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # WebSocket Reverse Proxy (Pump.fun streams, Binance tickers, Jupiter DEX)
+  RewriteCond %{HTTP:Upgrade} =websocket [NC]
+  RewriteRule ^(.*)$ ws://127.0.0.1:3000/$1 [P,L]
+
+  # Reverse Proxy ALL other requests (including root /) to Next.js server on port 3000
+  # NOTE: Do NOT wrap in <IfModule mod_proxy.c> because LiteSpeed executes [P] natively
+  RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+</IfModule>
+
+# Proxy headers forwarding
+<IfModule mod_headers.c>
+  RequestHeader set X-Forwarded-Proto "https" env=HTTPS
 </IfModule>
 
 # Ensure proper MIME types for Next.js PWA & static assets
