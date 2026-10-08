@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -31,8 +31,8 @@ export default function LandingNavbar() {
               <span className="font-headline text-xl font-black tracking-tight text-white group-hover:text-[#c2ff0c] transition-colors">
                 AlgoTrade<span className="text-[#c2ff0c]">AI</span>
               </span>
-              <Badge className="bg-[#c2ff0c]/15 text-[#c2ff0c] border-[#c2ff0c]/30 text-[9px] font-extrabold uppercase px-1.5 py-0.2">
-                v2.4
+              <Badge className="bg-[#c2ff0c]/15 text-[#c2ff0c] border-[#c2ff0c]/30 text-[9px] font-extrabold uppercase px-2 py-0.5">
+                v3.0 Mobile
               </Badge>
             </div>
             <span className="text-[10px] font-mono text-slate-400 -mt-0.5">Quant & On-Chain Solana</span>

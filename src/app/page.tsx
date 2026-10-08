@@ -609,7 +609,7 @@ export default function HomePage() {
               <div className="lg:col-span-5 bg-[#1b142e] border border-white/10 rounded-2xl p-5 space-y-3">
                 <div className="text-xs font-headline font-bold text-white uppercase border-b border-white/10 pb-2 flex items-center justify-between">
                   <span>Grand Livre Comptable</span>
-                  <span className="text-[#c2ff0c] font-mono">ERP v2.4</span>
+                  <span className="text-[#c2ff0c] font-mono">ERP v3.0 Mobile</span>
                 </div>
                 <div className="space-y-2 text-xs font-mono">
                   <div className="p-2.5 bg-white/5 rounded-xl flex justify-between items-center">

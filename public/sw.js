@@ -1,7 +1,7 @@
 // Service Worker PWA pour Algo-Trade-AI
-// v5 - Fix: Utiliser fetch(event.request) directement sans init invalide pour les requêtes de navigation
-const CACHE_NAME = 'algotrade-pwa-v5';
-const DYNAMIC_CACHE = 'algotrade-dynamic-v5';
+// v6 - Force-purge all old caches and serve v3.0 Mobile
+const CACHE_NAME = 'algotrade-pwa-v6';
+const DYNAMIC_CACHE = 'algotrade-dynamic-v6';
 
 // On ne cache QUE le manifest — jamais les pages HTML
 const STATIC_ASSETS = [
