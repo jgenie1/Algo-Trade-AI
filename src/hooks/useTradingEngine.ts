@@ -779,7 +779,9 @@ export function useTradingEngine() {
             
             const isBotPosReal = botPosition.mode === 'REAL' || tradingModeRef.current === 'REAL';
             if (!isBotPosReal && bot.strategy !== 'Pump.fun Sniper Bot' && currentEntries < maxDcaEntries && botPosition.amount < targetAllocated) {
-              const dcaThreshold = 0.98;
+              const isCrypto = !botPosition.pair.startsWith('FX:');
+              // Seuil DCA adapté à la volatilité d'actif : -2.5% sur Crypto, -1.2% sur Forex
+              const dcaThreshold = isCrypto ? 0.975 : 0.988;
               
               if (currentPrice <= botPosition.entryPrice * dcaThreshold) {
                 const newEntryCount = currentEntries + 1;
@@ -798,8 +800,8 @@ export function useTradingEngine() {
                 
                 setActivePositions(prev => prev.map(p => {
                   if (p.id === botPosition.id) {
-                    const slDistance = 0.02;
-                    const tpDistance = 0.04;
+                    const slDistance = isCrypto ? 0.025 : 0.015;
+                    const tpDistance = isCrypto ? 0.050 : 0.028;
                     return {
                       ...p,
                       amount: newAmount,
@@ -1166,6 +1168,7 @@ export function useTradingEngine() {
 
               let signal: 'BUY' | 'SELL' | null = null;
               let reason = '';
+              let aiConfidenceScore = 0;
 
               const mult = bot.selectivityMultiplier || 1.0;
               const triggerChance = 0.45 / mult;
@@ -1289,7 +1292,8 @@ export function useTradingEngine() {
                   }
                 }
               } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
-                const ema20 = (calculateIndicators(fetchedCandles, ['EMA']) || {}).ema || [];
+                const indicators = calculateIndicators(fetchedCandles, ['EMA', 'MACD']) || {};
+                const ema20 = indicators.ema || [];
                 const lastEma = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;
                 const isBullishEma = lastClose > lastEma;
                 const agentMathScore = (isBullishEma ? 35 : -35) + (lastRsi < 43 ? 45 : lastRsi > 57 ? -45 : 0);
@@ -1298,7 +1302,16 @@ export function useTradingEngine() {
                 const lastVol = volumes[volumes.length - 1] || 0;
                 const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
                 const isVolumeSpiking = lastVol > avgVol * 1.25;
-                const agentMomentumScore = (priceTrend > 0 ? 30 : -30) + (isVolumeSpiking ? 25 : 0);
+
+                // Confirmation de momentum MACD (expansion de l'histogramme dans le sens de la tendance)
+                const macdHist = indicators.macd?.histogram || [];
+                const lastHist = macdHist.length > 0 ? macdHist[macdHist.length - 1] : 0;
+                const prevHist = macdHist.length > 1 ? macdHist[macdHist.length - 2] : 0;
+                const isMacdBullishExpansion = lastHist > 0 && lastHist > prevHist;
+                const isMacdBearishExpansion = lastHist < 0 && lastHist < prevHist;
+                const macdScore = isMacdBullishExpansion ? 20 : isMacdBearishExpansion ? -20 : (lastHist > 0 ? 10 : -10);
+
+                const agentMomentumScore = (priceTrend > 0 ? 30 : -30) + (isVolumeSpiking ? 25 : 0) + macdScore;
 
                 let agentCustomScore = 0;
                 let customLog = "";
@@ -1335,6 +1348,16 @@ export function useTradingEngine() {
                       matches++;
                     }
                   }
+
+                  if (rules.includes('macd')) {
+                    if (isMacdBullishExpansion) {
+                      agentCustomScore += 30;
+                      matches++;
+                    } else if (isMacdBearishExpansion) {
+                      agentCustomScore -= 30;
+                      matches++;
+                    }
+                  }
                   
                   if (matches > 0) {
                     customLog = ` • Règle Vibe-Trading complétée (Score: ${agentCustomScore > 0 ? '+' : ''}${agentCustomScore})`;
@@ -1342,6 +1365,7 @@ export function useTradingEngine() {
                 }
 
                 const finalScore = (agentMathScore * 0.4 + agentMomentumScore * 0.4 + (bot.customRules ? agentCustomScore * 0.2 : 0)) / mult;
+                aiConfidenceScore = Math.abs(finalScore);
                 const risk = bot.riskProfile || 'MODERATE';
                 const reqScore = risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25;
 
@@ -1404,7 +1428,8 @@ export function useTradingEngine() {
                 let calculatedTradeAmt = 0;
 
                 if (isRealMode) {
-                  calculatedTradeAmt = parseFloat((bot.capital / 3).toFixed(4));
+                  const convictionMult = (bot.strategy === 'AI Autopilot (Machine à Cash)' && aiConfidenceScore >= 35) ? 1.2 : 1.0;
+                  calculatedTradeAmt = parseFloat(((bot.capital / 3) * convictionMult).toFixed(4));
                   const botSubIdx = (bot.subWallet || 1) - 1;
                   let subWalletObj = subWalletsRef.current[botSubIdx];
                   let subWalletBal = subWalletObj?.balance || 0;
@@ -1434,7 +1459,7 @@ export function useTradingEngine() {
                   
                   const reserveForGas = Math.max(0.002, (bot.priorityFee || 0.001) * 2);
                   const maxAffordable = Math.max(effectiveMinMargin, availableTradeBal - reserveForGas);
-                  calculatedTradeAmt = Math.min(bot.capital > 0 ? bot.capital : maxAffordable, maxAffordable);
+                  calculatedTradeAmt = Math.min(calculatedTradeAmt > 0 ? calculatedTradeAmt : maxAffordable, maxAffordable);
                   if (calculatedTradeAmt > availableTradeBal) {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde du sous-wallet (${availableTradeBal.toFixed(4)} SOL).`, 'error');
                     continue;
@@ -1445,8 +1470,9 @@ export function useTradingEngine() {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
                     continue;
                   }
-                  // En Démo : 5% du capital bot ou max 500 $, plafonné STRICTEMENT par le solde allocable du compte
-                  const baseTradeAmt = Math.min(bot.capital * 0.05, 500) || Math.min(50, bot.capital);
+                  // En Démo : 5% du capital bot ou max 500 $, boosté (+20%) si consensus IA très fort, plafonné STRICTEMENT par le solde allocable du compte
+                  const convictionMult = (bot.strategy === 'AI Autopilot (Machine à Cash)' && aiConfidenceScore >= 35) ? 1.2 : 1.0;
+                  const baseTradeAmt = (Math.min(bot.capital * 0.05, 500) || Math.min(50, bot.capital)) * convictionMult;
                   calculatedTradeAmt = parseFloat(Math.min(baseTradeAmt, allocatable).toFixed(2));
                   if (calculatedTradeAmt < 1) {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Montant disponible insuffisant ($${calculatedTradeAmt.toFixed(2)}).`, 'error');
