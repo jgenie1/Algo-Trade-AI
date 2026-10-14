@@ -76,12 +76,22 @@ export default function PositionDetailsModal({
         </Button>
 
         {/* Title & Type Badge */}
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold font-headline text-white flex items-center gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="text-lg font-bold font-headline text-white flex items-center gap-2 flex-wrap">
             <span>Détails du Trade : {cleanName}</span>
             {position.botId && (
               <Badge className="text-[9px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30 uppercase font-bold border-none">
                 Bot Actif
+              </Badge>
+            )}
+            {position.dcaCount && position.dcaCount > 1 && (
+              <Badge className="text-[9px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 uppercase font-mono font-bold border-none">
+                DCA Niveau {position.dcaCount}/3
+              </Badge>
+            )}
+            {((isLong && position.sl && position.sl > position.entryPrice) || (!isLong && position.sl && position.sl < position.entryPrice)) && (
+              <Badge className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30 uppercase font-mono font-bold border-none">
+                🛡️ Gain Garanti
               </Badge>
             )}
           </h3>
@@ -124,14 +134,16 @@ export default function PositionDetailsModal({
           </div>
           <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
             <span className="text-[10px] text-white/40 block uppercase font-headline">Stop Loss (SL Trade)</span>
-            <span className="text-sm font-bold text-rose-400 font-body block">
+            <span className={cn("text-sm font-bold font-body block", ((isLong && position.sl && position.sl > position.entryPrice) || (!isLong && position.sl && position.sl < position.entryPrice)) ? "text-emerald-400" : "text-rose-400")}>
               {position.sl 
                 ? `${formatDisplayPrice(position.sl)} ${isSol ? 'SOL' : '$'}`
                 : 'Protection auto (-3%)'}
             </span>
-            <span className="text-[9px] text-rose-300/80 font-mono block mt-0.5">
+            <span className={cn("text-[9px] font-mono block mt-0.5", ((isLong && position.sl && position.sl > position.entryPrice) || (!isLong && position.sl && position.sl < position.entryPrice)) ? "text-emerald-300 font-semibold" : "text-rose-300/80")}>
               {position.sl && position.entryPrice > 0
-                ? `Seuil max: -${Math.abs(((position.sl - position.entryPrice) / position.entryPrice) * 100).toFixed(2)}%`
+                ? (((isLong && position.sl > position.entryPrice) || (!isLong && position.sl < position.entryPrice))
+                  ? `🛡️ Profit Garanti: +${Math.abs(((position.sl - position.entryPrice) / position.entryPrice) * 100).toFixed(2)}%`
+                  : `Seuil max: -${Math.abs(((position.sl - position.entryPrice) / position.entryPrice) * 100).toFixed(2)}%`)
                 : 'Sécurité automatique active'}
             </span>
           </div>

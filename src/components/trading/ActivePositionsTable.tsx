@@ -213,6 +213,16 @@ export default function ActivePositionsTable({
                             BOT
                           </span>
                         )}
+                        {p.dcaCount && p.dcaCount > 1 && (
+                          <span className="bg-blue-950/60 text-blue-300 border border-blue-500/40 text-[10px] font-extrabold px-1.5 py-0.5 rounded font-mono">
+                            DCA x{p.dcaCount}
+                          </span>
+                        )}
+                        {((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) && (
+                          <span className="bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-[10px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 font-mono">
+                            🛡️ Sécurisé
+                          </span>
+                        )}
                         {p.txHash && (
                           <a
                             href={getExplorerTxUrl(getPositionChain(p), p.txHash)}
@@ -247,7 +257,14 @@ export default function ActivePositionsTable({
                     <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 bg-black/40 p-3 rounded-xl border border-white/10">
                       <div>Entrée: <span className="text-white font-extrabold">{formatDisplayPrice(entry)}</span></div>
                       <div>Prix Direct: <span className="text-white font-extrabold">{formatDisplayPrice(current)}</span></div>
-                      <div>SL: <span className="text-rose-400 font-extrabold">{p.sl ? formatDisplayPrice(p.sl) : (isLong ? formatDisplayPrice(entry * 0.97) : formatDisplayPrice(entry * 1.03))}</span></div>
+                      <div>
+                        SL: <span className={cn("font-extrabold", ((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) ? "text-emerald-400" : "text-rose-400")}>
+                          {p.sl ? formatDisplayPrice(p.sl) : (isLong ? formatDisplayPrice(entry * 0.97) : formatDisplayPrice(entry * 1.03))}
+                        </span>
+                        {((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) && (
+                          <span className="text-[9px] text-emerald-300/80 ml-1 font-semibold">(Gain Garanti)</span>
+                        )}
+                      </div>
                       <div>TP: <span className="text-emerald-400 font-extrabold">{p.tp ? formatDisplayPrice(p.tp) : (isLong ? formatDisplayPrice(entry * 1.06) : formatDisplayPrice(entry * 0.94))}</span></div>
                     </div>
 
@@ -323,6 +340,11 @@ export default function ActivePositionsTable({
                               BOT
                             </span>
                           )}
+                          {p.dcaCount && p.dcaCount > 1 && (
+                            <span className="bg-blue-950/60 text-blue-300 border border-blue-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono">
+                              DCA x{p.dcaCount}
+                            </span>
+                          )}
                           {p.txHash && (
                             <a
                               href={getExplorerTxUrl(getPositionChain(p), p.txHash)}
@@ -348,8 +370,11 @@ export default function ActivePositionsTable({
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-[#c2ff0c] font-extrabold">{formatDisplayPrice(current)}</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-xs">
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-rose-400 font-bold whitespace-nowrap">
+                            <span className={cn("font-bold whitespace-nowrap", ((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) ? "text-emerald-400" : "text-rose-400")}>
                               SL: {p.sl ? formatDisplayPrice(p.sl) : (isLong ? formatDisplayPrice(entry * 0.97) : formatDisplayPrice(entry * 1.03))}
+                              {((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) && (
+                                <span className="text-[9px] text-emerald-300/90 ml-1 font-semibold">🛡️ Garanti</span>
+                              )}
                             </span>
                             <span className="text-emerald-400 font-bold whitespace-nowrap">
                               TP: {p.tp ? formatDisplayPrice(p.tp) : (isLong ? formatDisplayPrice(entry * 1.06) : formatDisplayPrice(entry * 0.94))}

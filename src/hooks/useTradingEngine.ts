@@ -1691,30 +1691,35 @@ export function useTradingEngine() {
           if (current > currentHighest) {
             p.highestPrice = current;
             const gainPct = entry > 0 ? (current - entry) / entry : 0;
+            let updatedSl = p.sl;
 
             // PALIER 1 : Dès +2.5% de gain (+3.5% sur Meme), Stop-Loss en Breakeven sécurisé (+0.6% garanti pour couvrir les frais)
             const beThreshold = isMemeToken ? 0.035 : 0.025;
             if (gainPct >= beThreshold) {
               const breakEvenSl = entry * 1.006;
-              if (!p.sl || breakEvenSl > p.sl) {
-                p.sl = breakEvenSl;
+              if (!updatedSl || breakEvenSl > updatedSl) {
+                updatedSl = breakEvenSl;
               }
             }
 
             // PALIER 2 : Dès +5% de gain, verrouillage strict de +2.5% de profit garanti
             if (gainPct >= 0.05) {
               const lockProfitSl = entry * 1.025;
-              if (!p.sl || lockProfitSl > p.sl) {
-                p.sl = lockProfitSl;
+              if (!updatedSl || lockProfitSl > updatedSl) {
+                updatedSl = lockProfitSl;
               }
             }
 
             // PALIER 3 : Trailing Stop dynamique (serrage au-delà de +8% pour sécuriser les gains explosifs)
             const trailingPct = gainPct >= 0.08 ? (isMemeToken ? 0.035 : 0.015) : (isMemeToken ? 0.05 : 0.02);
             const newSl = current * (1 - trailingPct);
-            if (!p.sl || newSl > p.sl) {
-              p.sl = newSl;
-              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: current, sl: newSl } : item));
+            if (!updatedSl || newSl > updatedSl) {
+              updatedSl = newSl;
+            }
+
+            if (updatedSl !== p.sl || current > currentHighest) {
+              p.sl = updatedSl;
+              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: current, sl: updatedSl } : item));
             }
           }
         } else {
@@ -1723,24 +1728,30 @@ export function useTradingEngine() {
           if (current < currentLowest) {
             p.lowestPrice = current;
             const gainPct = entry > 0 ? (entry - current) / entry : 0;
+            let updatedSl = p.sl;
+
             const beThreshold = isMemeToken ? 0.035 : 0.025;
             if (gainPct >= beThreshold) {
               const breakEvenSl = entry * 0.994;
-              if (!p.sl || breakEvenSl < p.sl) {
-                p.sl = breakEvenSl;
+              if (!updatedSl || breakEvenSl < updatedSl) {
+                updatedSl = breakEvenSl;
               }
             }
             if (gainPct >= 0.05) {
               const lockProfitSl = entry * 0.975;
-              if (!p.sl || lockProfitSl < p.sl) {
-                p.sl = lockProfitSl;
+              if (!updatedSl || lockProfitSl < updatedSl) {
+                updatedSl = lockProfitSl;
               }
             }
             const trailingPct = gainPct >= 0.08 ? (isMemeToken ? 0.035 : 0.015) : (isMemeToken ? 0.05 : 0.02);
             const newSl = current * (1 + trailingPct);
-            if (!p.sl || newSl < p.sl) {
-              p.sl = newSl;
-              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, lowestPrice: current, sl: newSl } : item));
+            if (!updatedSl || newSl < updatedSl) {
+              updatedSl = newSl;
+            }
+
+            if (updatedSl !== p.sl || current < currentLowest) {
+              p.sl = updatedSl;
+              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, lowestPrice: current, sl: updatedSl } : item));
             }
           }
         }
