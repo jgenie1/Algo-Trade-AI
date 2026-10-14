@@ -127,16 +127,13 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         if (p.id) seenIds.add(p.id);
         if ((p as any)._id) seenIds.add((p as any)._id);
 
+        const isReal = isRealOnChainPosition(p);
+        const calculatedMode: 'DEMO' | 'REAL' = isReal ? 'REAL' : 'DEMO';
         const rawAmt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
-        const amt = rawAmt < 1 ? parseFloat(rawAmt.toFixed(4)) : parseFloat(rawAmt.toFixed(2));
+        const amt = isReal ? parseFloat(rawAmt.toFixed(4)) : (rawAmt < 1 ? parseFloat(rawAmt.toFixed(4)) : parseFloat(rawAmt.toFixed(2)));
         const expectedBase = getRealMarketBasePrice(cleanPair);
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
-
-        // A position is strictly REAL only if it was executed with a genuine verified on-chain transaction hash.
-        // Any position without verified on-chain txHash is strictly DEMO, preventing phantom 42 SOL allocations.
-        const isReal = isRealOnChainPosition(p);
-        const calculatedMode: 'DEMO' | 'REAL' = isReal ? 'REAL' : 'DEMO';
 
         cleaned.push({
           ...p,
@@ -184,21 +181,22 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       return arr
         .filter((c: any) => c && c.pair !== 'ALL' && c.pair !== 'SOLANA')
         .map((c: any) => {
+          const isReal = isRealOnChainPosition(c);
           const rawVal = typeof c.profit === 'number' && !isNaN(c.profit) 
             ? c.profit 
             : (typeof c.pnl === 'number' && !isNaN(c.pnl) ? c.pnl : 0);
-          const amt = typeof c.amount === 'number' && !isNaN(c.amount) && c.amount > 0 ? c.amount : 1000;
+          const defaultAmt = isReal ? 0.1 : 1000;
+          const amt = typeof c.amount === 'number' && !isNaN(c.amount) && c.amount > 0 ? c.amount : defaultAmt;
           const lev = typeof c.leverage === 'number' && !isNaN(c.leverage) ? c.leverage : 1;
           
           const maxGain = amt * lev * 5;
           const maxLoss = -amt;
           const boundedVal = Math.max(maxLoss, Math.min(maxGain, rawVal));
-          const cleanVal = parseFloat(boundedVal.toFixed(2));
-
-          const isReal = isRealOnChainPosition(c);
+          const cleanVal = parseFloat(boundedVal.toFixed(isReal ? 4 : 2));
 
           return {
             ...c,
+            amount: isReal ? parseFloat(amt.toFixed(4)) : parseFloat(amt.toFixed(2)),
             profit: cleanVal,
             pnl: cleanVal,
             mode: isReal ? 'REAL' : 'DEMO'

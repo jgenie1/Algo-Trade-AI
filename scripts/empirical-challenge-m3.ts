@@ -16,6 +16,7 @@ import {
   executeRealPumpTrade,
   executeJupiterSwap
 } from '../src/services/pumpFunService';
+import { isRealOnChainPosition } from '../src/lib/utils';
 import type { Position } from '../src/types';
 
 // ============================================================================
@@ -110,7 +111,7 @@ export async function runAllMilestone3Challenges(): Promise<boolean> {
     mockSellExecution: () => Promise<{ success: boolean; txHash?: string; error?: string }>;
   }) => {
     const { position: p, exitPrice, mockSellExecution } = params;
-    const posMode: 'DEMO' | 'REAL' = p.mode ? p.mode : (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO');
+    const posMode: 'DEMO' | 'REAL' = isRealOnChainPosition(p) ? 'REAL' : 'DEMO';
 
     let virtualSolCredited = 0;
     let virtualUsdCredited = 0;

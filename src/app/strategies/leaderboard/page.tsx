@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy, Sparkles, RefreshCw, Search, ShieldCheck } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, isRealOnChainPosition } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import LeaderboardTable from '@/components/trading/LeaderboardTable';
 import {
@@ -27,7 +27,7 @@ export default function LeaderboardPage() {
   }, []);
 
   const userClosedTrades = (closedPositions || []).filter(
-    (p) => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode
+    (p) => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode
   );
   const userTotalTrades = userClosedTrades.length;
   const userWinningTrades = userClosedTrades.filter((t) => (t.profit || 0) >= 0).length;

@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppState } from '@/context/AppContext';
-import { cn, getUsdHtgRate, fetchLiveUsdHtgRate } from '@/lib/utils';
+import { cn, getUsdHtgRate, fetchLiveUsdHtgRate, isRealOnChainPosition } from '@/lib/utils';
 import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
 import PWAInstallBanner from '@/components/layout/PWAInstallBanner';
 import { getStoredLanguage, setStoredLanguage, Language } from '@/services/languageService';
@@ -298,7 +298,7 @@ export default function Header() {
     if (!pos) return;
     const pairStr = pos.pair || '';
     const profitVal = Number(pos.profit) || 0;
-    const isSol = pairStr.startsWith('SOL:');
+    const isSol = isRealOnChainPosition(pos);
     const posTime = pos.timestamp ? new Date(pos.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'Récemment';
     notifications.push({
       id: pos.id || `pos_${Math.random()}`,

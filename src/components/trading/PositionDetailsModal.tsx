@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X, ExternalLink } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, isRealOnChainPosition } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,8 +41,8 @@ export default function PositionDetailsModal({
   const posChain: 'SOL' | 'BSC' = (position as any).chain
     ? ((position as any).chain.toUpperCase().includes('BSC') ? 'BSC' : 'SOL')
     : (position.pair?.startsWith('BSC:') ? 'BSC' : 'SOL');
-  const isSol = posChain === 'SOL' || position.pair.startsWith('SOL:');
-  const mint = isSol ? (position.mint || (position.pair.startsWith('SOL:') ? position.pair.split(':')[1] : '')) : '';
+  const isSol = isRealOnChainPosition(position);
+  const mint = position.mint || (position.pair.startsWith('SOL:') ? position.pair.split(':')[1] : '');
 
   const [isClosing, setIsClosing] = React.useState(false);
   const [closeError, setCloseError] = React.useState<string | null>(null);

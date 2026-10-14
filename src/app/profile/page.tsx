@@ -21,7 +21,7 @@ import {
   Shield,
   Upload
 } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, isRealOnChainPosition } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
 import { Button } from '@/components/ui/button';
@@ -127,7 +127,7 @@ export default function ProfilePage() {
   };
 
   // Performance calculations
-  const filteredClosed = closedPositions.filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const filteredClosed = closedPositions.filter(p => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode);
   const totalTrades = filteredClosed.length;
   const winningTrades = filteredClosed.filter(p => (p.profit || 0) > 0).length;
   const winRate = totalTrades > 0 ? Math.round((winningTrades / totalTrades) * 100) : 0;

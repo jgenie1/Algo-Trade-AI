@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Bot, ShieldCheck, Target, Flame, RefreshCw } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, isRealOnChainPosition } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import PerformanceStrategyCard from '@/components/layout/PerformanceStrategyCard';
 
@@ -16,7 +16,7 @@ export default function PerformancePage() {
 
   const getBotStats = (strategyName: string, pumpMode?: string) => {
     const matchingBots = bots.filter(b => {
-      const bMode = b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO');
+      const bMode = b.mode === 'REAL' ? 'REAL' : 'DEMO';
       if (bMode !== tradingMode) return false;
       if (b.strategy !== strategyName) return false;
       if (pumpMode && b.pumpMode !== pumpMode) return false;
@@ -26,7 +26,7 @@ export default function PerformancePage() {
     const botIds = matchingBots.map(b => b.id);
     const matchingTrades = closedPositions.filter(p => {
       if (!p) return false;
-      const tradeMode = p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO');
+      const tradeMode = isRealOnChainPosition(p) ? 'REAL' : 'DEMO';
       if (tradeMode !== tradingMode) return false;
       if (p.botId && botIds.includes(p.botId)) return true;
       if (p.botName && p.botName.toLowerCase().includes(strategyName.toLowerCase())) return true;

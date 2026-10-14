@@ -122,14 +122,16 @@ export default function ManualOrderForm({
         const currentSolBal = solanaBalance !== null ? solanaBalance : 0;
         const vaultSol = Number(reserveVaultSol) || 0;
         const allocatableSol = Math.max(0, currentSolBal - vaultSol);
+        const reserveGas = 0.0015;
+        const maxTradeableSol = Math.max(0, allocatableSol - reserveGas);
 
         if (orderAmount <= 0) {
           alert("Le montant doit être supérieur à 0.");
           return;
         }
 
-        if (orderAmount > allocatableSol) {
-          alert(`Solde SOL allocable insuffisant (hors Coffre-Fort). Requis: ${orderAmount} SOL, Disponible: ${allocatableSol.toFixed(3)} SOL (Coffre-Fort protégé: ${vaultSol.toFixed(3)} SOL)`);
+        if (orderAmount > maxTradeableSol) {
+          alert(`Solde SOL allocable insuffisant en tenant compte de la réserve obligatoire pour les frais de gaz réseau (0.0015 SOL protégés). Requis: ${orderAmount} SOL, Disponible: ${maxTradeableSol.toFixed(4)} SOL (Coffre-Fort protégé: ${vaultSol.toFixed(4)} SOL)`);
           return;
         }
 

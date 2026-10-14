@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { History } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isRealOnChainPosition } from "@/lib/utils";
 
 interface PastTrade {
   date: string;
@@ -37,7 +37,7 @@ export default function AIAnalysisHistoryTable({
       trend: (p.type === 'BUY' || p.type === 'LONG') ? 'HAUSSIÈRE' : 'BAISSIÈRE',
       signal: (p.type === 'BUY' || p.type === 'LONG') ? 'ACHAT' as const : 'VENTE' as const,
       justification: p.wasBot ? 'Exécuté par bot de trading.' : 'Ordre placé manuellement.',
-      value: `${p.profit >= 0 ? '+' : ''}${p.profit.toFixed(2)} ${p.pair.startsWith('SOL:') ? 'SOL' : '$'}`,
+      value: `${p.profit >= 0 ? '+' : ''}${p.profit.toFixed(2)} ${isRealOnChainPosition(p) ? 'SOL' : '$'}`,
       status: (p.profit >= 0 ? 'Gagné' : 'Perdu') as 'Gagné' | 'Perdu'
     }))
   ];

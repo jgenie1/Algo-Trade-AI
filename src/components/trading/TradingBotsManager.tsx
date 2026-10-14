@@ -436,7 +436,7 @@ export default function TradingBotsManager({
 
     let startedCount = 0;
     const updated = bots.map(b => {
-      const isBotReal = (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL';
+      const isBotReal = b.mode === 'REAL';
       if (isBotReal !== isReal) return b;
 
       if (allocatable < minReq) {

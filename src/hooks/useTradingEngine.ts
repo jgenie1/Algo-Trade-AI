@@ -1516,10 +1516,14 @@ export function useTradingEngine() {
                   }
                   
                   const reserveForGas = Math.max(0.002, (bot.priorityFee || 0.001) * 2);
-                  const maxAffordable = Math.max(effectiveMinMargin, availableTradeBal - reserveForGas);
+                  const maxAffordable = Math.max(0, availableTradeBal - reserveForGas);
+                  if (maxAffordable < effectiveMinMargin) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde net disponible après réserve de gaz (${maxAffordable.toFixed(4)} SOL) inférieur au minimum requis (${effectiveMinMargin.toFixed(4)} SOL, ${reserveForGas.toFixed(4)} SOL protégés pour les frais de gaz).`, 'info');
+                    continue;
+                  }
                   calculatedTradeAmt = Math.min(calculatedTradeAmt > 0 ? calculatedTradeAmt : maxAffordable, maxAffordable);
                   if (calculatedTradeAmt > availableTradeBal) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde du sous-wallet (${availableTradeBal.toFixed(4)} SOL).`, 'error');
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Marge requise (${calculatedTradeAmt.toFixed(4)} SOL) supérieure au solde disponible (${availableTradeBal.toFixed(4)} SOL).`, 'error');
                     continue;
                   }
                 } else {
@@ -2175,17 +2179,6 @@ export function useTradingEngine() {
           return nextBal;
         });
 
-        let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
-        if (currentSolUsdPrice <= 1) {
-          const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
-          currentSolUsdPrice = savedCmc > 1 ? savedCmc : (getSolUsdRate() || 105.20);
-        }
-        setBalance(prev => {
-          const nextUsd = prev + (totalReturnSol * currentSolUsdPrice);
-          if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
-          return nextUsd;
-        });
-
         // 2. Add completed transaction to history
         if (setTransactions) {
           setTransactions(prev => [
@@ -2243,16 +2236,6 @@ export function useTradingEngine() {
           const nextBal = currentBal + returnedCapitalSol;
           if (typeof window !== 'undefined') localStorage.setItem('trade_solana_balance', nextBal.toString());
           return nextBal;
-        });
-        let currentSolUsdPrice = livePricesRef.current['SOL-USD'] ?? livePricesRef.current['SOL'] ?? 0;
-        if (currentSolUsdPrice <= 1) {
-          const savedCmc = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('cmc_live_sol_price') || '0') : 0;
-          currentSolUsdPrice = savedCmc > 1 ? savedCmc : (getSolUsdRate() || 105.20);
-        }
-        setBalance(prev => {
-          const nextUsd = Math.max(0, prev + (returnedCapitalSol * currentSolUsdPrice));
-          if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
-          return nextUsd;
         });
 
         if (typeof window !== 'undefined') {

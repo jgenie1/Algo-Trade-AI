@@ -1,7 +1,7 @@
 // Service Worker PWA pour Algo-Trade-AI
-// v6 - Force-purge all old caches and serve v3.0 Mobile
-const CACHE_NAME = 'algotrade-pwa-v6';
-const DYNAMIC_CACHE = 'algotrade-dynamic-v6';
+// v7 - Force-purge all old caches and serve v3.0 Mobile
+const CACHE_NAME = 'algotrade-pwa-v7';
+const DYNAMIC_CACHE = 'algotrade-dynamic-v7';
 
 // On ne cache QUE le manifest — jamais les pages HTML
 const STATIC_ASSETS = [
@@ -13,7 +13,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker v5] Caching static assets (NO HTML)');
+      console.log('[Service Worker v7] Caching static assets (NO HTML)');
       return cache.addAll(STATIC_ASSETS);
     })
   );
@@ -26,7 +26,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME && key !== DYNAMIC_CACHE) {
-            console.log('[Service Worker v5] Removing old cache:', key);
+            console.log('[Service Worker v7] Removing old cache:', key);
             return caches.delete(key);
           }
         })

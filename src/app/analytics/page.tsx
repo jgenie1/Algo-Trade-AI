@@ -6,7 +6,7 @@ import {
   Clock, ShieldCheck, Activity, Trophy, Target,
   ArrowUpRight, ArrowDownRight, Download
 } from "lucide-react";
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from "@/lib/utils";
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, isRealOnChainPosition } from "@/lib/utils";
 import { useAppState } from "@/context/AppContext";
 import dynamic from "next/dynamic";
 import VaultGrowthChart from "@/components/wallet/VaultGrowthChart";
@@ -40,8 +40,8 @@ export default function AnalyticsPage() {
   const safeActivePositions = Array.isArray(activePositions) ? activePositions : [];
   const safeClosedPositions = Array.isArray(closedPositions) ? closedPositions : [];
   
-  const filteredActive = safeActivePositions.filter(p => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
-  const filteredClosed = safeClosedPositions.filter(p => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const filteredActive = safeActivePositions.filter(p => p && (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode);
+  const filteredClosed = safeClosedPositions.filter(p => p && (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode);
 
   const winningTrades = filteredClosed.filter(p => p.profit > 0).length;
   const losingTrades = filteredClosed.filter(p => p.profit <= 0).length;
@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
     .sort((a, b) => b.value - a.value).slice(0, 5);
   if (!distribution.length) distribution.push({ name: "Aucun actif", value: 100 });
 
-  const filteredBots = (bots || []).filter(b => (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode);
+  const filteredBots = (bots || []).filter(b => b && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode);
   const runningBots = filteredBots.filter(b => b.status === "RUNNING").length;
   const totalBotProfit = filteredBots.reduce((s, b) => s + (b.netProfit || b.pnl || 0), 0);
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Building2, FileSpreadsheet, BarChart3, ShieldAlert, Cpu } from 'lucide-react';
-import { cn, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
+import { cn, formatUsdToHtg, getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { Button } from '@/components/ui/button';
@@ -36,9 +36,9 @@ export default function SaaSERPPage() {
   const solPriceUsd = getRealMarketBasePrice('SOL') || 145.0;
 
   // Mode filtering
-  const modePositions = (activePositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
-  const modeBots = (bots || []).filter(b => (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode);
-  const modeClosed = (closedPositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const modePositions = (activePositions || []).filter(p => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode);
+  const modeBots = (bots || []).filter(b => (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode);
+  const modeClosed = (closedPositions || []).filter(p => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode);
 
   // Manual open positions margin & PnL
   let openPositionsPnLUsd = 0;
