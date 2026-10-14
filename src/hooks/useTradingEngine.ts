@@ -846,26 +846,58 @@ export function useTradingEngine() {
             }
 
             const mode = bot.pumpMode || 'PRECOCE';
-            let matchingCoin: any = null;
+            const modeLabel = mode === 'PRECOCE' ? 'Ultra-Précoce' : mode === 'MOMENTUM' ? 'Momentum' : 'Raydium Proche';
 
+            // Filtrage des candidats selon le mode sélectionné
+            let modeCandidates = latestCoins.filter(c => !c.complete);
             if (mode === 'PRECOCE') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) < 55);
+              modeCandidates = modeCandidates.filter(c => (c.virtual_sol_reserves / 1e9) < 55);
             } else if (mode === 'MOMENTUM') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.reply_count || 0) >= 10 && (c.virtual_sol_reserves / 1e9) >= 30 && (c.virtual_sol_reserves / 1e9) < 75);
+              modeCandidates = modeCandidates.filter(c => (c.reply_count || 0) >= 10 && (c.virtual_sol_reserves / 1e9) >= 30 && (c.virtual_sol_reserves / 1e9) < 75);
             } else if (mode === 'RAYDIUM') {
-              matchingCoin = latestCoins.find(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 65);
+              modeCandidates = modeCandidates.filter(c => (c.virtual_sol_reserves / 1e9) >= 65);
             }
 
-            // Fallback intelligent : si aucun jeton ne valide les critères stricts, prendre le meilleur jeton non-scam disponible
-            if (!matchingCoin && latestCoins.length > 0) {
-              matchingCoin = latestCoins.find(c => !/(scam|rug|hack|fake|airdrop|giveaway)/i.test(c.name + ' ' + (c.description || ''))) || latestCoins[0];
+            // Si aucun candidat strict en mode précoce/momentum, autoriser un scan élargi des jetons actifs
+            if (modeCandidates.length === 0 && latestCoins.length > 0) {
+              modeCandidates = latestCoins.filter(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 15);
             }
 
-            if (!matchingCoin) {
-              const modeLabel = mode === 'PRECOCE' ? 'Ultra-Précoce' : mode === 'MOMENTUM' ? 'Momentum' : 'Raydium Proche';
-              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Scan de ${latestCoins.length} jetons. Aucun ne répond aux critères du mode ${modeLabel}.`, "info");
+            // Élimination proactive des scams, créateurs invalides et tokens sans nom
+            const safeCandidates = modeCandidates.filter(c => {
+              const text = ((c.name || '') + ' ' + (c.description || '')).toLowerCase();
+              const isScam = /(scam|rug|hack|fake|free sol|airdrop|claim.*sol|wallet.*drain|giveaway)/i.test(text);
+              const safeCreator = c.creator !== '11111111111111111111111111111111' && !!c.creator && c.creator.length >= 5;
+              return !isScam && safeCreator && !!c.name && !!c.symbol;
+            });
+
+            // Évaluation Experte 14-Points & Classement par conviction de gain
+            const evaluatedCandidates = safeCandidates.map(c => {
+              const analysis = analyzePumpCoinWithSniperPrompt(c);
+              const isApproved = ['ACHAT SPECULATIF', 'ACHAT FORT', 'ACHAT EXCEPTIONNEL'].includes(analysis.recommendation);
+              const scoreTier = analysis.recommendation === 'ACHAT EXCEPTIONNEL' ? 50 : analysis.recommendation === 'ACHAT FORT' ? 30 : 10;
+              const compositeScore = scoreTier +
+                (analysis.smartMoneyScore || 0) * 3 +
+                (analysis.liquidityScore || 0) * 2 +
+                (analysis.memeScore || 0) * 2 +
+                Math.min(20, (c.reply_count || 0) * 0.5) -
+                ((analysis.risks?.length || 0) * 6);
+              return { coin: c, analysis, isApproved, compositeScore };
+            }).filter(item => item.isApproved);
+
+            // Trier par le meilleur score composite
+            evaluatedCandidates.sort((a, b) => b.compositeScore - a.compositeScore);
+
+            const topCandidate = evaluatedCandidates[0];
+
+            if (!topCandidate) {
+              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Scan de ${latestCoins.length} jetons [Mode ${modeLabel}]. Aucun jeton n'atteint le seuil de rentabilité validé par l'analyse 14-points. Préservation du capital.`, "info");
               continue;
             }
+
+            const matchingCoin = topCandidate.coin;
+            const analysis = topCandidate.analysis;
+            const details = `[Expert 14-Points] Recommandation: ${analysis.recommendation} (Prob x10: ${analysis.probabilities.x10}%, x20: ${analysis.probabilities.x20}%, x100: ${analysis.probabilities.x100}%).`;
 
             const targetPair = `SOL:${matchingCoin.mint}:${matchingCoin.symbol}`;
             let lastClose = 0;
@@ -893,38 +925,12 @@ export function useTradingEngine() {
 
             const curveProgress = Math.max(0, Math.min(100, (((matchingCoin.virtual_sol_reserves / 1e9) - 30) / 55) * 100));
             const replies = matchingCoin.reply_count || 0;
-            const descriptionStr = matchingCoin.description || '';
-            const nameStr = matchingCoin.name || '';
-            const isScamSpam = /(scam|rug|hack|fake|free sol|airdrop|giveaway)/i.test(nameStr + ' ' + descriptionStr);
-            // ─── Creator safety: only block known system/zero addresses ───
-            const isCreatorSafe = matchingCoin.creator !== '11111111111111111111111111111111'
-              && !!matchingCoin.creator
-              && matchingCoin.creator.length >= 5;
 
-            // ─── Evaluation Sniper 14-Points Pump.fun ───
-            const analysis = analyzePumpCoinWithSniperPrompt(matchingCoin);
-            const isApprovedForBuy = ['ACHAT SPECULATIF', 'ACHAT FORT', 'ACHAT EXCEPTIONNEL'].includes(analysis.recommendation);
+            const signal = 'BUY';
+            const reason = `[Sniper Mode: ${mode}] Jeton $${matchingCoin.symbol} - ${details}`;
 
-            let trigger = false;
-            let details = '';
-
-            if (isScamSpam) {
-              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Alerte Scam/Spam (nom/description suspect).`, 'info');
-            } else if (!isCreatorSafe) {
-              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Achat $${matchingCoin.symbol} ANNULÉ : Créateur invalide (adresse système).`, 'info');
-            } else if (!isApprovedForBuy) {
-              addBotLogRef.current(bot.id, "Pump.fun Sniper", `Jeton $${matchingCoin.symbol} ÉCARTÉ par l'Analyse Sniper [ ${analysis.recommendation} ] (Risques: ${analysis.risks.join(' | ') || 'aucun'}).`, 'info');
-            } else {
-              trigger = true;
-              details = `[Expert 14-Points] Recommandation: ${analysis.recommendation} (Prob x10: ${analysis.probabilities.x10}%, x20: ${analysis.probabilities.x20}%, x100: ${analysis.probabilities.x100}%).`;
-            }
-
-            if (trigger) {
-              const signal = 'BUY';
-              const reason = `[Sniper Mode: ${mode}] Jeton $${matchingCoin.symbol} - ${details}`;
-
-              // Log du rapport d'analyse expert 14-Points
-              addBotLogRef.current(bot.id, "Pump.fun Sniper", `🎯 RAPPORT D'ANALYSE EXPERT 14-POINTS pour $${matchingCoin.symbol} :\nScore: ${analysis.recommendation} | Smart Money: ${analysis.smartMoneyScore}/10 | Liquidité: ${analysis.liquidityScore}/10 | Meme Score: ${analysis.memeScore}/10`, 'trade');
+            // Log du rapport d'analyse expert 14-Points
+            addBotLogRef.current(bot.id, "Pump.fun Sniper", `🎯 RAPPORT D'ANALYSE EXPERT 14-POINTS pour $${matchingCoin.symbol} :\nScore: ${analysis.recommendation} | Smart Money: ${analysis.smartMoneyScore}/10 | Liquidité: ${analysis.liquidityScore}/10 | Meme Score: ${analysis.memeScore}/10`, 'trade');
 
               // Check AI Learning blockage (Losses) and Boost (Wins)
               let learningBlocked = false;
@@ -994,11 +1000,14 @@ export function useTradingEngine() {
                   : 0.001;
                 const effectiveMinMargin = isNaN(minMarginSetting) || minMarginSetting <= 0 ? 0.001 : minMarginSetting;
 
-                if (availableTradeBal < effectiveMinMargin) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde du Sous-Wallet #${bot.subWallet || 1} insuffisant (${availableTradeBal.toFixed(4)} SOL disponible, minimum requis: ${effectiveMinMargin.toFixed(4)} SOL).`, 'error');
+                const reserveForGas = Math.max(0.0015, (bot.priorityFee || 0.001) * 2);
+                const maxAffordable = Math.max(0, availableTradeBal - reserveForGas);
+
+                if (maxAffordable < effectiveMinMargin) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde net disponible après réserve de gaz (${maxAffordable.toFixed(4)} SOL) inférieur au minimum requis (${effectiveMinMargin.toFixed(4)} SOL, ${reserveForGas.toFixed(4)} SOL protégés pour les frais de gaz).`, 'info');
                   continue;
                 }
-                posTradeAmount = Math.min(bot.capital, Math.max(effectiveMinMargin, availableTradeBal * 0.95));
+                posTradeAmount = Math.min(bot.capital, maxAffordable);
                 if (posTradeAmount > availableTradeBal) {
                   addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Marge requise (${posTradeAmount.toFixed(4)} SOL) supérieure au solde du sous-wallet (${availableTradeBal.toFixed(4)} SOL).`, 'error');
                   continue;
@@ -1007,7 +1016,9 @@ export function useTradingEngine() {
 
               const orderId = 'pos_' + Math.random().toString(36).substring(2, 9);
               const slDistance = 0.08;
-              const tpDistance = 0.25;
+              const isExceptionalGem = analysis.recommendation === 'ACHAT EXCEPTIONNEL';
+              const isStrongGem = analysis.recommendation === 'ACHAT FORT';
+              const tpDistance = isExceptionalGem ? 0.45 : isStrongGem ? 0.30 : 0.22;
 
               setLivePrices(prev => ({ ...prev, [targetPair]: lastClose }));
 
@@ -1125,9 +1136,7 @@ export function useTradingEngine() {
                 setBalance(bal => Math.max(0, bal - posTradeAmount));
                 addBotLogRef.current(bot.id, bot.strategy, `Ordre BUY ouvert sur $${matchingCoin.symbol} (${posTradeAmount} $) à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
               }
-            }
-
-          } else {
+            } else {
             // Standard quant strategy bot evaluation (with support for 'ALL' pairs scanning)
             const isRealMode = tradingModeRef.current === 'REAL';
             const allAvailablePairs = currencyPairs.map(cp => cp.value).filter(v => v !== 'ALL');
@@ -1159,7 +1168,7 @@ export function useTradingEngine() {
               const fetchedCandles = await fetchLiveMarketData(currentPair, bot.timeframe || '15');
               if (!fetchedCandles || fetchedCandles.length < 15) continue;
               
-              const indicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA']) || {};
+              const indicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA', 'MACD', 'Bollinger Bands', 'Candlestick Patterns', 'SuperTrend']) || {};
               const rsiValues = indicators.rsi || [];
               if (!rsiValues || rsiValues.length === 0) continue;
 
@@ -1200,12 +1209,20 @@ export function useTradingEngine() {
                 const isTrendFavorableBuy = lastClose >= lastEma50 * 0.97;
                 const isTrendFavorableSell = lastClose <= lastEma50 * 1.03;
 
-                if (lastRsi <= buyThreshold && isBullishReversal && isTrendFavorableBuy) {
+                // Confirmation de volume : évite les mèches creuses
+                const lastVol = volumes[volumes.length - 1] || 0;
+                const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
+                const hasReversalVolume = lastVol >= avgVol * 0.85;
+
+                // Protection anti-capitulation extrême (RSI trop bas = risque de chute libre)
+                const isSafeRsiBounds = lastRsi >= 18 && lastRsi <= 82;
+
+                if (lastRsi <= buyThreshold && isBullishReversal && isTrendFavorableBuy && hasReversalVolume && isSafeRsiBounds) {
                   signal = 'BUY';
-                  reason = `RSI Survente (${lastRsi.toFixed(1)} <= ${buyThreshold.toFixed(1)}) confirmé par rebond haussier & support EMA`;
-                } else if (lastRsi >= sellThreshold && isBearishReversal && isTrendFavorableSell) {
+                  reason = `RSI Survente (${lastRsi.toFixed(1)} <= ${buyThreshold.toFixed(1)}) confirmé par rebond haussier, volume et support EMA`;
+                } else if (lastRsi >= sellThreshold && isBearishReversal && isTrendFavorableSell && hasReversalVolume && isSafeRsiBounds) {
                   signal = 'SELL';
-                  reason = `RSI Surachat (${lastRsi.toFixed(1)} >= ${sellThreshold.toFixed(1)}) confirmé par rejet baissier & résistance EMA`;
+                  reason = `RSI Surachat (${lastRsi.toFixed(1)} >= ${sellThreshold.toFixed(1)}) confirmé par rejet baissier, volume et résistance EMA`;
                 }
               } else if (bot.strategy === 'EMA Cross' && closes.length >= 20) {
                 const fastEma = getEMA(closes, 9);
@@ -1230,15 +1247,21 @@ export function useTradingEngine() {
                 const emaSlope = (slowLast - slowPrev) / (slowPrev || 1);
                 const hasTrendMomentum = Math.abs(emaSlope) > 0.00012;
 
-                if (goldenCross && volumeConfirm && hasTrendMomentum) {
+                // Filtre de tendance Macro EMA 50
+                const ema50 = getEMA(closes, Math.min(50, closes.length));
+                const lastEma50 = ema50[ema50.length - 1] || slowLast;
+                const isMacroAlignedBuy = lastClose >= lastEma50 * 0.985;
+                const isMacroAlignedSell = lastClose <= lastEma50 * 1.015;
+
+                if (goldenCross && volumeConfirm && hasTrendMomentum && isMacroAlignedBuy) {
                   signal = 'BUY';
-                  reason = `Crossover haussier EMA 9/20 avec pente ascendante confirmée par volume`;
-                } else if (deathCross && volumeConfirm && hasTrendMomentum) {
+                  reason = `Crossover haussier EMA 9/20 avec pente ascendante confirmée par volume et macro tendance`;
+                } else if (deathCross && volumeConfirm && hasTrendMomentum && isMacroAlignedSell) {
                   signal = 'SELL';
-                  reason = `Crossover baissier EMA 9/20 avec pente descendante confirmée par volume`;
+                  reason = `Crossover baissier EMA 9/20 avec pente descendante confirmée par volume et macro tendance`;
                 }
               } else if (bot.strategy === 'BB Mean Reversion') {
-                const bbInds = calculateIndicators(fetchedCandles, ['Bollinger Bands']) || {};
+                const bbInds = indicators.bollingerBands ? indicators : (calculateIndicators(fetchedCandles, ['Bollinger Bands']) || {});
                 if (bbInds.bollingerBands && bbInds.bollingerBands.lower && bbInds.bollingerBands.upper && closes.length >= 2) {
                   const mean = closes.slice(-20).reduce((s, v) => s + v, 0) / Math.min(20, closes.length);
                   let varianceSum = 0;
@@ -1256,10 +1279,14 @@ export function useTradingEngine() {
                   const isSafeRsiBuy = lastRsi >= 20;
                   const isSafeRsiSell = lastRsi <= 80;
 
-                  if (lastClose <= lower && isBullishRebound && isSafeRsiBuy) {
+                  // Filtre de compression (Squeeze) : ne pas trader si les bandes sont ultra-serrées (explosion imminente)
+                  const bbBandwidth = (upper - lower) / (mean || 1);
+                  const isNormalVolatility = bbBandwidth >= 0.005;
+
+                  if (lastClose <= lower && isBullishRebound && isSafeRsiBuy && isNormalVolatility) {
                     signal = 'BUY';
                     reason = `Rebond BB basse stabilisé (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)} | RSI: ${lastRsi.toFixed(1)})`;
-                  } else if (lastClose >= upper && isBearishRebound && isSafeRsiSell) {
+                  } else if (lastClose >= upper && isBearishRebound && isSafeRsiSell && isNormalVolatility) {
                     signal = 'SELL';
                     reason = `Rejet BB haute confirmé (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)} | RSI: ${lastRsi.toFixed(1)})`;
                   }
@@ -1293,11 +1320,22 @@ export function useTradingEngine() {
                   }
                 }
               } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
-                const indicators = calculateIndicators(fetchedCandles, ['EMA', 'MACD']) || {};
-                const ema20 = indicators.ema || [];
-                const lastEma = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;
-                const isBullishEma = lastClose > lastEma;
-                const agentMathScore = (isBullishEma ? 35 : -35) + (lastRsi < 43 ? 45 : lastRsi > 57 ? -45 : 0);
+                const ema9 = getEMA(closes, 9);
+                const ema20 = indicators.ema || getEMA(closes, 20);
+                const ema50 = getEMA(closes, Math.min(50, closes.length));
+
+                const lastEma9 = ema9[ema9.length - 1] || lastClose;
+                const lastEma20 = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;
+                const lastEma50 = ema50[ema50.length - 1] || lastClose;
+
+                // Alignement de tendance multi-périodes (Stack EMA 9/20/50)
+                const isBullishEmaStack = lastEma9 > lastEma20 && lastEma20 > lastEma50;
+                const isBearishEmaStack = lastEma9 < lastEma20 && lastEma20 < lastEma50;
+                const isBullishEma = lastClose > lastEma20;
+
+                const trendAlignmentScore = isBullishEmaStack ? 25 : isBearishEmaStack ? -25 : (isBullishEma ? 10 : -10);
+                const rsiScore = (lastRsi < 38 ? 35 : lastRsi > 62 ? -35 : (lastRsi < 45 ? 15 : lastRsi > 55 ? -15 : 0));
+                const agentMathScore = trendAlignmentScore + rsiScore;
 
                 const priceTrend = closes[closes.length - 1] - closes[closes.length - 5];
                 const lastVol = volumes[volumes.length - 1] || 0;
@@ -1312,7 +1350,20 @@ export function useTradingEngine() {
                 const isMacdBearishExpansion = lastHist < 0 && lastHist < prevHist;
                 const macdScore = isMacdBullishExpansion ? 20 : isMacdBearishExpansion ? -20 : (lastHist > 0 ? 10 : -10);
 
-                const agentMomentumScore = (priceTrend > 0 ? 30 : -30) + (isVolumeSpiking ? 25 : 0) + macdScore;
+                // Patterns de chandeliers japonais récents (Marteau, Avalement)
+                let patternScore = 0;
+                if (indicators.patterns && indicators.patterns.length > 0) {
+                  const recentPatterns = indicators.patterns.filter(p => p.index >= closes.length - 2);
+                  for (const pat of recentPatterns) {
+                    if (pat.name === 'Marteau' || pat.name === 'Avalement Haussier') {
+                      patternScore += 15;
+                    } else if (pat.name === 'Avalement Baissier') {
+                      patternScore -= 15;
+                    }
+                  }
+                }
+
+                const agentMomentumScore = (priceTrend > 0 ? 25 : -25) + (isVolumeSpiking ? 20 : 0) + macdScore + patternScore;
 
                 let agentCustomScore = 0;
                 let customLog = "";
@@ -1365,7 +1416,13 @@ export function useTradingEngine() {
                   }
                 }
 
-                const finalScore = (agentMathScore * 0.4 + agentMomentumScore * 0.4 + (bot.customRules ? agentCustomScore * 0.2 : 0)) / mult;
+                // Filtre de volatilité de base : réduire le score si marché complètement plat
+                const avgClose10 = closes.slice(-10).reduce((s, c) => s + c, 0) / 10;
+                const stdDev10 = Math.sqrt(closes.slice(-10).reduce((s, c) => s + Math.pow(c - avgClose10, 2), 0) / 10);
+                const volRatio = stdDev10 / (avgClose10 || 1);
+                const volatilityDamping = volRatio < 0.0006 ? 0.6 : 1.0;
+
+                const finalScore = ((agentMathScore * 0.45 + agentMomentumScore * 0.45 + (bot.customRules ? agentCustomScore * 0.2 : 0)) * volatilityDamping) / mult;
                 aiConfidenceScore = Math.abs(finalScore);
                 const risk = bot.riskProfile || 'MODERATE';
                 const reqScore = risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25;
@@ -1485,21 +1542,21 @@ export function useTradingEngine() {
                 }
 
                 const orderId = 'pos_' + Math.random().toString(36).substring(2, 9);
-                let slDistance = 0.015;
-                let tpDistance = 0.030;
+                let slDistance = 0.012;
+                let tpDistance = 0.032;
 
                 const closesForVol = fetchedCandles.map(c => c.close);
                 const avg = closesForVol.slice(-15).reduce((s, val) => s + val, 0) / Math.min(15, closesForVol.length);
                 const stdDev = Math.sqrt(closesForVol.slice(-15).reduce((s, val) => s + Math.pow(val - avg, 2), 0) / Math.min(15, closesForVol.length));
-                const volatilityPct = stdDev / avg || 0.0015;
+                const volatilityPct = stdDev / (avg || 1) || 0.0015;
 
-                // Ratio Asymétrique Risk/Reward R:R >= 1:2.6 minimum
+                // Ratio Asymétrique Risk/Reward R:R >= 1:2.75 minimum avec espace de respiration technique
                 if (volatilityPct > 0.003) {
-                  slDistance = Math.max(0.006, volatilityPct * 1.8);
-                  tpDistance = Math.max(0.018, volatilityPct * 4.8);
+                  slDistance = Math.max(0.010, volatilityPct * 1.8);
+                  tpDistance = Math.max(0.028, volatilityPct * 5.0);
                 } else {
-                  slDistance = Math.max(0.004, volatilityPct * 1.4);
-                  tpDistance = Math.max(0.012, volatilityPct * 3.6);
+                  slDistance = Math.max(0.008, volatilityPct * 1.6);
+                  tpDistance = Math.max(0.022, volatilityPct * 4.4);
                 }
 
                 const slPrice = signal === 'BUY' ? lastClose * (1 - slDistance) : lastClose * (1 + slDistance);
@@ -1687,74 +1744,147 @@ export function useTradingEngine() {
           setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, sl: calculatedSl, tp: calculatedTp } : item));
         }
 
-        // VERROUILLAGE DES PROFITS EN 3 PALIERS & TRAILING STOP DYNAMIQUE (LONG & SHORT)
+        // VERROUILLAGE DES PROFITS EN MULTI-PALIERS DYNAMIQUES & TRAILING STOP INTELLIGENT
         if (isLong) {
           const currentHighest = p.highestPrice || entry;
           if (current > currentHighest) {
             p.highestPrice = current;
-            const gainPct = entry > 0 ? (current - entry) / entry : 0;
-            let updatedSl = p.sl;
+          }
 
-            // PALIER 1 : Dès +2.5% de gain (+3.5% sur Meme), Stop-Loss en Breakeven sécurisé (+0.6% garanti pour couvrir les frais)
-            const beThreshold = isMemeToken ? 0.035 : 0.025;
-            if (gainPct >= beThreshold) {
-              const breakEvenSl = entry * 1.006;
+          const peakGainPct = entry > 0 ? (Math.max(current, currentHighest) - entry) / entry : 0;
+          let updatedSl = p.sl;
+
+          if (isMemeToken) {
+            // Configuration pour Meme Coins (Volatilité Élevée)
+            // Palier 1 : Dès +2.5% de gain, Stop-Loss en Breakeven sécurisé (+0.5% garanti pour couvrir les frais)
+            if (peakGainPct >= 0.025) {
+              const breakEvenSl = entry * 1.005;
               if (!updatedSl || breakEvenSl > updatedSl) {
                 updatedSl = breakEvenSl;
               }
             }
-
-            // PALIER 2 : Dès +5% de gain, verrouillage strict de +2.5% de profit garanti
-            if (gainPct >= 0.05) {
+            // Palier 2 : Dès +5.0% de gain, verrouillage de +2.5% de profit garanti
+            if (peakGainPct >= 0.050) {
               const lockProfitSl = entry * 1.025;
               if (!updatedSl || lockProfitSl > updatedSl) {
                 updatedSl = lockProfitSl;
               }
             }
-
-            // PALIER 3 : Trailing Stop dynamique (serrage au-delà de +8% pour sécuriser les gains explosifs)
-            const trailingPct = gainPct >= 0.08 ? (isMemeToken ? 0.035 : 0.015) : (isMemeToken ? 0.05 : 0.02);
-            const newSl = current * (1 - trailingPct);
-            if (!updatedSl || newSl > updatedSl) {
-              updatedSl = newSl;
+            // Palier 3 : Dès +10.0% de gain, verrouillage de +6.0% de profit garanti
+            if (peakGainPct >= 0.100) {
+              const lockProfitSl2 = entry * 1.060;
+              if (!updatedSl || lockProfitSl2 > updatedSl) {
+                updatedSl = lockProfitSl2;
+              }
             }
-
-            if (updatedSl !== p.sl || current > currentHighest) {
-              p.sl = updatedSl;
-              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: current, sl: updatedSl } : item));
+            // Palier 4 : Trailing Stop Runner dynamique au-delà de +15.0% (trail de 3.5% depuis le sommet)
+            if (peakGainPct >= 0.150) {
+              const runnerSl = current * 0.965;
+              if (!updatedSl || runnerSl > updatedSl) {
+                updatedSl = runnerSl;
+              }
             }
+          } else {
+            // Configuration pour Crypto / Forex standard
+            // Palier 1 : Dès +1.2% de gain (+12% à levier 10), Breakeven sécurisé (+0.3% garanti pour couvrir frais/spread)
+            if (peakGainPct >= 0.012) {
+              const breakEvenSl = entry * 1.003;
+              if (!updatedSl || breakEvenSl > updatedSl) {
+                updatedSl = breakEvenSl;
+              }
+            }
+            // Palier 2 : Dès +2.8% de gain (+28% à levier 10), verrouillage de +1.4% garanti
+            if (peakGainPct >= 0.028) {
+              const lockProfitSl = entry * 1.014;
+              if (!updatedSl || lockProfitSl > updatedSl) {
+                updatedSl = lockProfitSl;
+              }
+            }
+            // Palier 3 : Dès +5.0% de gain (+50% à levier 10), verrouillage de +3.0% garanti
+            if (peakGainPct >= 0.050) {
+              const lockProfitSl2 = entry * 1.030;
+              if (!updatedSl || lockProfitSl2 > updatedSl) {
+                updatedSl = lockProfitSl2;
+              }
+            }
+            // Palier 4 : Trailing Stop Runner dynamique au-delà de +7.0% (trail de 1.5% depuis le sommet)
+            if (peakGainPct >= 0.070) {
+              const runnerSl = current * 0.985;
+              if (!updatedSl || runnerSl > updatedSl) {
+                updatedSl = runnerSl;
+              }
+            }
+          }
+
+          if (updatedSl !== p.sl || current > (p.highestPrice || entry)) {
+            p.sl = updatedSl;
+            setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, highestPrice: Math.max(current, currentHighest), sl: updatedSl } : item));
           }
         } else {
           // Trailing Stop pour position SHORT
           const currentLowest = p.lowestPrice || entry;
           if (current < currentLowest) {
             p.lowestPrice = current;
-            const gainPct = entry > 0 ? (entry - current) / entry : 0;
-            let updatedSl = p.sl;
+          }
 
-            const beThreshold = isMemeToken ? 0.035 : 0.025;
-            if (gainPct >= beThreshold) {
-              const breakEvenSl = entry * 0.994;
+          const peakGainPct = entry > 0 ? (entry - Math.min(current, currentLowest)) / entry : 0;
+          let updatedSl = p.sl;
+
+          if (isMemeToken) {
+            if (peakGainPct >= 0.025) {
+              const breakEvenSl = entry * 0.995;
               if (!updatedSl || breakEvenSl < updatedSl) {
                 updatedSl = breakEvenSl;
               }
             }
-            if (gainPct >= 0.05) {
+            if (peakGainPct >= 0.050) {
               const lockProfitSl = entry * 0.975;
               if (!updatedSl || lockProfitSl < updatedSl) {
                 updatedSl = lockProfitSl;
               }
             }
-            const trailingPct = gainPct >= 0.08 ? (isMemeToken ? 0.035 : 0.015) : (isMemeToken ? 0.05 : 0.02);
-            const newSl = current * (1 + trailingPct);
-            if (!updatedSl || newSl < updatedSl) {
-              updatedSl = newSl;
+            if (peakGainPct >= 0.100) {
+              const lockProfitSl2 = entry * 0.940;
+              if (!updatedSl || lockProfitSl2 < updatedSl) {
+                updatedSl = lockProfitSl2;
+              }
             }
+            if (peakGainPct >= 0.150) {
+              const runnerSl = current * 1.035;
+              if (!updatedSl || runnerSl < updatedSl) {
+                updatedSl = runnerSl;
+              }
+            }
+          } else {
+            if (peakGainPct >= 0.012) {
+              const breakEvenSl = entry * 0.997;
+              if (!updatedSl || breakEvenSl < updatedSl) {
+                updatedSl = breakEvenSl;
+              }
+            }
+            if (peakGainPct >= 0.028) {
+              const lockProfitSl = entry * 0.986;
+              if (!updatedSl || lockProfitSl < updatedSl) {
+                updatedSl = lockProfitSl;
+              }
+            }
+            if (peakGainPct >= 0.050) {
+              const lockProfitSl2 = entry * 0.970;
+              if (!updatedSl || lockProfitSl2 < updatedSl) {
+                updatedSl = lockProfitSl2;
+              }
+            }
+            if (peakGainPct >= 0.070) {
+              const runnerSl = current * 1.015;
+              if (!updatedSl || runnerSl < updatedSl) {
+                updatedSl = runnerSl;
+              }
+            }
+          }
 
-            if (updatedSl !== p.sl || current < currentLowest) {
-              p.sl = updatedSl;
-              setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, lowestPrice: current, sl: updatedSl } : item));
-            }
+          if (updatedSl !== p.sl || current < (p.lowestPrice || entry)) {
+            p.sl = updatedSl;
+            setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, lowestPrice: Math.min(current, currentLowest), sl: updatedSl } : item));
           }
         }
 
@@ -1766,12 +1896,15 @@ export function useTradingEngine() {
         const lev = p.leverage || 1;
         const liveProfit = pctDiff * (p.amount || 1) * lev * (isLong ? 1 : -1);
 
-        // Protection Stop-Loss stricte : coupure à max 8% de perte du montant engagé
-        const maxLossRatio = isMemeToken ? 0.08 : 0.035;
-        const maxAllowedLoss = -(p.amount || 1) * maxLossRatio;
+        // Protection d'urgence de capital (Circuit Breaker individuel par trade)
+        // En mode RÉEL (lev = 1) : perte max tolérée 8% (Meme) ou 4% (Crypto)
+        // En mode DÉMO avec levier : perte max tolérée 25% de la marge engagée (laisse respirer le Stop-Loss technique)
+        const isRealSol = isRealOnChainPosition(p);
+        const maxDrawdownRatio = isRealSol ? (isMemeToken ? 0.08 : 0.04) : (isMemeToken ? 0.30 : 0.25);
+        const maxAllowedLoss = -(p.amount || 1) * maxDrawdownRatio;
         if (liveProfit <= maxAllowedLoss) {
           shouldClose = true;
-          closeReason = `Arrêt Stop-Loss Sécurisé (Perte limitée à max ${(maxLossRatio * 100).toFixed(0)}%)`;
+          closeReason = `Arrêt Stop-Loss Sécurisé (Perte limitée à max ${(maxDrawdownRatio * 100).toFixed(0)}%)`;
         }
 
         if (!shouldClose) {
@@ -2161,7 +2294,7 @@ export function useTradingEngine() {
         symbol: p.pair,
         type: profit >= 0 ? 'WIN' : (reason.includes('Stop Loss') ? 'STOP_LOSS_HIT' : 'LOSS'),
         pnlUsd: profit,
-        pnlPercentage: entry > 0 ? ((exitPrice - entry) / entry) * 100 : 0
+        pnlPercentage: entry > 0 ? ((exitPrice - entry) / entry) * (isLong ? 1 : -1) * 100 : 0
       });
     } catch (e) {}
 
