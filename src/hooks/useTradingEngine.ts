@@ -1172,32 +1172,38 @@ export function useTradingEngine() {
               const closes = fetchedCandles.map(c => c.close);
               const volumes = fetchedCandles.map(c => c.volume || 0);
 
+              const getEMA = (values: number[], period: number): number[] => {
+                const ema: number[] = [];
+                const k = 2 / (period + 1);
+                let lastEma = values[0] || 0;
+                ema.push(lastEma);
+                for (let i = 1; i < values.length; i++) {
+                  lastEma = values[i] * k + lastEma * (1 - k);
+                  ema.push(lastEma);
+                }
+                return ema;
+              };
+
               if (bot.strategy === 'RSI Pullback' && closes.length >= 2) {
                 const buyThreshold = 35 - (mult - 1.0) * 4;
                 const sellThreshold = 65 + (mult - 1.0) * 4;
                 const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2];
                 const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2];
 
-                if (lastRsi <= buyThreshold && isBullishReversal) {
+                // Filtre de tendance EMA 50 : évite d'acheter en pleine capitulation ou de shorter un breakout
+                const ema50 = getEMA(closes, Math.min(50, closes.length));
+                const lastEma50 = ema50[ema50.length - 1] || lastClose;
+                const isTrendFavorableBuy = lastClose >= lastEma50 * 0.97;
+                const isTrendFavorableSell = lastClose <= lastEma50 * 1.03;
+
+                if (lastRsi <= buyThreshold && isBullishReversal && isTrendFavorableBuy) {
                   signal = 'BUY';
-                  reason = `RSI Survente (${lastRsi.toFixed(1)} <= ${buyThreshold.toFixed(1)}) confirmé par un retournement haussier`;
-                } else if (lastRsi >= sellThreshold && isBearishReversal) {
+                  reason = `RSI Survente (${lastRsi.toFixed(1)} <= ${buyThreshold.toFixed(1)}) confirmé par rebond haussier & support EMA`;
+                } else if (lastRsi >= sellThreshold && isBearishReversal && isTrendFavorableSell) {
                   signal = 'SELL';
-                  reason = `RSI Surachat (${lastRsi.toFixed(1)} >= ${sellThreshold.toFixed(1)}) confirmé par un retournement baissier`;
+                  reason = `RSI Surachat (${lastRsi.toFixed(1)} >= ${sellThreshold.toFixed(1)}) confirmé par rejet baissier & résistance EMA`;
                 }
               } else if (bot.strategy === 'EMA Cross' && closes.length >= 20) {
-                const getEMA = (values: number[], period: number): number[] => {
-                  const ema: number[] = [];
-                  const k = 2 / (period + 1);
-                  let lastEma = values[0] || 0;
-                  ema.push(lastEma);
-                  for (let i = 1; i < values.length; i++) {
-                    lastEma = values[i] * k + lastEma * (1 - k);
-                    ema.push(lastEma);
-                  }
-                  return ema;
-                };
-
                 const fastEma = getEMA(closes, 9);
                 const slowEma = getEMA(closes, 20);
 
@@ -1216,12 +1222,16 @@ export function useTradingEngine() {
                 const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
                 const volumeConfirm = lastVol >= avgVol * 1.02;
 
-                if (goldenCross && volumeConfirm) {
+                // Filtre de momentum de pente : élimine les faux croisements en marché plat (sideways chop)
+                const emaSlope = (slowLast - slowPrev) / (slowPrev || 1);
+                const hasTrendMomentum = Math.abs(emaSlope) > 0.00012;
+
+                if (goldenCross && volumeConfirm && hasTrendMomentum) {
                   signal = 'BUY';
-                  reason = `Crossover haussier EMA 9/20 confirmé par volume`;
-                } else if (deathCross && volumeConfirm) {
+                  reason = `Crossover haussier EMA 9/20 avec pente ascendante confirmée par volume`;
+                } else if (deathCross && volumeConfirm && hasTrendMomentum) {
                   signal = 'SELL';
-                  reason = `Crossover baissier EMA 9/20 confirmé par volume`;
+                  reason = `Crossover baissier EMA 9/20 avec pente descendante confirmée par volume`;
                 }
               } else if (bot.strategy === 'BB Mean Reversion') {
                 const bbInds = calculateIndicators(fetchedCandles, ['Bollinger Bands']) || {};
@@ -1238,12 +1248,16 @@ export function useTradingEngine() {
                   const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2];
                   const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2];
 
-                  if (lastClose <= lower && isBullishRebound) {
+                  // Protection anti-chute libre : évite d'acheter un crash en dessous de RSI 20
+                  const isSafeRsiBuy = lastRsi >= 20;
+                  const isSafeRsiSell = lastRsi <= 80;
+
+                  if (lastClose <= lower && isBullishRebound && isSafeRsiBuy) {
                     signal = 'BUY';
-                    reason = `Rebond de survente BB basse (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)})`;
-                  } else if (lastClose >= upper && isBearishRebound) {
+                    reason = `Rebond BB basse stabilisé (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)} | RSI: ${lastRsi.toFixed(1)})`;
+                  } else if (lastClose >= upper && isBearishRebound && isSafeRsiSell) {
                     signal = 'SELL';
-                    reason = `Correction de surachat BB haute (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)})`;
+                    reason = `Rejet BB haute confirmé (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)} | RSI: ${lastRsi.toFixed(1)})`;
                   }
                 }
               } else if (bot.strategy === 'SuperTrend Momentum') {
@@ -1452,12 +1466,13 @@ export function useTradingEngine() {
                 const stdDev = Math.sqrt(closesForVol.slice(-15).reduce((s, val) => s + Math.pow(val - avg, 2), 0) / Math.min(15, closesForVol.length));
                 const volatilityPct = stdDev / avg || 0.0015;
 
+                // Ratio Asymétrique Risk/Reward R:R >= 1:2.6 minimum
                 if (volatilityPct > 0.003) {
-                  slDistance = volatilityPct * 2.2;
-                  tpDistance = volatilityPct * 4.5;
+                  slDistance = Math.max(0.006, volatilityPct * 1.8);
+                  tpDistance = Math.max(0.018, volatilityPct * 4.8);
                 } else {
-                  slDistance = Math.max(0.004, volatilityPct * 1.5);
-                  tpDistance = Math.max(0.010, volatilityPct * 3.2);
+                  slDistance = Math.max(0.004, volatilityPct * 1.4);
+                  tpDistance = Math.max(0.012, volatilityPct * 3.6);
                 }
 
                 const slPrice = signal === 'BUY' ? lastClose * (1 - slDistance) : lastClose * (1 + slDistance);
@@ -1644,23 +1659,32 @@ export function useTradingEngine() {
           setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, sl: calculatedSl, tp: calculatedTp } : item));
         }
 
-        // VERROUILLAGE DES PROFITS & TRAILING STOP INTELLIGENT (LONG & SHORT)
+        // VERROUILLAGE DES PROFITS EN 3 PALIERS & TRAILING STOP DYNAMIQUE (LONG & SHORT)
         if (isLong) {
           const currentHighest = p.highestPrice || entry;
           if (current > currentHighest) {
             p.highestPrice = current;
             const gainPct = entry > 0 ? (current - entry) / entry : 0;
 
-            // RÈGLE D'OR : Dès que la position atteint +4% de profit, le Stop-Loss passe en Breakeven sécurisé (+1.5% garanti)
-            if (gainPct >= 0.04) {
-              const breakEvenSl = entry * 1.015;
+            // PALIER 1 : Dès +2.5% de gain (+3.5% sur Meme), Stop-Loss en Breakeven sécurisé (+0.6% garanti pour couvrir les frais)
+            const beThreshold = isMemeToken ? 0.035 : 0.025;
+            if (gainPct >= beThreshold) {
+              const breakEvenSl = entry * 1.006;
               if (!p.sl || breakEvenSl > p.sl) {
                 p.sl = breakEvenSl;
               }
             }
 
-            // Trailing Stop : suit les sommets avec marge de 5% (Meme) ou 2% (Crypto Majeure)
-            const trailingPct = isMemeToken ? 0.05 : 0.02;
+            // PALIER 2 : Dès +5% de gain, verrouillage strict de +2.5% de profit garanti
+            if (gainPct >= 0.05) {
+              const lockProfitSl = entry * 1.025;
+              if (!p.sl || lockProfitSl > p.sl) {
+                p.sl = lockProfitSl;
+              }
+            }
+
+            // PALIER 3 : Trailing Stop dynamique (serrage au-delà de +8% pour sécuriser les gains explosifs)
+            const trailingPct = gainPct >= 0.08 ? (isMemeToken ? 0.035 : 0.015) : (isMemeToken ? 0.05 : 0.02);
             const newSl = current * (1 - trailingPct);
             if (!p.sl || newSl > p.sl) {
               p.sl = newSl;
@@ -1673,13 +1697,20 @@ export function useTradingEngine() {
           if (current < currentLowest) {
             p.lowestPrice = current;
             const gainPct = entry > 0 ? (entry - current) / entry : 0;
-            if (gainPct >= 0.04) {
-              const breakEvenSl = entry * 0.985;
+            const beThreshold = isMemeToken ? 0.035 : 0.025;
+            if (gainPct >= beThreshold) {
+              const breakEvenSl = entry * 0.994;
               if (!p.sl || breakEvenSl < p.sl) {
                 p.sl = breakEvenSl;
               }
             }
-            const trailingPct = isMemeToken ? 0.05 : 0.02;
+            if (gainPct >= 0.05) {
+              const lockProfitSl = entry * 0.975;
+              if (!p.sl || lockProfitSl < p.sl) {
+                p.sl = lockProfitSl;
+              }
+            }
+            const trailingPct = gainPct >= 0.08 ? (isMemeToken ? 0.035 : 0.015) : (isMemeToken ? 0.05 : 0.02);
             const newSl = current * (1 + trailingPct);
             if (!p.sl || newSl < p.sl) {
               p.sl = newSl;
