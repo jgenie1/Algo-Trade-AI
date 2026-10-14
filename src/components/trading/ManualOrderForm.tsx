@@ -404,13 +404,13 @@ export default function ManualOrderForm({
                     key={pct}
                     type="button"
                     onClick={() => {
-                      const avail = (tradingMode as string) === 'REAL' ? (solanaBalance || 0) : balance;
-                      const calculated = Math.max(0, Math.floor(avail * pct * 1000) / 1000);
+                      const allocatable = Math.max(0, balance - (reserveVault || 0));
+                      const calculated = Math.max(0, Math.floor(allocatable * pct * 100) / 100);
                       setOrderAmount(calculated);
                     }}
                     className="py-1.5 px-2 text-[10px] font-mono font-extrabold bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-slate-300 hover:text-white transition-all active:scale-95 select-none"
                   >
-                    {pct * 100}%
+                    {pct === 1.0 ? 'MAX' : `${pct * 100}%`}
                   </button>
                 ))}
               </div>
@@ -565,6 +565,34 @@ export default function ManualOrderForm({
                   {formatSolToUsdAndHtg(orderAmount).combinedLabel}
                 </span>
               )}
+
+              {/* Quick % Buttons for Solana in REAL mode */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[0.25, 0.50, 0.75].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => {
+                      const avail = Math.max(0, (solanaBalance || 0) - 0.005);
+                      const calculated = Math.max(0.001, Math.floor(avail * pct * 1000) / 1000);
+                      setOrderAmount(calculated);
+                    }}
+                    className="py-1.5 px-2 text-[10px] font-mono font-extrabold bg-purple-950/40 hover:bg-purple-900/40 border border-purple-500/20 rounded-lg text-purple-200 hover:text-white transition-all active:scale-95 select-none"
+                  >
+                    {pct * 100}%
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const avail = Math.max(0.001, Math.floor(Math.max(0, (solanaBalance || 0) - 0.005) * 1000) / 1000);
+                    setOrderAmount(avail);
+                  }}
+                  className="py-1.5 px-2 text-[10px] font-mono font-extrabold bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-[#c2ff0c] hover:text-white transition-all active:scale-95 select-none"
+                >
+                  MAX
+                </button>
+              </div>
             </div>
 
             {/* Optional Stop Loss & Take Profit for Solana */}

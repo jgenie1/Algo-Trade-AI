@@ -1440,7 +1440,12 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   let devScore = isSystemCreator ? 2 : 7;
   let securityScore = 9; // Pump.fun bonding curves have no mint/freeze authority by design
   
+  const isScamKeywords = /(scam|rug|hack|fake|free sol|airdrop|claim.*sol|wallet.*drain)/i.test((coin.name || '') + ' ' + (coin.description || ''));
+  const hasNoBranding = !coin.image_uri || coin.image_uri.trim().length < 5;
+
   const risks: string[] = [];
+  if (isScamKeywords) risks.push("Mots-clés suspects détectés (Airdrop/Claim frauduleux)");
+  if (hasNoBranding) risks.push("Absence de visuel/logo (Token brut non brandé)");
   if (!isVolumeSufficient) {
     risks.push(`Volume 24h insuffisant ($${estimatedVolume24h.toLocaleString()} USD < ${MIN_REQUIRED_24H_VOLUME_USD} $ exigé)`);
   }
@@ -1462,7 +1467,9 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   const globalScoreAvg = (smartMoneyScore + holderScore + liquidityScore + volumeScore + momentumScore + socialScore + memeScore + devScore + securityScore) / 9;
   
   let recommendation: PumpCoinAnalysisReport['recommendation'] = 'SURVEILLER';
-  if (!isVolumeSufficient && risks.length >= 2) {
+  if (isScamKeywords || hasNoBranding) {
+    recommendation = 'IGNORE';
+  } else if (!isVolumeSufficient && risks.length >= 2) {
     recommendation = 'SURVEILLER';
   } else if (globalScoreAvg >= 6.8 && risks.length <= 1) {
     recommendation = 'ACHAT EXCEPTIONNEL';
