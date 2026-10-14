@@ -334,9 +334,14 @@ export default function Header() {
             <span className="font-headline font-black text-xs text-white tracking-wider flex items-center gap-1">
               <span>ALGOTRADE</span> <span className="text-[#c2ff0c]">AI</span>
             </span>
-            <span className="text-[8px] font-mono text-purple-300 uppercase tracking-widest font-extrabold mt-0.5">
-              PRO TERMINAL
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[8px] font-mono text-purple-300 uppercase tracking-widest font-extrabold">
+                PRO TERMINAL
+              </span>
+              <span className="text-[8px] bg-[#c2ff0c]/15 text-[#c2ff0c] border border-[#c2ff0c]/30 rounded px-1 font-mono font-bold leading-none py-0.5">
+                v3.0
+              </span>
+            </div>
           </div>
         </div>
 

@@ -33,6 +33,13 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
+        name: 'Terminal de Trading',
+        short_name: 'Terminal',
+        description: 'Accéder au terminal de trading en direct, snipes et robots',
+        url: '/terminal',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
+      },
+      {
         name: 'Dépôt / Créditer',
         short_name: 'Dépôt',
         description: 'Accéder au rechargement de compte et au Coffre-Fort',
