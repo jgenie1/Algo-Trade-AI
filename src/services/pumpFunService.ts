@@ -1391,9 +1391,9 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   if (hasWebsite) socialScore += 1;
   socialScore = Math.min(10, socialScore);
 
-  // Meme & Viral Score evaluation
+  // Meme & Viral Score evaluation (Meta 2024-2026)
   const symbolLen = coin.symbol ? coin.symbol.length : 0;
-  const isMemeKeywords = /(trump|elon|doge|pepe|cat|chill|ai|sol|quantum|moon|grok|deep|gemini|vibe)/i.test(coin.name + ' ' + coin.symbol);
+  const isMemeKeywords = /(trump|elon|doge|pepe|cat|chill|ai|sol|quantum|moon|grok|deep|gemini|vibe|agent|crypto|bull|shib|frog|based|pump|chad|fart|bonk|wif|popcat|spx)/i.test(coin.name + ' ' + coin.symbol);
   
   let memeScore = 5;
   if (isMemeKeywords) memeScore += 3;
