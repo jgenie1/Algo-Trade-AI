@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAppState } from '@/context/AppContext';
 import { useTradingEngine } from '@/hooks/useTradingEngine';
-import { cn, formatSmartPnl, getRealMarketBasePrice } from '@/lib/utils';
+import { cn, formatSmartPnl, getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
 import LogoIcon from '@/components/icons/LogoIcon';
 
 export default function HomePage() {
@@ -47,7 +47,7 @@ export default function HomePage() {
 
   const isReal = tradingMode === 'REAL';
   const runningBotsCount = (bots || []).filter(b => b.status === 'RUNNING').length;
-  const activePositionsCount = (activePositions || []).filter(p => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode).length;
+  const activePositionsCount = (activePositions || []).filter(p => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode).length;
 
   const popularTickers = [
     { pair: 'BTC-USD', name: 'Bitcoin', fallback: 95400, isSol: false },

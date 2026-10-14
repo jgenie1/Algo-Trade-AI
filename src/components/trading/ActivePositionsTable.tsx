@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Activity, Eye, TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
-import { cn, formatSmartPnl, getRealMarketBasePrice } from '@/lib/utils';
+import { cn, formatSmartPnl, getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
 import { resolveLivePrice, getDisplayPairLabel } from '@/lib/symbolUtils';
 import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import { useAppState } from '@/context/AppContext';
@@ -58,8 +58,8 @@ export default function ActivePositionsTable({
   const filteredPositions = React.useMemo(() => {
     return safePositions.filter((p: any) => {
       if (!p) return false;
-      const mode = p.mode === 'REAL' ? 'REAL' : (p.mode === 'DEMO' ? 'DEMO' : (tradingMode === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
-      return mode === tradingMode;
+      const isReal = isRealOnChainPosition(p);
+      return tradingMode === 'REAL' ? isReal : !isReal;
     });
   }, [safePositions, tradingMode]);
 
@@ -192,6 +192,7 @@ export default function ActivePositionsTable({
                 const pnlPct = isNaN(livePnlPct) ? 0 : livePnlPct;
                 const isProfit = profit >= 0;
                 const { symbol: cleanAsset, badge, isSolana } = getDisplayPairLabel(p.pair);
+                const isPosReal = isRealOnChainPosition(p);
 
                 return (
                   <div
@@ -244,7 +245,7 @@ export default function ActivePositionsTable({
                             <span className={cn("inline-flex rounded-full h-2 w-2", isProfit ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" : "bg-rose-400 shadow-[0_0_6px_rgba(251,113,130,0.8)]")}></span>
                           </span>
                           <span className={cn("text-base font-extrabold font-mono", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                            {formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
+                            {formatSmartPnl(profit, isPosReal)} {isPosReal ? 'SOL' : '$'}
                           </span>
                         </div>
                         <span className={cn("text-xs font-mono font-bold block text-right", isProfit ? "text-emerald-400" : "text-rose-400")}>
@@ -323,6 +324,7 @@ export default function ActivePositionsTable({
                     const pnlPct = isNaN(livePnlPct) ? 0 : livePnlPct;
                     const isProfit = profit >= 0;
                     const { symbol: cleanAsset, badge, isSolana } = getDisplayPairLabel(p.pair);
+                    const isPosReal = isRealOnChainPosition(p);
 
                     return (
                       <TableRow
@@ -365,7 +367,7 @@ export default function ActivePositionsTable({
                           </Badge>
                         </TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{lev}x</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(isSolMode ? 4 : 2)} {isSolMode ? 'SOL' : '$'}</TableCell>
+                        <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(isPosReal ? 4 : 2)} {isPosReal ? 'SOL' : '$'}</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{formatDisplayPrice(entry)}</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-[#c2ff0c] font-extrabold">{formatDisplayPrice(current)}</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-xs">
@@ -387,7 +389,7 @@ export default function ActivePositionsTable({
                               <span className={cn("inline-flex rounded-full h-2 w-2", isProfit ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" : "bg-rose-400 shadow-[0_0_6px_rgba(251,113,130,0.8)]")}></span>
                             </span>
                             <span className={cn("font-mono font-extrabold text-sm", isProfit ? "text-[#c2ff0c]" : "text-rose-400")}>
-                              {formatSmartPnl(profit, isSolMode)} {isSolMode ? 'SOL' : '$'}
+                              {formatSmartPnl(profit, isPosReal)} {isPosReal ? 'SOL' : '$'}
                             </span>
                           </div>
                           <span className={cn("text-xs font-mono font-bold block opacity-90", isProfit ? "text-emerald-400" : "text-rose-400")}>

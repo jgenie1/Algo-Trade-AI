@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { db, DEFAULT_USER, getActiveUserId, saveFullState, AppState } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { getRealMarketBasePrice, initClientUsdHtgRate, fetchLiveUsdHtgRate } from '@/lib/utils';
+import { getRealMarketBasePrice, initClientUsdHtgRate, fetchLiveUsdHtgRate, isRealOnChainPosition } from '@/lib/utils';
 import type { 
   AppContextType, 
   Position, 
@@ -133,9 +133,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
 
-        const calculatedMode: 'DEMO' | 'REAL' = p.mode === 'REAL' 
-          ? 'REAL' 
-          : (p.mode === 'DEMO' ? 'DEMO' : (tradingMode === 'REAL' && cleanPair.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+        // A position is strictly REAL only if it was executed with a genuine verified on-chain transaction hash.
+        // Any position without verified on-chain txHash is strictly DEMO, preventing phantom 42 SOL allocations.
+        const isReal = isRealOnChainPosition(p);
+        const calculatedMode: 'DEMO' | 'REAL' = isReal ? 'REAL' : 'DEMO';
 
         cleaned.push({
           ...p,
@@ -156,15 +157,17 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
       if (!Array.isArray(arr)) return [];
       return arr.map((b: any) => {
         if (!b) return null;
-        const isReal = b.mode === 'REAL' || b.pair?.startsWith('SOL:') || (b.strategy === 'Pump.fun Sniper Bot' && (b.capital || 0) < 50);
-        const defaultCap = isReal ? 0.5 : 1000;
+        // A bot is REAL only if explicitly marked as REAL
+        const isReal = b.mode === 'REAL';
+        // In REAL mode, capital is denominated in SOL (default 0.1 SOL, max 5 SOL unless user explicitly has massive funds)
+        const defaultCap = isReal ? 0.1 : 1000;
         const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) && b.capital > 0 ? b.capital : defaultCap;
         const cleanCap = isReal 
-          ? (rawCap > 50 ? 0.5 : parseFloat(rawCap.toFixed(4))) 
+          ? (rawCap > 5 ? 0.1 : parseFloat(rawCap.toFixed(4))) 
           : (rawCap > 100000 ? 1000 : parseFloat(rawCap.toFixed(2)));
         const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
         const boundedProfit = Math.max(-cleanCap, Math.min(cleanCap * 10, rawProfit));
-        const cleanProfit = parseFloat(boundedProfit.toFixed(2));
+        const cleanProfit = parseFloat(boundedProfit.toFixed(isReal ? 4 : 2));
 
         return {
           ...b,
@@ -192,11 +195,13 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           const boundedVal = Math.max(maxLoss, Math.min(maxGain, rawVal));
           const cleanVal = parseFloat(boundedVal.toFixed(2));
 
+          const isReal = isRealOnChainPosition(c);
+
           return {
             ...c,
             profit: cleanVal,
             pnl: cleanVal,
-            mode: c.mode === 'REAL' ? 'REAL' : (c.mode === 'DEMO' ? 'DEMO' : (tradingMode === 'REAL' && c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'))
+            mode: isReal ? 'REAL' : 'DEMO'
           } as ClosedPosition;
         });
     };
@@ -414,9 +419,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
   const resetDemoData = () => {
     setBalance(10000);
     setReserveVault(0);
-    setActivePositions(prev => (Array.isArray(prev) ? prev : []).filter((p) => (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
-    setClosedPositions(prev => (Array.isArray(prev) ? prev : []).filter((c) => (c.mode || (c.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
-    setBots(prev => (Array.isArray(prev) ? prev : []).filter((b) => (b.mode || (b.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'));
+    setActivePositions(prev => (Array.isArray(prev) ? prev : []).filter(p => isRealOnChainPosition(p)));
+    setClosedPositions(prev => (Array.isArray(prev) ? prev : []).filter(c => isRealOnChainPosition(c)));
+    setBots(prev => (Array.isArray(prev) ? prev : []).filter(b => b.mode === 'REAL'));
     setBotLogs([]);
   };
 

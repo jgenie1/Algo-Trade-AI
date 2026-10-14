@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, ShieldCheck, Zap, Lock, Activity, Wallet } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto, formatSmartNumber, getSolUsdRate } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto, formatSmartNumber, getSolUsdRate, isRealOnChainPosition } from '@/lib/utils';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Button } from '@/components/ui/button';
 import { useAppState } from '@/context/AppContext';
@@ -77,11 +77,11 @@ export default function PortfolioStatsHeader({
   const safeBots = Array.isArray(bots) ? bots : [];
 
   const demoPositionsCount = safeActivePositions.filter(
-    (p) => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'DEMO'
+    (p) => !isRealOnChainPosition(p)
   ).length;
 
   const realPositions = safeActivePositions.filter(
-    (p) => p && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === 'REAL'
+    (p) => isRealOnChainPosition(p)
   );
 
   const realAllocatedSol = realPositions.reduce(
@@ -89,7 +89,7 @@ export default function PortfolioStatsHeader({
   );
 
   const realBots = safeBots.filter(
-    (b) => b && (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL' && b.status === 'RUNNING'
+    (b) => b && b.mode === 'REAL' && b.status === 'RUNNING'
   );
 
   const realBotsPnL = realBots.reduce((sum, b) => {

@@ -329,3 +329,28 @@ export function formatSmartPnl(value: number | undefined | null, isSol: boolean 
 
   return val > 0 ? `+${formatted}` : formatted;
 }
+
+/**
+ * Strict verification of whether an active or closed position is a genuine on-chain position in REAL mode.
+ * Rules:
+ * 1. Must be explicitly tagged with mode === 'REAL'.
+ * 2. Must possess an authentic, verified on-chain transaction hash (txHash length >= 32, without mock/demo/paper prefix).
+ */
+export function isRealOnChainPosition(p: any): boolean {
+  if (!p) return false;
+  const hasValidTx = typeof p.txHash === 'string' &&
+    p.txHash.trim().length >= 32 &&
+    !p.txHash.startsWith('demo_') &&
+    !p.txHash.startsWith('paper_');
+  return p.mode === 'REAL' && hasValidTx;
+}
+
+/**
+ * Strict verification of whether a bot is configured for REAL mode on-chain trading.
+ * A bot is ONLY considered REAL if explicitly configured with mode === 'REAL'.
+ */
+export function isRealBot(b: any): boolean {
+  if (!b) return false;
+  return b.mode === 'REAL';
+}
+

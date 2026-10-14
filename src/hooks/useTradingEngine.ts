@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAppState } from '@/context/AppContext';
 import { saveFullState, saveBotLearnings } from '@/lib/firebase';
-import { formatSmartPnl, getRealMarketBasePrice, getSolUsdRate } from '@/lib/utils';
+import { formatSmartPnl, getRealMarketBasePrice, getSolUsdRate, isRealOnChainPosition } from '@/lib/utils';
 import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
@@ -344,7 +344,7 @@ export function useTradingEngine() {
               if (tradingModeRef.current === 'REAL' && (sub1Bal >= 0.002 || hasFundedSub)) {
                 setBots(prev => {
                   const currentBots = Array.isArray(prev) ? prev : [];
-                  const realBots = currentBots.filter(b => (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL');
+                  const realBots = currentBots.filter(b => b.mode === 'REAL');
 
                   // Si aucun bot réel n'est assigné au sous-wallet #1, créer le Sniper Bot en RUNNING
                   const sub1Bot = realBots.find(b => (b.subWallet || 1) === 1);
@@ -604,7 +604,7 @@ export function useTradingEngine() {
     let totalManualPnL = 0;
     let lockedManualMargin = 0;
 
-    const manualPositions = (Array.isArray(activePositions) ? activePositions : []).filter(p => p && !p.botId && (p.mode || (p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+    const manualPositions = (Array.isArray(activePositions) ? activePositions : []).filter(p => p && !p.botId && (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode);
     manualPositions.forEach(p => {
       const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair || 'SOL');
       const current = livePrices[p.pair] || entry;
@@ -623,7 +623,7 @@ export function useTradingEngine() {
     });
 
     let activeBotsCapitalAndPnL = 0;
-    (Array.isArray(bots) ? bots : []).filter(b => b && (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode).forEach(b => {
+    (Array.isArray(bots) ? bots : []).filter(b => b && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode).forEach(b => {
       if (!b || b.status !== 'RUNNING') return;
       const cap = tradingMode === 'REAL' ? 0 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 0);
       const botPnL = typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : (typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : 0);
@@ -1030,7 +1030,7 @@ export function useTradingEngine() {
                 dcaCount: 1,
                 bondingCurveProgress: curveProgress,
                 replyCount: replies,
-                mode: tradingModeRef.current === 'REAL' ? ('REAL' as const) : (bot.mode || 'DEMO')
+                mode: (tradingModeRef.current === 'REAL' ? 'REAL' : 'DEMO') as 'DEMO' | 'REAL'
               };
 
               // isBotReal: execute real transaction if the CURRENT mode is REAL
@@ -1116,9 +1116,10 @@ export function useTradingEngine() {
                   inFlightBotsRef.current[bot.id] = false;
                 });
               } else {
+                const demoPos = { ...newPos, mode: 'DEMO' as const };
                 setActivePositions(prev => {
-                  if (prev.some(x => x.id === newPos.id)) return prev;
-                  return [...prev, newPos];
+                  if (prev.some(x => x.id === demoPos.id)) return prev;
+                  return [...prev, demoPos];
                 });
                 balanceRef.current = Math.max(0, balanceRef.current - posTradeAmount);
                 setBalance(bal => Math.max(0, bal - posTradeAmount));
@@ -1522,7 +1523,7 @@ export function useTradingEngine() {
                   dcaCount: 1,
                   entryRsi: lastRsi !== 0 ? lastRsi : undefined,
                   entryEmaTrend: emaValues && emaValues.length > 0 ? (lastClose > emaValues[emaValues.length - 1] ? 'ABOVE' : 'BELOW') : undefined,
-                  mode: tradingModeRef.current === 'REAL' ? ('REAL' as const) : (bot.mode || 'DEMO')
+                  mode: (isRealMode ? 'REAL' : 'DEMO') as 'DEMO' | 'REAL'
                 };
 
                 // Determine if this pair has a Solana on-chain token (crypto) or is Forex (virtual only)
@@ -1610,9 +1611,10 @@ export function useTradingEngine() {
                   });
                 } else if (!isRealMode) {
                   // Virtual execution strictly in DEMO mode
+                  const demoPos = { ...newPos, mode: 'DEMO' as const };
                   setActivePositions(prev => {
-                    if (prev.some(x => x.id === newPos.id || (x.botId === bot.id && x.pair === newPos.pair))) return prev;
-                    return [...prev, newPos];
+                    if (prev.some(x => x.id === demoPos.id || (x.botId === bot.id && x.pair === demoPos.pair))) return prev;
+                    return [...prev, demoPos];
                   });
                   balanceRef.current = Math.max(0, balanceRef.current - calculatedTradeAmt);
                   setBalance(bal => Math.max(0, bal - calculatedTradeAmt));
@@ -1862,9 +1864,8 @@ export function useTradingEngine() {
 
     try {
 
-    const posMode: 'DEMO' | 'REAL' = p.mode === 'REAL' 
-      ? 'REAL' 
-      : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+    const isRealPos = isRealOnChainPosition(p);
+    const posMode: 'DEMO' | 'REAL' = isRealPos ? 'REAL' : 'DEMO';
     const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
     const entry = typeof p.entryPrice === 'number' && !isNaN(p.entryPrice) && p.entryPrice > 0 ? p.entryPrice : (getRealMarketBasePrice(p.pair || '') || exitPrice);
     const priceDiff = exitPrice - entry;
@@ -2356,7 +2357,7 @@ export function useTradingEngine() {
     const nextStatus = bot.status === 'RUNNING' ? 'STOPPED' : 'RUNNING';
 
     if (nextStatus === 'RUNNING') {
-      const isRealBot = (bot.mode || (bot.pair?.startsWith('SOL:') || bot.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL';
+      const isRealBot = bot.mode === 'REAL';
       
       let allocatable = 0;
       if (isRealBot) {
@@ -2416,7 +2417,7 @@ export function useTradingEngine() {
     }
     const targetBot = bots.find(b => b.id === botId);
     if (targetBot) {
-      const isRealBot = (targetBot.mode || (targetBot.pair?.startsWith('SOL:') || targetBot.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === 'REAL';
+      const isRealBot = targetBot.mode === 'REAL';
       if (isRealBot) {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
@@ -2439,9 +2440,8 @@ export function useTradingEngine() {
 
     const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : (p.entryPrice || getRealMarketBasePrice(p.pair) || 1));
 
-    const posMode: 'DEMO' | 'REAL' = p.mode === 'REAL' 
-      ? 'REAL' 
-      : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+    const isRealPos = isRealOnChainPosition(p);
+    const posMode: 'DEMO' | 'REAL' = isRealPos ? 'REAL' : 'DEMO';
 
     // Pour les positions DEMO, suppression optimiste immédiate
     if (posMode === 'DEMO') {
@@ -2478,7 +2478,8 @@ export function useTradingEngine() {
     const modeToClose = targetMode || tradingModeRef.current;
     const allPositions = [...activePositionsRef.current];
     const positionsToClose = allPositions.filter(p => {
-      const mode = p.mode === 'REAL' ? 'REAL' : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+      const isReal = isRealOnChainPosition(p);
+      const mode = isReal ? 'REAL' : 'DEMO';
       return mode === modeToClose;
     });
     if (positionsToClose.length === 0) return;
@@ -2498,7 +2499,8 @@ export function useTradingEngine() {
       });
       setActivePositions(prev => {
         const remaining = (Array.isArray(prev) ? prev : []).filter(p => {
-          const mode = p.mode === 'REAL' ? 'REAL' : (p.mode === 'DEMO' ? 'DEMO' : (tradingModeRef.current === 'REAL' && p.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO'));
+          const isReal = isRealOnChainPosition(p);
+          const mode = isReal ? 'REAL' : 'DEMO';
           return mode !== modeToClose;
         });
         if (typeof window !== 'undefined') {

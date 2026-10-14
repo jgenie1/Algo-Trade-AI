@@ -32,7 +32,7 @@ import {
   PlayCircle
 } from 'lucide-react';
 import type { SubWallet, BotInstance } from '@/types';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber, isRealOnChainPosition } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
 import { saveBotLearnings } from '@/lib/firebase';
 import { decryptSensitiveData, encryptSensitiveData } from '@/lib/cryptoStorage';
@@ -733,10 +733,10 @@ export default function TradingBotsManager({
   const safeBotLogs = Array.isArray(botLogs) ? botLogs : [];
   const safeBotLearnings = Array.isArray(botLearnings) ? botLearnings : [];
 
-  const filteredBots = safeBots.filter(b => b && (b.mode || (b.pair?.startsWith('SOL:') || b.strategy === 'Pump.fun Sniper Bot' ? 'REAL' : 'DEMO')) === tradingMode);
+  const filteredBots = safeBots.filter(b => b && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode);
   const pendingSweepProfits = filteredBots.reduce((sum, b) => sum + ((b.netProfit || b.pnl || 0) > 0 ? (b.netProfit || b.pnl || 0) : 0), 0);
 
-  const filteredClosed = safeClosedPositions.filter(h => h && (h.mode || (h.pair?.startsWith('SOL:') ? 'REAL' : 'DEMO')) === tradingMode);
+  const filteredClosed = safeClosedPositions.filter(h => h && (isRealOnChainPosition(h) ? 'REAL' : 'DEMO') === tradingMode);
 
   const totalGains = filteredClosed.reduce((sum, h) => {
     const val = typeof h.profit === 'number' && !isNaN(h.profit) ? h.profit : (typeof h.pnl === 'number' && !isNaN(h.pnl) ? h.pnl : 0);
@@ -1687,8 +1687,8 @@ export default function TradingBotsManager({
                           )}
                         </div>
                         <div className="text-xs font-extrabold text-slate-200 font-mono mt-1 flex items-center flex-wrap gap-1">
-                          <span>Capital: {formatSmartCrypto(((b.mode || tradingMode) === 'REAL' && (b.capital || 0) > 50 ? 0.5 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : 1000)), (b.mode || tradingMode) === 'REAL' ? 'SOL' : '$')}</span>
-                          {((b.mode || tradingMode) === 'DEMO' && b.capital > allocatableBalance && allocatableBalance > 0) && (
+                          <span>Capital: {formatSmartCrypto(((b.mode === 'REAL') && (b.capital || 0) > 5 ? 0.1 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : (b.mode === 'REAL' ? 0.1 : 1000))), b.mode === 'REAL' ? 'SOL' : '$')}</span>
+                          {(b.mode !== 'REAL' && b.capital > allocatableBalance && allocatableBalance > 0) && (
                             <span className="text-[10px] text-amber-400 font-normal bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
                               (Ajusté à ${allocatableBalance.toFixed(2)} au lancement)
                             </span>
@@ -1719,7 +1719,7 @@ export default function TradingBotsManager({
                           "font-extrabold font-mono text-sm block",
                           (b.netProfit || 0) >= 0 ? "text-[#c2ff0c]" : "text-rose-400"
                         )}>
-                          {formatSmartPnl(b.netProfit || 0, tradingMode === 'REAL')} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                          {formatSmartPnl(b.netProfit || 0, b.mode === 'REAL')} {b.mode === 'REAL' ? 'SOL' : '$'}
                         </span>
                         <span className="text-xs text-slate-300 font-extrabold font-mono block">PnL Net</span>
                       </div>
@@ -2053,7 +2053,7 @@ export default function TradingBotsManager({
                           "font-extrabold text-sm block font-mono",
                           isProfit ? "text-[#c2ff0c]" : "text-rose-400"
                         )}>
-                          {formatSmartPnl(profitVal, Boolean(tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:'))))} {tradingMode === 'REAL' || (h.pair && h.pair.startsWith('SOL:')) ? 'SOL' : '$'}
+                          {formatSmartPnl(profitVal, isRealOnChainPosition(h))} {isRealOnChainPosition(h) ? 'SOL' : '$'}
                         </span>
                         <span className="text-xs text-slate-400 block font-body">
                           {h.timestamp ? new Date(h.timestamp).toLocaleTimeString('fr-FR') : 'Récemment'}
