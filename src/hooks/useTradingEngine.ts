@@ -2052,23 +2052,6 @@ export function useTradingEngine() {
           return nextUsd;
         });
 
-        // Mise à jour des performances cumulées du Bot (sans jamais écraser netProfit à 0)
-        if (p.botId) {
-          setBots(prev => prev.map(b => {
-            if (b.id !== p.botId) return b;
-            const newTrades = (b.tradesCount || 0) + 1;
-            const oldWins = Math.round(((b.winRate || 50) / 100) * (b.tradesCount || 0));
-            const newWins = oldWins + 1;
-            return {
-              ...b,
-              netProfit: (b.netProfit || 0) + netProfitSol,
-              pnl: (b.pnl || 0) + netProfitSol,
-              tradesCount: newTrades,
-              winRate: Math.round((newWins / newTrades) * 100)
-            };
-          }));
-        }
-
         // 2. Add completed transaction to history
         if (setTransactions) {
           setTransactions(prev => [
@@ -2137,22 +2120,6 @@ export function useTradingEngine() {
           if (typeof window !== 'undefined') localStorage.setItem('trade_balance', nextUsd.toString());
           return nextUsd;
         });
-
-        // Enregistrer la perte sur le bot pour un historique sincère
-        if (p.botId) {
-          setBots(prev => prev.map(b => {
-            if (b.id !== p.botId) return b;
-            const newTrades = (b.tradesCount || 0) + 1;
-            const oldWins = Math.round(((b.winRate || 50) / 100) * (b.tradesCount || 0));
-            return {
-              ...b,
-              netProfit: (b.netProfit || 0) + profit,
-              pnl: (b.pnl || 0) + profit,
-              tradesCount: newTrades,
-              winRate: Math.round((oldWins / newTrades) * 100)
-            };
-          }));
-        }
 
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('web3_wallet_updated'));
@@ -2302,11 +2269,15 @@ export function useTradingEngine() {
 
     const updatedBots = botsRef.current.map(b => {
       if (b.id === botIdVal) {
-        const nextTotal = (b.totalTrades || 0) + 1;
-        const isWin = profitVal >= 0;
+        const isWin = profitVal > 0;
+        const nextTotal = (b.tradesCount || b.totalTrades || 0) + 1;
         const nextWins = (b.winningTrades || 0) + (isWin ? 1 : 0);
         const nextLosses = isWin ? 0 : (b.consecutiveLosses || 0) + 1;
-        const nextNetProfit = parseFloat(((b.netProfit || 0) + profitVal).toFixed(2));
+        const nextWinRate = Math.round((nextWins / nextTotal) * 100);
+        const profitDelta = (posMode === 'REAL' && profitVal > 0) ? (profitVal * 0.90) : profitVal;
+        const nextNetProfit = posMode === 'REAL'
+          ? parseFloat(((b.netProfit || 0) + profitDelta).toFixed(4))
+          : parseFloat(((b.netProfit || 0) + profitDelta).toFixed(2));
         const cleanCapital = typeof b.capital === 'number' && !isNaN(b.capital) ? parseFloat(b.capital.toFixed(2)) : 1000;
 
         let nextStatus = b.status;
@@ -2334,7 +2305,9 @@ export function useTradingEngine() {
           ...b,
           capital: cleanCapital,
           totalTrades: nextTotal,
+          tradesCount: nextTotal,
           winningTrades: nextWins,
+          winRate: nextWinRate,
           consecutiveLosses: nextLosses,
           netProfit: nextNetProfit,
           pnl: nextNetProfit,
