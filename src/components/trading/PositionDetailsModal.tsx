@@ -94,6 +94,11 @@ export default function PositionDetailsModal({
                 🛡️ Gain Garanti
               </Badge>
             )}
+            {position.isAiPatternBoosted && (
+              <Badge className="text-[9px] bg-gradient-to-r from-emerald-500/20 to-purple-500/20 text-[#c2ff0c] px-2 py-0.5 rounded border border-[#c2ff0c]/40 uppercase font-mono font-bold">
+                ⚡ IA Boostée
+              </Badge>
+            )}
           </h3>
           <Badge 
             className={cn(
@@ -104,6 +109,17 @@ export default function PositionDetailsModal({
             {position.type === 'BUY' ? 'LONG / ACHAT' : 'SHORT / VENTE'}
           </Badge>
         </div>
+
+        {position.isAiPatternBoosted && (
+          <div className="p-3 bg-gradient-to-r from-emerald-950/40 to-purple-950/40 border border-[#c2ff0c]/30 rounded-xl space-y-1 font-mono text-[10px]">
+            <div className="flex items-center gap-1.5 text-[#c2ff0c] font-bold">
+              <span>🧠 OPTIMISATION PAR APPRENTISSAGE IA</span>
+            </div>
+            <p className="text-white/80 leading-relaxed font-body text-xs">
+              {position.aiBoostReason || "Cette position a bénéficié d'une allocation renforcée (+20% à +25%) et d'un ratio Risk/Reward optimisé suite à la validation d'un motif gagnant."}
+            </p>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4">
