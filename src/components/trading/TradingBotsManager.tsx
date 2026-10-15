@@ -1832,6 +1832,31 @@ export default function TradingBotsManager({
           </CardHeader>
 
           <CardContent className="p-0 flex-1">
+            {/* Intelligence Status & Impact Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3.5 p-2.5 rounded-xl bg-black/40 border border-white/10 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
+                <span className="text-white/60">Anti-Erreurs :</span>
+                <span className="font-bold text-rose-300">
+                  {safeBotLearnings.filter(l => (l.lossAmount || 0) > 0).length} règles
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                <span className="text-white/60">Boost Gagnant :</span>
+                <span className="font-bold text-[#c2ff0c]">
+                  +{safeBotLearnings.filter(l => (l.gainAmount || 0) > 0 || (l.learningEffect && (l.learningEffect.includes('Gagnant') || l.learningEffect.includes('Gagnante')))).length} motifs
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[#c2ff0c]">⚡</span>
+                <span className="text-white/60">Prise de Position :</span>
+                <span className="font-bold text-purple-300">
+                  Auto-Optimisée
+                </span>
+              </div>
+            </div>
+
             <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
               {safeBotLearnings.length === 0 ? (
                 <div className="border border-dashed border-white/15 rounded-xl p-8 text-center text-slate-300 font-body text-sm flex flex-col items-center justify-center min-h-[160px] bg-black/20">

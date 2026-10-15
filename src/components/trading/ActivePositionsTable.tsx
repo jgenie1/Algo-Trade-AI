@@ -224,6 +224,11 @@ export default function ActivePositionsTable({
                             🛡️ Sécurisé
                           </span>
                         )}
+                        {p.isAiPatternBoosted && (
+                          <span className="bg-gradient-to-r from-emerald-950/80 to-purple-950/80 text-[#c2ff0c] border border-[#c2ff0c]/40 text-[10px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 font-mono" title={p.aiBoostReason || "Position optimisée par Apprentissage IA"}>
+                            ⚡ IA Boostée
+                          </span>
+                        )}
                         {p.txHash && (
                           <a
                             href={getExplorerTxUrl(getPositionChain(p), p.txHash)}
@@ -345,6 +350,11 @@ export default function ActivePositionsTable({
                           {p.dcaCount && p.dcaCount > 1 && (
                             <span className="bg-blue-950/60 text-blue-300 border border-blue-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono">
                               DCA x{p.dcaCount}
+                            </span>
+                          )}
+                          {p.isAiPatternBoosted && (
+                            <span className="bg-gradient-to-r from-emerald-950/80 to-purple-950/80 text-[#c2ff0c] border border-[#c2ff0c]/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono flex items-center gap-1" title={p.aiBoostReason || "Position optimisée par Apprentissage IA"}>
+                              ⚡ IA Boostée
                             </span>
                           )}
                           {p.txHash && (

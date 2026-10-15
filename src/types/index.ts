@@ -29,6 +29,8 @@ export interface Position {
   mode?: 'DEMO' | 'REAL';
   pnl?: number;
   pnlPercent?: number;
+  isAiPatternBoosted?: boolean;
+  aiBoostReason?: string;
 }
 
 export interface ClosedPosition {
@@ -51,6 +53,8 @@ export interface ClosedPosition {
   buyTxHash?: string;
   sellTxHash?: string;
   mode?: 'DEMO' | 'REAL';
+  isAiPatternBoosted?: boolean;
+  aiBoostReason?: string;
 }
 
 export interface BotInstance {
