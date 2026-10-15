@@ -5,7 +5,8 @@ import {
   TrendingUp, 
   TrendingDown, 
   Activity, 
-  Zap 
+  Zap,
+  AlertTriangle 
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
@@ -49,7 +50,7 @@ export default function ManualOrderForm({
   selectedPair,
   setSelectedPair
 }: ManualOrderFormProps) {
-  const { tradingMode, balance, setBalance, reserveVault, reserveVaultSol, setActivePositions, activePositions } = useAppState();
+  const { tradingMode, balance, setBalance, reserveVault, reserveVaultSol, setActivePositions, activePositions, botLearnings } = useAppState();
 
   // Local Form States
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
@@ -62,6 +63,62 @@ export default function ManualOrderForm({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const isSubmittingOrderRef = useRef(false);
+
+  const matchingCoin = trendingCoins.find(c => {
+    if (!selectedPair.startsWith('SOL:')) return false;
+    const parts = selectedPair.split(':');
+    const mint = parts[1];
+    return c.mint === mint || selectedPair.includes(c.mint);
+  });
+
+  const curveProgress = matchingCoin 
+    ? Math.max(0, Math.min(100, (((matchingCoin.virtual_sol_reserves / 1e9) - 30) / 55) * 100))
+    : undefined;
+  const replyCount = matchingCoin ? (matchingCoin.reply_count || 0) : undefined;
+
+  const safeLearnings = Array.isArray(botLearnings) ? botLearnings : [];
+
+  const aiMatch = React.useMemo(() => {
+    let blockedReason: string | null = null;
+    let boostedReason: string | null = null;
+
+    for (const l of safeLearnings) {
+      if (selectedPair.startsWith('SOL:')) {
+        if (l.pair === selectedPair && (l.lossAmount ?? 0) > 0) {
+          blockedReason = l.learningEffect || "Règle de protection active : perte passée enregistrée sur ce jeton.";
+          break;
+        }
+        if (curveProgress !== undefined && l.bondingCurveProgress !== undefined && (l.lossAmount ?? 0) > 0) {
+          const delta = Math.abs(curveProgress - l.bondingCurveProgress);
+          const isLowReplies = (replyCount ?? 0) <= (l.replyCount ?? 0) + 1;
+          if (delta <= 8 && isLowReplies) {
+            blockedReason = l.learningEffect || `Risque structurel : Bonding Curve ~${l.bondingCurveProgress.toFixed(0)}% avec faible engagement`;
+            break;
+          }
+        }
+        if ((l.gainAmount ?? 0) > 0 || (l.learningEffect && (l.learningEffect.includes('Gagnant') || l.learningEffect.includes('Gagnante')))) {
+          if (l.pair === selectedPair) {
+            boostedReason = l.learningEffect || "Motif gagnant validé sur ce jeton";
+          } else if (curveProgress !== undefined && l.bondingCurveProgress !== undefined) {
+            const delta = Math.abs(curveProgress - l.bondingCurveProgress);
+            if (delta <= 12 && (replyCount ?? 0) >= Math.max(5, (l.replyCount ?? 3))) {
+              boostedReason = `Configuration similaire à un gain passé (Bonding Curve ~${l.bondingCurveProgress.toFixed(0)}%)`;
+            }
+          }
+        }
+      } else {
+        if (l.pair === selectedPair && (l.type === orderType || !l.type)) {
+          if ((l.lossAmount ?? 0) > 0) {
+            blockedReason = l.learningEffect || `Règle de protection active sur ${selectedPair}`;
+          } else if ((l.gainAmount ?? 0) > 0 || (l.learningEffect && (l.learningEffect.includes('Gagnant') || l.learningEffect.includes('Gagnante')))) {
+            boostedReason = l.learningEffect || `Motif gagnant validé sur ${selectedPair}`;
+          }
+        }
+      }
+    }
+
+    return { blockedReason, boostedReason };
+  }, [safeLearnings, selectedPair, orderType, curveProgress, replyCount]);
 
   // Fetch live trending coins from Pump.fun (real mints only in REAL mode)
   React.useEffect(() => {
@@ -177,6 +234,10 @@ export default function ManualOrderForm({
               timestamp: Date.now(),
               txHash: res.txHash,
               mint: mintAddress,
+              bondingCurveProgress: curveProgress,
+              replyCount: replyCount,
+              isAiPatternBoosted: !!aiMatch.boostedReason && !aiMatch.blockedReason,
+              aiBoostReason: (aiMatch.boostedReason && !aiMatch.blockedReason) ? aiMatch.boostedReason : undefined,
               mode: 'REAL' as const
             };
 
@@ -228,6 +289,8 @@ export default function ManualOrderForm({
               tp,
               timestamp: Date.now(),
               txHash: res.txHash,
+              isAiPatternBoosted: !!aiMatch.boostedReason && !aiMatch.blockedReason,
+              aiBoostReason: (aiMatch.boostedReason && !aiMatch.blockedReason) ? aiMatch.boostedReason : undefined,
               mode: 'REAL' as const
             };
 
@@ -278,6 +341,10 @@ export default function ManualOrderForm({
         sl,
         tp,
         timestamp: Date.now(),
+        bondingCurveProgress: curveProgress,
+        replyCount: replyCount,
+        isAiPatternBoosted: !!aiMatch.boostedReason && !aiMatch.blockedReason,
+        aiBoostReason: (aiMatch.boostedReason && !aiMatch.blockedReason) ? aiMatch.boostedReason : undefined,
         mode: 'DEMO'
       };
 
@@ -336,6 +403,37 @@ export default function ManualOrderForm({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* AI Learning Intelligence Banner (Demo) */}
+            {aiMatch.blockedReason && (
+              <div className="p-3 bg-rose-950/30 border border-rose-500/30 rounded-xl space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 text-rose-300 font-bold font-headline">
+                  <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
+                  <span>⚠️ PROTECTION ANTI-ERREUR IA ACTIVE</span>
+                </div>
+                <p className="text-white/80 font-body text-[11px] leading-relaxed">
+                  {aiMatch.blockedReason}
+                </p>
+                <p className="text-[10px] text-rose-300/80 font-mono">
+                  L&apos;IA a identifié ce motif suite à une perte passée et recommande d&apos;éviter ou d&apos;ajuster votre risque.
+                </p>
+              </div>
+            )}
+
+            {aiMatch.boostedReason && !aiMatch.blockedReason && (
+              <div className="p-3 bg-emerald-950/30 border border-[#c2ff0c]/30 rounded-xl space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 text-[#c2ff0c] font-bold font-headline">
+                  <Zap className="h-4 w-4 text-[#c2ff0c] shrink-0" />
+                  <span>⚡ MOTIF GAGNANT IA DÉTECTÉ</span>
+                </div>
+                <p className="text-white/80 font-body text-[11px] leading-relaxed">
+                  {aiMatch.boostedReason}
+                </p>
+                <p className="text-[10px] text-emerald-300/80 font-mono">
+                  Configuration statistiquement rentable. R:R optimisé suggéré.
+                </p>
+              </div>
+            )}
 
             {/* Price Display */}
             <div className="bg-black/40 border border-white/15 rounded-xl p-4 flex justify-between items-center">
@@ -542,6 +640,37 @@ export default function ManualOrderForm({
                 </div>
               )}
             </div>
+
+            {/* AI Learning Intelligence Banner (Real) */}
+            {aiMatch.blockedReason && (
+              <div className="p-3 bg-rose-950/30 border border-rose-500/30 rounded-xl space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 text-rose-300 font-bold font-headline">
+                  <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
+                  <span>⚠️ PROTECTION ANTI-ERREUR IA ACTIVE</span>
+                </div>
+                <p className="text-white/80 font-body text-[11px] leading-relaxed">
+                  {aiMatch.blockedReason}
+                </p>
+                <p className="text-[10px] text-rose-300/80 font-mono">
+                  L&apos;IA a identifié ce motif suite à une perte passée et recommande d&apos;éviter ou d&apos;ajuster votre risque.
+                </p>
+              </div>
+            )}
+
+            {aiMatch.boostedReason && !aiMatch.blockedReason && (
+              <div className="p-3 bg-emerald-950/30 border border-[#c2ff0c]/30 rounded-xl space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 text-[#c2ff0c] font-bold font-headline">
+                  <Zap className="h-4 w-4 text-[#c2ff0c] shrink-0" />
+                  <span>⚡ MOTIF GAGNANT IA DÉTECTÉ</span>
+                </div>
+                <p className="text-white/80 font-body text-[11px] leading-relaxed">
+                  {aiMatch.boostedReason}
+                </p>
+                <p className="text-[10px] text-emerald-300/80 font-mono">
+                  Configuration statistiquement rentable. R:R optimisé suggéré.
+                </p>
+              </div>
+            )}
 
             {/* Amount in SOL */}
             <div className="space-y-1.5">

@@ -37,40 +37,47 @@ export default function PanicKillSwitch() {
 
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    // 1. Fermer toutes les positions ouvertes et récréditer le solde (marge + pnl)
-    const now = Date.now();
-    let totalReturnedCapital = 0;
-    const safePositions = Array.isArray(activePositions) ? activePositions : [];
-    const positionsToClose = safePositions.map(pos => {
-      const margin = typeof pos.amount === 'number' && !isNaN(pos.amount) ? pos.amount : 0;
-      const entry = typeof pos.entryPrice === 'number' && !isNaN(pos.entryPrice) && pos.entryPrice > 0 ? pos.entryPrice : getRealMarketBasePrice(pos.pair);
-      const current = pos.currentPrice || entry;
-      const priceDiff = current - entry;
-      const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
-      const lev = typeof pos.leverage === 'number' && !isNaN(pos.leverage) ? pos.leverage : 1;
-      const isLong = pos.type === 'BUY' || (pos.type as string) === 'LONG';
-      const pnlVal = pctDiff * margin * lev * (isLong ? 1 : -1);
-      const returnedForPos = Math.max(0, margin + pnlVal);
-      totalReturnedCapital += returnedForPos;
-      return {
-        ...pos,
-        closedAt: now,
-        status: 'CLOSED',
-        profit: pnlVal,
-        pnl: pnlVal
-      };
-    });
+    // 1. Déclencher la fermeture sécurisée via le moteur de trading (liquidation on-chain réelle + apprentissage IA)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('trigger_panic_kill_switch', { detail: { mode: tradingMode } }));
+    }
 
-    if (tradingMode === 'DEMO' && totalReturnedCapital > 0) {
-      setBalance(prev => Math.max(0, prev + totalReturnedCapital));
+    const safePositions = Array.isArray(activePositions) ? activePositions : [];
+
+    // Clôture locale optimiste uniquement pour le mode DEMO
+    if (tradingMode === 'DEMO') {
+      const now = Date.now();
+      let totalReturnedCapital = 0;
+      const positionsToClose = safePositions.map(pos => {
+        const margin = typeof pos.amount === 'number' && !isNaN(pos.amount) ? pos.amount : 0;
+        const entry = typeof pos.entryPrice === 'number' && !isNaN(pos.entryPrice) && pos.entryPrice > 0 ? pos.entryPrice : getRealMarketBasePrice(pos.pair);
+        const current = pos.currentPrice || entry;
+        const priceDiff = current - entry;
+        const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
+        const lev = typeof pos.leverage === 'number' && !isNaN(pos.leverage) ? pos.leverage : 1;
+        const isLong = pos.type === 'BUY' || (pos.type as string) === 'LONG';
+        const pnlVal = pctDiff * margin * lev * (isLong ? 1 : -1);
+        const returnedForPos = Math.max(0, margin + pnlVal);
+        totalReturnedCapital += returnedForPos;
+        return {
+          ...pos,
+          closedAt: now,
+          status: 'CLOSED' as const,
+          profit: pnlVal,
+          pnl: pnlVal
+        };
+      });
+
+      if (totalReturnedCapital > 0) {
+        setBalance(prev => Math.max(0, prev + totalReturnedCapital));
+      }
+      setClosedPositions(prev => [...positionsToClose, ...prev]);
+      setActivePositions([]);
     } else if (tradingMode === 'REAL') {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('web3_wallet_updated'));
       }
     }
-
-    setClosedPositions([...positionsToClose, ...closedPositions]);
-    setActivePositions([]);
 
     // 2. Mettre en pause tous les bots actifs
     const safeBots = Array.isArray(bots) ? bots : [];

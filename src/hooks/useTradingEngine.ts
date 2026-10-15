@@ -2206,8 +2206,8 @@ export function useTradingEngine() {
     } else if (posMode === 'REAL') {
       if (profit > 0) {
         // In REAL Mode, all trades are 100% native on-chain Solana trades (Pump.fun or Jupiter swaps)
-        const netProfitSol = profit * 0.90;
         const vaultSkimSol = autoReserveEnabled ? profit * 0.10 : 0;
+        const netProfitSol = profit - vaultSkimSol;
 
         if (vaultSkimSol > 0 && setReserveVaultSol) {
           setReserveVaultSol(vault => {
@@ -2694,6 +2694,19 @@ export function useTradingEngine() {
       }
     }
   };
+
+  useEffect(() => {
+    const handlePanicKillSwitch = async (e: Event) => {
+      const mode = (e as CustomEvent)?.detail?.mode;
+      await handleCloseAllPositions(mode);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('trigger_panic_kill_switch', handlePanicKillSwitch);
+      return () => {
+        window.removeEventListener('trigger_panic_kill_switch', handlePanicKillSwitch);
+      };
+    }
+  }, []);
 
   closePositionByIdRef.current = closePositionById;
   addBotLogRef.current = addBotLog;
