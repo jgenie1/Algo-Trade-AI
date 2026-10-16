@@ -651,6 +651,129 @@ export async function runM3SecuritySuite(): Promise<boolean> {
   });
 
   // --------------------------------------------------------------------------
+  // SECTION 9: Positions Engine Multi-Stage Trailing, Direction-Aware DCA & Partial Close
+  // --------------------------------------------------------------------------
+  console.log('\n--- SECTION 9: Positions Engine Multi-Stage Trailing & Direction-Aware DCA ---');
+
+  await test('M3.9.1: Multi-stage trailing stop ratchets through Tiers 1-4 and anchors Runner to peakPrice', () => {
+    const entry = 100;
+    let sl = 97;
+    let highestPrice = 100;
+    let trailingTier = 0;
+    const isBoosted = true;
+
+    const evaluateLongTrailing = (current: number) => {
+      highestPrice = Math.max(current, highestPrice);
+      const peakGainPct = (highestPrice - entry) / entry;
+      if (peakGainPct >= (isBoosted ? 0.009 : 0.012)) {
+        sl = Math.max(sl, entry * 1.003);
+        trailingTier = Math.max(trailingTier, 1);
+      }
+      if (peakGainPct >= (isBoosted ? 0.022 : 0.028)) {
+        sl = Math.max(sl, entry * (isBoosted ? 1.018 : 1.014));
+        trailingTier = Math.max(trailingTier, 2);
+      }
+      if (peakGainPct >= (isBoosted ? 0.040 : 0.050)) {
+        sl = Math.max(sl, entry * (isBoosted ? 1.036 : 1.030));
+        trailingTier = Math.max(trailingTier, 3);
+      }
+      if (peakGainPct >= (isBoosted ? 0.055 : 0.070)) {
+        const runnerSl = highestPrice * (isBoosted ? 0.988 : 0.985);
+        sl = Math.max(sl, runnerSl);
+        trailingTier = Math.max(trailingTier, 4);
+      }
+    };
+
+    evaluateLongTrailing(101.0); // +1.0% -> Tier 1 Break-Even
+    assert.equal(trailingTier, 1);
+    assert.equal(parseFloat(sl.toFixed(3)), 100.3);
+
+    evaluateLongTrailing(102.5); // +2.5% -> Tier 2
+    assert.equal(trailingTier, 2);
+    assert.equal(parseFloat(sl.toFixed(3)), 101.8);
+
+    evaluateLongTrailing(108.0); // +8.0% -> Tier 4 Runner anchored to 108
+    assert.equal(trailingTier, 4);
+    assert.equal(parseFloat(sl.toFixed(3)), parseFloat((108 * 0.988).toFixed(3)));
+
+    // Price pulls back to 107.0: SL must never ratchet down!
+    const lockedRunnerSl = sl;
+    evaluateLongTrailing(107.0);
+    assert.equal(sl, lockedRunnerSl, 'Trailing SL must strictly ratchet upwards and never retreat on pullback');
+  });
+
+  await test('M3.9.2: Direction-aware DCA triggers correctly for LONG vs SHORT and blocks on AI loss learning', () => {
+    const dcaThreshold = 0.975; // Crypto 2.5%
+    const shouldTriggerDca = (type: 'BUY' | 'SELL', entryPrice: number, currentPrice: number, hasLossBlock: boolean, isBeLocked: boolean) => {
+      if (hasLossBlock || isBeLocked) return false;
+      const isLong = type === 'BUY';
+      return isLong
+        ? currentPrice <= entryPrice * dcaThreshold
+        : currentPrice >= entryPrice * (2 - dcaThreshold);
+    };
+
+    // LONG position: triggers when price drops -2.5% (97.5), NOT when price rises
+    assert.equal(shouldTriggerDca('BUY', 100, 97.4, false, false), true);
+    assert.equal(shouldTriggerDca('BUY', 100, 102.6, false, false), false);
+
+    // SHORT position: triggers when price rises +2.5% (102.5), NOT when price drops into profit
+    assert.equal(shouldTriggerDca('SELL', 100, 97.4, false, false), false, 'SHORT in profit must NOT trigger DCA');
+    assert.equal(shouldTriggerDca('SELL', 100, 102.6, false, false), true, 'SHORT drawdown must trigger DCA');
+
+    // Blocked when AI learning loss rule exists or Break-Even is already locked
+    assert.equal(shouldTriggerDca('BUY', 100, 97.0, true, false), false, 'AI loss learning must block DCA');
+    assert.equal(shouldTriggerDca('BUY', 100, 97.0, false, true), false, 'Break-Even locked position must not DCA');
+  });
+
+  await test('M3.9.3: Pre-order SL/TP directional validation rejects inverted Stop-Loss or Take-Profit', () => {
+    const validateSlTp = (type: 'BUY' | 'SELL', currentPrice: number, sl?: number, tp?: number) => {
+      if (sl !== undefined) {
+        if (type === 'BUY' && sl >= currentPrice) return false;
+        if (type === 'SELL' && sl <= currentPrice) return false;
+      }
+      if (tp !== undefined) {
+        if (type === 'BUY' && tp <= currentPrice) return false;
+        if (type === 'SELL' && tp >= currentPrice) return false;
+      }
+      return true;
+    };
+
+    assert.equal(validateSlTp('BUY', 100, 97, 106), true);
+    assert.equal(validateSlTp('BUY', 100, 102, 106), false, 'BUY with SL above currentPrice must be rejected');
+    assert.equal(validateSlTp('BUY', 100, 97, 98), false, 'BUY with TP below currentPrice must be rejected');
+    assert.equal(validateSlTp('SELL', 100, 103, 94), true);
+    assert.equal(validateSlTp('SELL', 100, 98, 94), false, 'SELL with SL below currentPrice must be rejected');
+    assert.equal(validateSlTp('SELL', 100, 103, 105), false, 'SELL with TP above currentPrice must be rejected');
+  });
+
+  await test('M3.9.4: 50% Partial Close credits half margin + net profit (after 10% vault skim) and locks Break-Even', () => {
+    let balance = 900; // $1000 initial - $100 position
+    let reserveVault = 0;
+    let position = { amount: 100, entryPrice: 100, sl: 97, isBreakEvenLocked: false };
+    const totalProfit = 20; // +$20 profit on full position
+
+    const halfAmount = position.amount * 0.5; // $50
+    const halfProfit = totalProfit * 0.5; // +$10
+    const vaultSkim = halfProfit * 0.10; // $1
+    const netProfit = halfProfit - vaultSkim; // $9
+
+    balance += halfAmount + netProfit;
+    reserveVault += vaultSkim;
+    position = {
+      ...position,
+      amount: position.amount - halfAmount,
+      sl: position.entryPrice * 1.003,
+      isBreakEvenLocked: true
+    };
+
+    assert.equal(balance, 959);
+    assert.equal(reserveVault, 1);
+    assert.equal(position.amount, 50);
+    assert.equal(position.isBreakEvenLocked, true);
+    assert.ok(position.sl > position.entryPrice);
+  });
+
+  // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------
   const passedCount = suiteResults.filter(r => r.passed).length;

@@ -25,6 +25,9 @@ export interface Position {
   highestPrice?: number;
   lowestPrice?: number;
   highestPnlPct?: number;
+  trailingTier?: number;
+  isBreakEvenLocked?: boolean;
+  partialCloseCount?: number;
   dcaCount?: number;
   mode?: 'DEMO' | 'REAL';
   pnl?: number;

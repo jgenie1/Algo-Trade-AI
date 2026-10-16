@@ -168,6 +168,42 @@ export default function ManualOrderForm({
       : getRealMarketBasePrice(selectedPair);
 
     try {
+      const parsedSl = stopLoss ? parseFloat(stopLoss) : undefined;
+      const parsedTp = takeProfit ? parseFloat(takeProfit) : undefined;
+      const effectiveOrderType: 'BUY' | 'SELL' = (tradingMode === 'REAL' && selectedPair.startsWith('SOL:')) ? 'BUY' : orderType;
+
+      if (parsedSl !== undefined && !isNaN(parsedSl) && currentPrice > 0) {
+        if (effectiveOrderType === 'BUY' && parsedSl >= currentPrice) {
+          alert(`Stop Loss invalide pour un ordre d'achat (LONG) : le Stop Loss (${parsedSl}) doit être strictement inférieur au prix actuel (${currentPrice}).`);
+          return;
+        }
+        if (effectiveOrderType === 'SELL' && parsedSl <= currentPrice) {
+          alert(`Stop Loss invalide pour un ordre de vente (SHORT) : le Stop Loss (${parsedSl}) doit être strictement supérieur au prix actuel (${currentPrice}).`);
+          return;
+        }
+      }
+      if (parsedTp !== undefined && !isNaN(parsedTp) && currentPrice > 0) {
+        if (effectiveOrderType === 'BUY' && parsedTp <= currentPrice) {
+          alert(`Take Profit invalide pour un ordre d'achat (LONG) : le Take Profit (${parsedTp}) doit être strictement supérieur au prix actuel (${currentPrice}).`);
+          return;
+        }
+        if (effectiveOrderType === 'SELL' && parsedTp >= currentPrice) {
+          alert(`Take Profit invalide pour un ordre de vente (SHORT) : le Take Profit (${parsedTp}) doit être strictement inférieur au prix actuel (${currentPrice}).`);
+          return;
+        }
+      }
+
+      const isMemePair = selectedPair.startsWith('SOL:');
+      const isBoostedOrder = !!aiMatch.boostedReason && !aiMatch.blockedReason;
+      const defaultSlRatio = isMemePair ? (isBoostedOrder ? 0.065 : 0.08) : (isBoostedOrder ? 0.024 : 0.03);
+      const defaultTpRatio = isMemePair ? (isBoostedOrder ? 0.30 : 0.25) : (isBoostedOrder ? 0.075 : 0.06);
+      const computedSl = (parsedSl !== undefined && !isNaN(parsedSl))
+        ? parsedSl
+        : (currentPrice > 0 ? (effectiveOrderType === 'BUY' ? currentPrice * (1 - defaultSlRatio) : currentPrice * (1 + defaultSlRatio)) : undefined);
+      const computedTp = (parsedTp !== undefined && !isNaN(parsedTp))
+        ? parsedTp
+        : (currentPrice > 0 ? (effectiveOrderType === 'BUY' ? currentPrice * (1 + defaultTpRatio) : currentPrice * (1 - defaultTpRatio)) : undefined);
+
       if (tradingMode === 'REAL') {
         // R1 & R2: Vérification obligatoire du wallet connecté
         if (!isSolanaWalletActive || !solanaPubKey) {
@@ -218,26 +254,25 @@ export default function ManualOrderForm({
             const explorerUrl = res.explorerUrl || getExplorerTxUrl('SOL', res.txHash);
             addBotLog("manual", "Manuel", `[ACHAT MANUEL RÉEL RÉUSSI] Transaction confirmée ! Hash: ${res.txHash.slice(0, 16)}... Solscan: ${explorerUrl}`, 'trade');
 
-            const sl = stopLoss ? parseFloat(stopLoss) : undefined;
-            const tp = takeProfit ? parseFloat(takeProfit) : undefined;
-
             const newRealPos: Position = {
               id: 'pos_' + Math.random().toString(36).substring(2, 9),
               pair: selectedPair,
               type: 'BUY',
               entryPrice: currentPrice,
               currentPrice: currentPrice,
+              highestPrice: currentPrice,
               amount: orderAmount,
               leverage: 1,
-              sl,
-              tp,
+              sl: computedSl,
+              tp: computedTp,
+              trailingTier: 0,
               timestamp: Date.now(),
               txHash: res.txHash,
               mint: mintAddress,
               bondingCurveProgress: curveProgress,
               replyCount: replyCount,
-              isAiPatternBoosted: !!aiMatch.boostedReason && !aiMatch.blockedReason,
-              aiBoostReason: (aiMatch.boostedReason && !aiMatch.blockedReason) ? aiMatch.boostedReason : undefined,
+              isAiPatternBoosted: isBoostedOrder,
+              aiBoostReason: isBoostedOrder ? aiMatch.boostedReason! : undefined,
               mode: 'REAL' as const
             };
 
@@ -260,9 +295,6 @@ export default function ManualOrderForm({
         const isCryptoOnChain = !!SOLANA_TOKEN_MINTS[pairSymbol];
 
         if (isCryptoOnChain) {
-          const sl = stopLoss ? parseFloat(stopLoss) : undefined;
-          const tp = takeProfit ? parseFloat(takeProfit) : undefined;
-
           addBotLog("manual", "Manuel", `Envoi d'un ordre réel ${orderType} de ${orderAmount} SOL pour ${pairSymbol} via Jupiter DEX (Solana Mainnet)...`, 'info');
 
           const res = await executeJupiterSwap({
@@ -283,14 +315,17 @@ export default function ManualOrderForm({
               type: orderType,
               entryPrice: currentPrice,
               currentPrice: currentPrice,
+              highestPrice: orderType === 'BUY' ? currentPrice : undefined,
+              lowestPrice: orderType === 'SELL' ? currentPrice : undefined,
               amount: orderAmount,
               leverage: 1,
-              sl,
-              tp,
+              sl: computedSl,
+              tp: computedTp,
+              trailingTier: 0,
               timestamp: Date.now(),
               txHash: res.txHash,
-              isAiPatternBoosted: !!aiMatch.boostedReason && !aiMatch.blockedReason,
-              aiBoostReason: (aiMatch.boostedReason && !aiMatch.blockedReason) ? aiMatch.boostedReason : undefined,
+              isAiPatternBoosted: isBoostedOrder,
+              aiBoostReason: isBoostedOrder ? aiMatch.boostedReason! : undefined,
               mode: 'REAL' as const
             };
 
@@ -327,24 +362,24 @@ export default function ManualOrderForm({
         return;
       }
 
-      const sl = stopLoss ? parseFloat(stopLoss) : undefined;
-      const tp = takeProfit ? parseFloat(takeProfit) : undefined;
-
       const newPos: Position = {
         id: 'pos_' + Math.random().toString(36).substring(2, 9),
         pair: selectedPair,
         type: orderType,
         entryPrice: currentPrice,
         currentPrice: currentPrice,
+        highestPrice: orderType === 'BUY' ? currentPrice : undefined,
+        lowestPrice: orderType === 'SELL' ? currentPrice : undefined,
         amount: orderAmount,
         leverage: leverage,
-        sl,
-        tp,
+        sl: computedSl,
+        tp: computedTp,
+        trailingTier: 0,
         timestamp: Date.now(),
         bondingCurveProgress: curveProgress,
         replyCount: replyCount,
-        isAiPatternBoosted: !!aiMatch.boostedReason && !aiMatch.blockedReason,
-        aiBoostReason: (aiMatch.boostedReason && !aiMatch.blockedReason) ? aiMatch.boostedReason : undefined,
+        isAiPatternBoosted: isBoostedOrder,
+        aiBoostReason: isBoostedOrder ? aiMatch.boostedReason! : undefined,
         mode: 'DEMO'
       };
 
@@ -540,28 +575,58 @@ export default function ManualOrderForm({
             </div>
 
             {/* SL / TP inputs */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-white/40 uppercase font-headline">Stop Loss (Prix)</label>
-                <Input
-                  type="number"
-                  step="0.00001"
-                  value={stopLoss}
-                  placeholder={activePairPrice ? (orderType === 'BUY' ? (activePairPrice * 0.985).toFixed(5) : (activePairPrice * 1.015).toFixed(5)) : 'Facultatif'}
-                  onChange={(e) => setStopLoss(e.target.value)}
-                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-body focus:outline-none"
-                />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-white/40 uppercase font-headline">Protection Stop Loss / Take Profit</span>
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: 'Scalp', slPct: 0.015, tpPct: 0.035 },
+                    { label: 'Standard', slPct: 0.03, tpPct: 0.06 },
+                    { label: 'Swing', slPct: 0.05, tpPct: 0.12 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        const base = activePairPrice || getRealMarketBasePrice(selectedPair);
+                        if (base > 0) {
+                          const decimals = base >= 100 ? 2 : base >= 1 ? 4 : 6;
+                          const nextSl = orderType === 'BUY' ? base * (1 - preset.slPct) : base * (1 + preset.slPct);
+                          const nextTp = orderType === 'BUY' ? base * (1 + preset.tpPct) : base * (1 - preset.tpPct);
+                          setStopLoss(nextSl.toFixed(decimals));
+                          setTakeProfit(nextTp.toFixed(decimals));
+                        }
+                      }}
+                      className="px-2 py-0.5 text-[9px] font-mono font-bold bg-white/5 hover:bg-white/15 border border-white/10 rounded text-slate-300 hover:text-[#c2ff0c] transition-all cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-white/40 uppercase font-headline">Take Profit (Prix)</label>
-                <Input
-                  type="number"
-                  step="0.00001"
-                  value={takeProfit}
-                  placeholder={activePairPrice ? (orderType === 'BUY' ? (activePairPrice * 1.03).toFixed(5) : (activePairPrice * 0.97).toFixed(5)) : 'Facultatif'}
-                  onChange={(e) => setTakeProfit(e.target.value)}
-                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-body focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-rose-300/80 uppercase font-headline">Stop Loss (Prix)</label>
+                  <Input
+                    type="number"
+                    step="0.00001"
+                    value={stopLoss}
+                    placeholder={activePairPrice ? (orderType === 'BUY' ? (activePairPrice * 0.97).toFixed(5) : (activePairPrice * 1.03).toFixed(5)) : 'Auto -3%'}
+                    onChange={(e) => setStopLoss(e.target.value)}
+                    className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-body focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-emerald-300/80 uppercase font-headline">Take Profit (Prix)</label>
+                  <Input
+                    type="number"
+                    step="0.00001"
+                    value={takeProfit}
+                    placeholder={activePairPrice ? (orderType === 'BUY' ? (activePairPrice * 1.06).toFixed(5) : (activePairPrice * 0.94).toFixed(5)) : 'Auto +6%'}
+                    onChange={(e) => setTakeProfit(e.target.value)}
+                    className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-body focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -677,7 +742,7 @@ export default function ManualOrderForm({
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold text-purple-300 uppercase font-headline">Montant à Acheter (SOL)</label>
                 <span className="text-[10px] text-[#c2ff0c] font-mono font-semibold">
-                  Disponible : {solanaBalance !== null ? `${solanaBalance.toFixed(3)} SOL (${formatSolToUsdAndHtg(solanaBalance).combinedLabel})` : '0.00 SOL'}
+                  Disponible : {solanaBalance !== null ? `${Math.max(0, solanaBalance - (Number(reserveVaultSol) || 0)).toFixed(4)} SOL (${formatSolToUsdAndHtg(Math.max(0, solanaBalance - (Number(reserveVaultSol) || 0))).combinedLabel})` : '0.0000 SOL'}
                 </span>
               </div>
               <div className="relative">
@@ -704,8 +769,8 @@ export default function ManualOrderForm({
                     key={pct}
                     type="button"
                     onClick={() => {
-                      const avail = Math.max(0, (solanaBalance || 0) - 0.005);
-                      const calculated = Math.max(0.001, Math.floor(avail * pct * 1000) / 1000);
+                      const avail = Math.max(0, (solanaBalance || 0) - (Number(reserveVaultSol) || 0) - 0.002);
+                      const calculated = Math.max(0.001, Math.floor(avail * pct * 10000) / 10000);
                       setOrderAmount(calculated);
                     }}
                     className="py-1.5 px-2 text-[10px] font-mono font-extrabold bg-purple-950/40 hover:bg-purple-900/40 border border-purple-500/20 rounded-lg text-purple-200 hover:text-white transition-all active:scale-95 select-none"
@@ -716,7 +781,7 @@ export default function ManualOrderForm({
                 <button
                   type="button"
                   onClick={() => {
-                    const avail = Math.max(0.001, Math.floor(Math.max(0, (solanaBalance || 0) - 0.005) * 1000) / 1000);
+                    const avail = Math.max(0.001, Math.floor(Math.max(0, (solanaBalance || 0) - (Number(reserveVaultSol) || 0) - 0.002) * 10000) / 10000);
                     setOrderAmount(avail);
                   }}
                   className="py-1.5 px-2 text-[10px] font-mono font-extrabold bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-[#c2ff0c] hover:text-white transition-all active:scale-95 select-none"
@@ -727,28 +792,56 @@ export default function ManualOrderForm({
             </div>
 
             {/* Optional Stop Loss & Take Profit for Solana */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-rose-300 uppercase font-headline">Stop Loss (Prix / $)</label>
-                <Input
-                  type="number"
-                  step="0.0000001"
-                  value={stopLoss}
-                  placeholder={activePairPrice > 0 ? (activePairPrice * 0.92).toFixed(6) : "Auto -8%"}
-                  onChange={(e) => setStopLoss(e.target.value)}
-                  className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
-                />
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-purple-300/80 uppercase font-headline">Protection SL / TP On-Chain</span>
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: 'Sniper (-6% / +15%)', slPct: 0.06, tpPct: 0.15 },
+                    { label: 'Auto (-8% / +25%)', slPct: 0.08, tpPct: 0.25 },
+                    { label: 'Moon (-8% / +50%)', slPct: 0.08, tpPct: 0.50 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        const base = activePairPrice || getRealMarketBasePrice(selectedPair);
+                        if (base > 0) {
+                          const decimals = base >= 1 ? 4 : base >= 0.001 ? 6 : 8;
+                          setStopLoss((base * (1 - preset.slPct)).toFixed(decimals));
+                          setTakeProfit((base * (1 + preset.tpPct)).toFixed(decimals));
+                        }
+                      }}
+                      className="px-2 py-0.5 text-[9px] font-mono font-bold bg-purple-950/40 hover:bg-purple-800/40 border border-purple-500/30 rounded text-purple-200 hover:text-[#c2ff0c] transition-all cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-emerald-300 uppercase font-headline">Take Profit (Prix / $)</label>
-                <Input
-                  type="number"
-                  step="0.0000001"
-                  value={takeProfit}
-                  placeholder={activePairPrice > 0 ? (activePairPrice * 1.25).toFixed(6) : "Auto +25%"}
-                  onChange={(e) => setTakeProfit(e.target.value)}
-                  className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-rose-300 uppercase font-headline">Stop Loss (Prix / $)</label>
+                  <Input
+                    type="number"
+                    step="0.0000001"
+                    value={stopLoss}
+                    placeholder={activePairPrice > 0 ? (activePairPrice * 0.92).toFixed(6) : "Auto -8%"}
+                    onChange={(e) => setStopLoss(e.target.value)}
+                    className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-emerald-300 uppercase font-headline">Take Profit (Prix / $)</label>
+                  <Input
+                    type="number"
+                    step="0.0000001"
+                    value={takeProfit}
+                    placeholder={activePairPrice > 0 ? (activePairPrice * 1.25).toFixed(6) : "Auto +25%"}
+                    onChange={(e) => setTakeProfit(e.target.value)}
+                    className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-3 text-xs focus:ring-[#c2ff0c] text-white font-mono focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 

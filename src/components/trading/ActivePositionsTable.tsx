@@ -47,9 +47,34 @@ export default function ActivePositionsTable({
   handleClosePosition,
   handleCloseAllPositions
 }: ActivePositionsTableProps) {
-  const { activePositions, tradingMode, isLoading } = useAppState();
+  const { activePositions, setActivePositions, tradingMode, isLoading } = useAppState();
   const [closingIds, setClosingIds] = React.useState<Record<string, boolean>>({});
   const [isClosingAll, setIsClosingAll] = React.useState(false);
+
+  const handleQuickBreakEven = (p: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!p || !p.entryPrice) return;
+    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+    const bufferRatio = p.pair?.startsWith('SOL:') ? 0.005 : 0.003;
+    const beSl = isLong ? p.entryPrice * (1 + bufferRatio) : p.entryPrice * (1 - bufferRatio);
+
+    setActivePositions(prev => {
+      const updated = prev.map(item =>
+        item.id === p.id
+          ? {
+              ...item,
+              sl: beSl,
+              isBreakEvenLocked: true,
+              trailingTier: Math.max(item.trailingTier || 0, 1)
+            }
+          : item
+      );
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('trade_positions', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
 
   const safePositions = React.useMemo(() => {
     return Array.isArray(activePositions) ? activePositions : [];
@@ -193,6 +218,21 @@ export default function ActivePositionsTable({
                 const isProfit = profit >= 0;
                 const { symbol: cleanAsset, badge, isSolana } = getDisplayPairLabel(p.pair);
                 const isPosReal = isRealOnChainPosition(p);
+                const isBeLocked = Boolean(
+                  p.isBreakEvenLocked ||
+                  (isLong && p.sl && p.sl > entry) ||
+                  (!isLong && p.sl && p.sl < entry)
+                );
+                const canLockBe = isLong
+                  ? current > entry * 1.003 && !isBeLocked
+                  : current < entry * 0.997 && !isBeLocked;
+
+                const effSl = p.sl || (isLong ? entry * 0.97 : entry * 1.03);
+                const effTp = p.tp || (isLong ? entry * 1.06 : entry * 0.94);
+                const range = Math.abs(effTp - effSl);
+                const progressPct = range > 0
+                  ? Math.max(0, Math.min(100, isLong ? ((current - effSl) / range) * 100 : ((effSl - current) / range) * 100))
+                  : 50;
 
                 return (
                   <div
@@ -201,7 +241,7 @@ export default function ActivePositionsTable({
                     className="p-4 bg-[#1a1429] hover:bg-[#231b38] border border-white/15 hover:border-purple-500/40 rounded-2xl space-y-3 shadow-lg cursor-pointer transition-all duration-200 group"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono font-extrabold text-base text-white group-hover:text-[#c2ff0c] transition-colors">{cleanAsset}</span>
                         <Badge className={cn("text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase", isSolana ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 text-white/60 border-white/10')}>
                           {badge}
@@ -219,9 +259,9 @@ export default function ActivePositionsTable({
                             DCA x{p.dcaCount}
                           </span>
                         )}
-                        {((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) && (
+                        {isBeLocked && (
                           <span className="bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-[10px] font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 font-mono">
-                            🛡️ Sécurisé
+                            🛡️ {p.trailingTier && p.trailingTier >= 4 ? 'RUNNER T4' : p.trailingTier && p.trailingTier >= 2 ? `PALIER T${p.trailingTier}` : 'BE Sécurisé'}
                           </span>
                         )}
                         {p.isAiPatternBoosted && (
@@ -259,19 +299,27 @@ export default function ActivePositionsTable({
                       </div>
                     </div>
 
-                    {/* Dynamic price precision formatting with SL and TP */}
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 bg-black/40 p-3 rounded-xl border border-white/10">
-                      <div>Entrée: <span className="text-white font-extrabold">{formatDisplayPrice(entry)}</span></div>
-                      <div>Prix Direct: <span className="text-white font-extrabold">{formatDisplayPrice(current)}</span></div>
-                      <div>
-                        SL: <span className={cn("font-extrabold", ((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) ? "text-emerald-400" : "text-rose-400")}>
-                          {p.sl ? formatDisplayPrice(p.sl) : (isLong ? formatDisplayPrice(entry * 0.97) : formatDisplayPrice(entry * 1.03))}
-                        </span>
-                        {((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) && (
-                          <span className="text-[9px] text-emerald-300/80 ml-1 font-semibold">(Gain Garanti)</span>
-                        )}
+                    {/* Dynamic price precision formatting with SL and TP + Progress Bar */}
+                    <div className="space-y-2 text-xs font-mono text-slate-300 bg-black/40 p-3 rounded-xl border border-white/10">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>Entrée: <span className="text-white font-extrabold">{formatDisplayPrice(entry)}</span></div>
+                        <div>Prix Direct: <span className="text-white font-extrabold">{formatDisplayPrice(current)}</span></div>
+                        <div>
+                          SL: <span className={cn("font-extrabold", isBeLocked ? "text-emerald-400" : "text-rose-400")}>
+                            {formatDisplayPrice(effSl)}
+                          </span>
+                          {isBeLocked && (
+                            <span className="text-[9px] text-emerald-300/80 ml-1 font-semibold">(Garanti)</span>
+                          )}
+                        </div>
+                        <div>TP: <span className="text-emerald-400 font-extrabold">{formatDisplayPrice(effTp)}</span></div>
                       </div>
-                      <div>TP: <span className="text-emerald-400 font-extrabold">{p.tp ? formatDisplayPrice(p.tp) : (isLong ? formatDisplayPrice(entry * 1.06) : formatDisplayPrice(entry * 0.94))}</span></div>
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full transition-all duration-300", isProfit ? "bg-emerald-400" : "bg-rose-400")}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
                     </div>
 
                     <div className="flex gap-2 pt-1">
@@ -285,6 +333,14 @@ export default function ActivePositionsTable({
                       >
                         <Eye className="h-3.5 w-3.5 text-purple-400" /> Détails
                       </Button>
+                      {canLockBe && (
+                        <Button
+                          onClick={(e) => handleQuickBreakEven(p, e)}
+                          className="h-9 px-3 bg-emerald-600/30 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-200 text-xs font-headline font-bold rounded-xl cursor-pointer"
+                        >
+                          🛡️ BE
+                        </Button>
+                      )}
                       <Button
                         onClick={(e) => handleSingleClose(p, e)}
                         disabled={Boolean(p.id && closingIds[p.id]) || isClosingAll}
@@ -330,6 +386,21 @@ export default function ActivePositionsTable({
                     const isProfit = profit >= 0;
                     const { symbol: cleanAsset, badge, isSolana } = getDisplayPairLabel(p.pair);
                     const isPosReal = isRealOnChainPosition(p);
+                    const isBeLocked = Boolean(
+                      p.isBreakEvenLocked ||
+                      (isLong && p.sl && p.sl > entry) ||
+                      (!isLong && p.sl && p.sl < entry)
+                    );
+                    const canLockBe = isLong
+                      ? current > entry * 1.003 && !isBeLocked
+                      : current < entry * 0.997 && !isBeLocked;
+
+                    const effSl = p.sl || (isLong ? entry * 0.97 : entry * 1.03);
+                    const effTp = p.tp || (isLong ? entry * 1.06 : entry * 0.94);
+                    const range = Math.abs(effTp - effSl);
+                    const progressPct = range > 0
+                      ? Math.max(0, Math.min(100, isLong ? ((current - effSl) / range) * 100 : ((effSl - current) / range) * 100))
+                      : 50;
 
                     return (
                       <TableRow
@@ -337,7 +408,7 @@ export default function ActivePositionsTable({
                         onClick={() => setSelectedPosition(p)}
                         className="border-b border-white/10 hover:bg-white/10 cursor-pointer transition-colors group"
                       >
-                        <TableCell className="py-3.5 px-4 font-extrabold font-mono text-sm text-white flex items-center gap-2 group-hover:text-[#c2ff0c] transition-colors">
+                        <TableCell className="py-3.5 px-4 font-extrabold font-mono text-sm text-white flex items-center gap-2 flex-wrap group-hover:text-[#c2ff0c] transition-colors">
                           <span>{cleanAsset}</span>
                           <Badge className={cn("text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase", isSolana ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 text-white/60 border-white/10')}>
                             {badge}
@@ -350,6 +421,11 @@ export default function ActivePositionsTable({
                           {p.dcaCount && p.dcaCount > 1 && (
                             <span className="bg-blue-950/60 text-blue-300 border border-blue-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono">
                               DCA x{p.dcaCount}
+                            </span>
+                          )}
+                          {isBeLocked && (
+                            <span className="bg-emerald-950/70 text-emerald-300 border border-emerald-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono flex items-center gap-1">
+                              🛡️ {p.trailingTier && p.trailingTier >= 4 ? 'RUNNER T4' : p.trailingTier && p.trailingTier >= 2 ? `PALIER T${p.trailingTier}` : 'BE'}
                             </span>
                           )}
                           {p.isAiPatternBoosted && (
@@ -380,17 +456,23 @@ export default function ActivePositionsTable({
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{amt.toFixed(isPosReal ? 4 : 2)} {isPosReal ? 'SOL' : '$'}</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-slate-200 font-bold">{formatDisplayPrice(entry)}</TableCell>
                         <TableCell className="py-3.5 px-4 font-mono text-sm text-[#c2ff0c] font-extrabold">{formatDisplayPrice(current)}</TableCell>
-                        <TableCell className="py-3.5 px-4 font-mono text-xs">
-                          <div className="flex flex-col gap-0.5">
-                            <span className={cn("font-bold whitespace-nowrap", ((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) ? "text-emerald-400" : "text-rose-400")}>
-                              SL: {p.sl ? formatDisplayPrice(p.sl) : (isLong ? formatDisplayPrice(entry * 0.97) : formatDisplayPrice(entry * 1.03))}
-                              {((isLong && p.sl && p.sl > entry) || (!isLong && p.sl && p.sl < entry)) && (
+                        <TableCell className="py-3.5 px-4 font-mono text-xs min-w-[140px]">
+                          <div className="flex flex-col gap-1">
+                            <span className={cn("font-bold whitespace-nowrap", isBeLocked ? "text-emerald-400" : "text-rose-400")}>
+                              SL: {formatDisplayPrice(effSl)}
+                              {isBeLocked && (
                                 <span className="text-[9px] text-emerald-300/90 ml-1 font-semibold">🛡️ Garanti</span>
                               )}
                             </span>
                             <span className="text-emerald-400 font-bold whitespace-nowrap">
-                              TP: {p.tp ? formatDisplayPrice(p.tp) : (isLong ? formatDisplayPrice(entry * 1.06) : formatDisplayPrice(entry * 0.94))}
+                              TP: {formatDisplayPrice(effTp)}
                             </span>
+                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mt-0.5" title={`Progression vers TP: ${progressPct.toFixed(0)}%`}>
+                              <div
+                                className={cn("h-full rounded-full transition-all duration-300", isProfit ? "bg-emerald-400" : "bg-rose-400")}
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="py-3.5 px-4 text-right">
@@ -405,9 +487,14 @@ export default function ActivePositionsTable({
                           <span className={cn("text-xs font-mono font-bold block opacity-90", isProfit ? "text-emerald-400" : "text-rose-400")}>
                             ({isProfit ? '+' : ''}{pnlPct.toFixed(2)}%)
                           </span>
+                          {(p.highestPnlPct || 0) > 0.5 && (
+                            <span className="text-[9px] font-mono text-white/40 block">
+                              Pic: +{(p.highestPnlPct || 0).toFixed(1)}%
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <Button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -419,6 +506,16 @@ export default function ActivePositionsTable({
                             >
                               <Eye className="h-3.5 w-3.5 text-purple-400" /> Détails
                             </Button>
+                            {canLockBe && (
+                              <Button
+                                onClick={(e) => handleQuickBreakEven(p, e)}
+                                size="sm"
+                                title="Verrouiller le Stop-Loss à Break-Even (+0.3% à +0.5%)"
+                                className="h-8 px-2 bg-emerald-600/25 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold rounded-lg cursor-pointer active:scale-95 transition-all"
+                              >
+                                🛡️ BE
+                              </Button>
+                            )}
                             <Button
                               onClick={(e) => handleSingleClose(p, e)}
                               disabled={Boolean(p.id && closingIds[p.id]) || isClosingAll}
