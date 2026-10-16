@@ -13,7 +13,7 @@ import SettingsNotificationsCard from '@/components/layout/SettingsNotifications
 import { getNotificationSettings, saveNotificationSettings, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, dispatchAlert } from '@/services/notificationService';
 
 export default function SettingsPage() {
-  const { setBalance } = useAppState();
+  const { setBalance, resetDemoData } = useAppState();
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const [rpcUrl, setRpcUrl] = useState<string>('https://solana-rpc.publicnode.com');
@@ -124,6 +124,7 @@ export default function SettingsPage() {
       localStorage.setItem('settings_tv_webhook_url', tvWebhookUrl.trim());
       localStorage.setItem('settings_tv_secret', tvSecret.trim());
       saveNotificationSettings(notifSettings);
+      window.dispatchEvent(new Event('web3_wallet_updated'));
     }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
@@ -137,8 +138,8 @@ export default function SettingsPage() {
   };
 
   const handleResetDemo = () => {
-    if (confirm("Réinitialiser le solde virtuel à 10,000 $ ?")) {
-      setBalance(10000);
+    if (confirm("Réinitialiser le solde virtuel à 10,000 $ et nettoyer les positions/bots de démonstration ?")) {
+      resetDemoData();
     }
   };
 
@@ -285,7 +286,9 @@ export default function SettingsPage() {
                     const secretBase58 = bs58.encode(kp.secretKey);
                     const pubKey = kp.publicKey.toBase58();
                     setSolanaPrivateKey(secretBase58);
+                    setSolanaPubKeyInput(pubKey);
                     localStorage.setItem('settings_solana_private_key', secretBase58);
+                    window.dispatchEvent(new Event('web3_wallet_updated'));
                     alert(`✅ Nouveau portefeuille Bot Solana généré !\n\n📍 Adresse Publique : ${pubKey}\n\nEnvoyez vos SOL (ex: 0.1 SOL) à cette adresse pour alimenter vos robots sans validation Phantom.`);
                   } catch (err: any) {
                     alert("Erreur de génération : " + err.message);

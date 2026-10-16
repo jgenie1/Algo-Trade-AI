@@ -109,7 +109,7 @@ export const COMMUNITY_STRATEGIES: StrategyItem[] = [
 ];
 
 export default function StrategyMarketplace() {
-  const { bots, setBots, balance, reserveVault, tradingMode, setTradingMode } = useAppState();
+  const { bots, setBots, balance, reserveVault, reserveVaultSol, tradingMode, setTradingMode } = useAppState();
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -124,11 +124,23 @@ export default function StrategyMarketplace() {
   });
 
   const handleCopyStrategy = (strat: StrategyItem) => {
-    const requiredCapital = tradingMode === 'REAL' ? 0.1 : 500;
-    if (tradingMode === 'DEMO' && allocatableBalance < requiredCapital) {
-      alert(`Capital allocable insuffisant pour démarrer la stratégie ($${allocatableBalance.toFixed(2)} disponibles). Requis: $${requiredCapital}. Le Coffre-Fort de Réserve 10% ($${(Number(reserveVault) || 0).toFixed(2)}) est intouchable.`);
+    const isReal = tradingMode === 'REAL';
+    const currentSolBal = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_solana_balance') || '0') : 0;
+    const allocatableRealSol = Math.max(0, currentSolBal - (Number(reserveVaultSol) || 0));
+
+    if (isReal && allocatableRealSol < 0.001) {
+      alert(`Solde SOL disponible insuffisant (${allocatableRealSol.toFixed(4)} SOL disponibles). Minimum requis : 0.001 SOL pour déployer une stratégie en mode Réel.`);
       return;
     }
+
+    if (!isReal && allocatableBalance < 10) {
+      alert(`Capital allocable insuffisant pour démarrer la stratégie ($${allocatableBalance.toFixed(2)} disponibles). Minimum requis: $10. Le Coffre-Fort de Réserve 10% ($${(Number(reserveVault) || 0).toFixed(2)}) est intouchable.`);
+      return;
+    }
+
+    const botCapital = isReal
+      ? parseFloat(Math.min(0.1, allocatableRealSol).toFixed(4))
+      : Math.min(500, Math.floor(allocatableBalance));
 
     const rawPair = strat.pairs[0] || 'SOL/USDC';
     const normalizedPair = rawPair.includes('/') ? rawPair.split('/')[0] : rawPair;
@@ -141,7 +153,7 @@ export default function StrategyMarketplace() {
       status: 'RUNNING' as const,
       pnl: 0,
       pnlPercent: 0,
-      capital: requiredCapital,
+      capital: botCapital,
       tradesCount: 0,
       winRate: strat.winRate,
       aiModel: strat.aiEngine,

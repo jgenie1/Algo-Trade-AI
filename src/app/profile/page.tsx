@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, isRealOnChainPosition } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import { getRealSolanaBalance } from '@/services/pumpFunService';
+import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,7 @@ export default function ProfilePage() {
       const storedCurrency = localStorage.getItem('profile_currency');
       const storedAvatar = localStorage.getItem('profile_avatar_url');
       const stored2FA = localStorage.getItem('profile_2fa_enabled');
+      const storedWallet = localStorage.getItem('connected_web3_wallet');
 
       if (storedName) setFullName(storedName);
       if (storedEmail) setEmail(storedEmail);
@@ -64,14 +65,35 @@ export default function ProfilePage() {
       if (storedCurrency) setPreferredCurrency(storedCurrency);
       if (storedAvatar) setAvatarUrl(storedAvatar);
       if (stored2FA !== null) setIs2FAEnabled(stored2FA === 'true');
+      if (storedWallet) {
+        try {
+          const parsed = JSON.parse(storedWallet);
+          if (parsed?.address) setSolanaPubKey(parsed.address);
+        } catch (e) {}
+      }
     }
 
-    getRealSolanaBalance().then(res => {
-      if (res && res.success && res.balance !== undefined && res.publicKey) {
-        setSolanaBalance(res.balance);
-        setSolanaPubKey(res.publicKey);
-      }
-    });
+    const syncWallet = () => {
+      fetchLiveWalletBalance().then(res => {
+        if (res && res.success) {
+          if (res.solanaBalance !== null) setSolanaBalance(res.solanaBalance);
+          if (res.solanaPubKey) setSolanaPubKey(res.solanaPubKey);
+        } else {
+          getRealSolanaBalance().then(fallback => {
+            if (fallback && fallback.success && fallback.balance !== undefined && fallback.publicKey) {
+              setSolanaBalance(fallback.balance);
+              setSolanaPubKey(fallback.publicKey);
+            }
+          });
+        }
+      });
+    };
+
+    syncWallet();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('web3_wallet_updated', syncWallet);
+      return () => window.removeEventListener('web3_wallet_updated', syncWallet);
+    }
   }, []);
 
   const handleCopyPubKey = () => {

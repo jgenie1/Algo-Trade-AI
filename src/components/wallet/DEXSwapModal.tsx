@@ -21,7 +21,7 @@ import {
   ShieldCheck 
 } from 'lucide-react';
 import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap, DEXSwapResult, WalletToken, fetchWalletTokenBalances } from '@/services/dexSwapService';
-import { getRealSolanaBalance } from '@/services/pumpFunService';
+import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import { useAppState } from '@/context/AppContext';
 import { getRealMarketBasePrice } from '@/lib/utils';
@@ -48,10 +48,16 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     const syncBalances = async () => {
       let currentSolBal = propSolanaBalance ?? null;
       if (currentSolBal === null) {
-        const res = await getRealSolanaBalance();
-        if (res && res.success && res.balance !== undefined) {
-          currentSolBal = res.balance;
-          setSolanaBalanceState(res.balance);
+        const liveRes = await fetchLiveWalletBalance();
+        if (liveRes && liveRes.success && liveRes.solanaBalance !== null) {
+          currentSolBal = liveRes.solanaBalance;
+          setSolanaBalanceState(liveRes.solanaBalance);
+        } else {
+          const res = await getRealSolanaBalance();
+          if (res && res.success && res.balance !== undefined) {
+            currentSolBal = res.balance;
+            setSolanaBalanceState(res.balance);
+          }
         }
       } else {
         setSolanaBalanceState(currentSolBal);
@@ -223,6 +229,16 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
   const handleExecuteSwap = async () => {
     const numAmount = parseFloat(amount);
     if (!quote || isNaN(numAmount) || numAmount <= 0) return;
+
+    const availableBal = getTokenBalance(fromToken);
+    if (numAmount > availableBal) {
+      setSwapResult({
+        success: false,
+        txHash: '',
+        message: `Solde ${fromToken.symbol} insuffisant (${availableBal.toFixed(4)} ${fromToken.symbol} disponibles).`
+      });
+      return;
+    }
 
     setIsSwapping(true);
     setSwapResult(null);

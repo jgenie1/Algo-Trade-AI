@@ -14,7 +14,7 @@ import {
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const { tradingMode, setTradingMode, balance, reserveVault, bots, setBots, closedPositions } = useAppState();
+  const { tradingMode, setTradingMode, balance, reserveVault, reserveVaultSol, bots, setBots, closedPositions } = useAppState();
 
   const [isMounted, setIsMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -31,22 +31,24 @@ export default function LeaderboardPage() {
   );
   const userTotalTrades = userClosedTrades.length;
   const userWinningTrades = userClosedTrades.filter((t) => (t.profit || 0) >= 0).length;
-  const userWinRateVal = userTotalTrades > 0 ? (userWinningTrades / userTotalTrades) * 100 : 82.5;
+  const userWinRateVal = userTotalTrades > 0 ? (userWinningTrades / userTotalTrades) * 100 : 0;
   const userPnlVal = userClosedTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
-  const userPnlPercentVal = userPnlVal !== 0 ? parseFloat((userPnlVal * 2.5).toFixed(1)) : 14.5;
+  const storedSolBal = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_solana_balance') || '0') : 0;
+  const baseCap = tradingMode === 'REAL' ? Math.max(0.1, storedSolBal || 1.0) : 10000;
+  const userPnlPercentVal = userTotalTrades > 0 ? parseFloat(((userPnlVal / baseCap) * 100).toFixed(1)) : 0;
 
   const userLeaderboardEntry: LeaderboardEntry = {
     rank: 0,
     name: "Votre Compte Quant (Vous)",
     creator: "Vous-même",
-    strategy: tradingMode === 'REAL' ? "Sniper & Trading Réel On-Chain" : "Trading Algorithmique Simulée",
+    strategy: tradingMode === 'REAL' ? "Sniper & Trading Réel On-Chain" : "Trading Algorithmique Simulé",
     strategyCategory: tradingMode === 'REAL' ? "Sniper On-Chain" : "Machine à Cash AI",
     defaultPair: tradingMode === 'REAL' ? "SOL:$WIF" : "FX:EURUSD",
     pnl: `${userPnlPercentVal >= 0 ? '+' : ''}${userPnlPercentVal} %`,
     monthlyPnlVal: userPnlPercentVal,
     winRate: `${userWinRateVal.toFixed(1)}%`,
     winRateVal: userWinRateVal,
-    drawdown: "1.8%",
+    drawdown: "0.0%",
     riskLevel: "MODÉRÉ",
     followers: 1,
     aiModel: "Moteur IA Intégré",
@@ -68,8 +70,23 @@ export default function LeaderboardPage() {
   });
 
   const handleCopyStrategy = (entry: LeaderboardEntry) => {
-    const defaultCapital = tradingMode === 'REAL' ? 0.1 : 500;
-    const isSolanaMeme = entry.defaultPair.startsWith('SOL:');
+    const isReal = tradingMode === 'REAL';
+    const currentSolBal = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('trade_solana_balance') || '0') : 0;
+    const allocatable = isReal
+      ? Math.max(0, currentSolBal - (Number(reserveVaultSol) || 0))
+      : Math.max(0, balance - (Number(reserveVault) || 0));
+
+    const minRequired = isReal ? 0.001 : 10;
+    if (allocatable < minRequired) {
+      alert(isReal
+        ? `Solde SOL disponible insuffisant (${allocatable.toFixed(4)} SOL). Minimum requis : 0.001 SOL pour activer un robot en mode Réel.`
+        : `Capital disponible insuffisant ($${allocatable.toFixed(2)}). Minimum requis : $10.`);
+      return;
+    }
+
+    const defaultCapital = isReal
+      ? parseFloat(Math.min(0.1, allocatable).toFixed(4))
+      : Math.min(500, Math.floor(allocatable));
 
     const newBot = {
       id: `bot_copy_${Date.now()}_${entry.rank}`,
@@ -102,13 +119,13 @@ export default function LeaderboardPage() {
 
     setBots([...bots, newBot as any]);
     setCopiedRank(entry.rank);
-    setNoticeMessage(`Félicitations ! La stratégie "${entry.name}" a été automatiquement copiée et votre robot est déjà actif.`);
+    setNoticeMessage(`Félicitations ! La stratégie "${entry.name}" a été copiée avec ${isReal ? `${defaultCapital} SOL` : `$${defaultCapital}`} et votre robot est actif.`);
 
     setTimeout(() => {
       setNoticeMessage(null);
       setCopiedRank(null);
-      router.push('/');
-    }, 2500);
+      router.push('/terminal?tab=bots');
+    }, 2000);
   };
 
   return (

@@ -46,7 +46,7 @@ export default function HomePage() {
   }, []);
 
   const isReal = tradingMode === 'REAL';
-  const runningBotsCount = (bots || []).filter(b => b.status === 'RUNNING').length;
+  const runningBotsCount = (bots || []).filter(b => b.status === 'RUNNING' && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode).length;
   const activePositionsCount = (activePositions || []).filter(p => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode).length;
 
   const popularTickers = [

@@ -45,7 +45,7 @@ export default function ERPOverviewTab({
           <span className="text-[10px] uppercase font-bold text-purple-400 font-headline block">Trésorerie Disponible</span>
           <div className="text-2xl font-extrabold text-white font-body">
             {tradingMode === 'REAL' 
-              ? `${solanaBalance !== null ? solanaBalance.toFixed(2) : '0.00'} SOL` 
+              ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL` 
               : `${balance.toLocaleString('fr-FR')} $`
             }
           </div>

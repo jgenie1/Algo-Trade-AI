@@ -16,7 +16,7 @@ import {
   SlidersHorizontal,
   CheckCircle2
 } from 'lucide-react';
-import { cn, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
 
 interface ERPRiskTabProps {
@@ -38,11 +38,13 @@ export default function ERPRiskTab({
   const [killSwitchTriggered, setKillSwitchTriggered] = useState(false);
 
   // Compute metrics
+  const solPriceUsd = getRealMarketBasePrice('SOL') || 145.0;
   const activeBotsCount = bots.filter(b => b.status === 'RUNNING' || b.active).length;
   const openPositionsCount = openPositions.length;
   
-  const totalMarginExposed = openPositions.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const riskRatio = totalAumUsd > 0 ? (totalMarginExposed / totalAumUsd) * 100 : 0;
+  const rawMarginExposed = openPositions.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalMarginExposedUsd = tradingMode === 'REAL' ? rawMarginExposed * solPriceUsd : rawMarginExposed;
+  const riskRatio = totalAumUsd > 0 ? (totalMarginExposedUsd / totalAumUsd) * 100 : 0;
 
   const riskLevel = riskRatio > 50 ? 'ÉLEVÉ' : riskRatio > 25 ? 'MODÉRÉ' : 'CONTRÔLÉ';
   const riskColor = riskRatio > 50 ? 'text-rose-400' : riskRatio > 25 ? 'text-amber-400' : 'text-emerald-400';
@@ -69,7 +71,9 @@ export default function ERPRiskTab({
             <Activity className="h-3.5 w-3.5" /> Marge Engagée Actives
           </span>
           <div className="text-2xl font-extrabold text-amber-300 font-body">
-            {totalMarginExposed.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $
+            {tradingMode === 'REAL'
+              ? `${rawMarginExposed.toFixed(4)} SOL`
+              : `${totalMarginExposedUsd.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`}
           </div>
           <span className="text-[10px] text-white/40 font-mono block">
             {openPositionsCount} position(s) ouverte(s)

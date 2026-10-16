@@ -45,13 +45,13 @@ export default function SaaSERPPage() {
   let openPositionsMarginUsd = 0;
   modePositions.forEach(p => {
     const entry = typeof p.entryPrice === 'number' && p.entryPrice > 0 ? p.entryPrice : getRealMarketBasePrice(p.pair);
-    const current = entry;
+    const current = typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : entry;
     const priceDiff = current - entry;
     const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
     const lev = p.leverage || 1;
     const amt = p.amount || 0;
     const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
-    const profit = pctDiff * amt * lev * (isLong ? 1 : -1);
+    const profit = typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : (pctDiff * amt * lev * (isLong ? 1 : -1));
 
     const amtUsd = tradingMode === 'REAL' ? amt * solPriceUsd : amt;
     const profitUsd = tradingMode === 'REAL' ? profit * solPriceUsd : profit;
@@ -81,10 +81,10 @@ export default function SaaSERPPage() {
   // Available Cash (Trésorerie liquide + Coffre-Fort)
   const freeCashUsd = tradingMode === 'REAL' ? (solanaBalance || 0) * solPriceUsd : balance;
   const vaultUsd = tradingMode === 'REAL' ? (Number(reserveVaultSol) || 0) * solPriceUsd : (Number(reserveVault) || 0);
-  const totalAvailableCashUsd = freeCashUsd + vaultUsd;
+  const totalAvailableCashUsd = tradingMode === 'REAL' ? freeCashUsd : (freeCashUsd + vaultUsd);
 
   // Total AUM (100% Identique à l'Equity du Tableau de Bord!)
-  const totalAumUsd = freeCashUsd + vaultUsd + botAllocatedCapitalUsd + openPositionsMarginUsd + openPositionsPnLUsd + botRunningPnLUsd;
+  const totalAumUsd = totalAvailableCashUsd + botAllocatedCapitalUsd + openPositionsMarginUsd + openPositionsPnLUsd + botRunningPnLUsd;
   const convertedAum = formatUsdToHtg(totalAumUsd);
 
   // Profit net clôturé
@@ -202,7 +202,7 @@ export default function SaaSERPPage() {
           balance={balance}
           botAllocatedCapitalUsd={botAllocatedCapitalUsd}
           formattedClosedProfitUsd={formattedClosedProfitUsd}
-          bots={bots}
+          bots={modeBots}
           totalAvailableCashUsd={totalAvailableCashUsd}
         />
       )}
@@ -218,8 +218,8 @@ export default function SaaSERPPage() {
       {activeTab === 'risk' && (
         <ERPRiskTab
           totalAumUsd={totalAumUsd}
-          openPositions={activePositions}
-          bots={bots}
+          openPositions={modePositions}
+          bots={modeBots}
           tradingMode={tradingMode}
         />
       )}

@@ -170,9 +170,9 @@ export default function TradingTerminalPage() {
           >
             <Bot className="h-4 w-4 text-[#c2ff0c]" />
             <span>Bots IA & Flotte Multi-Wallet</span>
-            {(bots || []).filter(b => b.status === 'RUNNING').length > 0 && (
+            {(bots || []).filter(b => b.status === 'RUNNING' && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode).length > 0 && (
               <span className="bg-[#c2ff0c] text-black font-black text-[10px] px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(194,255,12,0.8)] leading-none ml-1">
-                {(bots || []).filter(b => b.status === 'RUNNING').length} Actif{(bots || []).filter(b => b.status === 'RUNNING').length > 1 ? 's' : ''}
+                {(bots || []).filter(b => b.status === 'RUNNING' && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode).length} Actif{(bots || []).filter(b => b.status === 'RUNNING' && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode).length > 1 ? 's' : ''}
               </span>
             )}
           </TabsTrigger>

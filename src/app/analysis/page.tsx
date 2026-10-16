@@ -11,9 +11,9 @@ import TrendingTokensCard from '@/components/trading/TrendingTokensCard';
 import BacktestSimulator from '@/components/trading/BacktestSimulator';
 import AIAnalysisConsoleCard from '@/components/ai/AIAnalysisConsoleCard';
 import AIAnalysisHistoryTable from '@/components/ai/AIAnalysisHistoryTable';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn, formatSolToUsdAndHtg, formatUsdToHtg, isRealOnChainPosition } from '@/lib/utils';
 import { useAppState } from '@/context/AppContext';
-import { getRealSolanaBalance } from '@/services/pumpFunService';
+import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
 import { currencyPairs as allCurrencyPairs, timeframes as allTimeframes } from '@/hooks/useTradingEngine';
 
 const TVWidget = dynamic(
@@ -56,9 +56,15 @@ export default function ForexAnalysisPage() {
   useEffect(() => {
     setIsClient(true);
     if (tradingMode === 'REAL') {
-      getRealSolanaBalance().then(res => {
-        if (res && res.success && res.balance !== undefined) {
-          setSolanaBalance(res.balance);
+      fetchLiveWalletBalance().then(res => {
+        if (res && res.success && res.solanaBalance !== null) {
+          setSolanaBalance(res.solanaBalance);
+        } else {
+          getRealSolanaBalance().then(fallback => {
+            if (fallback && fallback.success && fallback.balance !== undefined) {
+              setSolanaBalance(fallback.balance);
+            }
+          });
         }
       });
     }
@@ -149,8 +155,8 @@ export default function ForexAnalysisPage() {
         trend: result.trend,
         signal: result.signal,
         justification: result.justification,
-        value: result.signal === 'NEUTRE' ? '$0.00' : '$1,500.00',
-        status: result.signal === 'NEUTRE' ? 'En cours' : 'Gagné'
+        value: result.signal === 'NEUTRE' ? 'Neutre' : `Signal ${result.signal}`,
+        status: result.signal === 'NEUTRE' ? 'Observation' : 'Validé IA'
       }, ...prev]);
     } catch (e: any) {
       clearInterval(intervalId);
@@ -160,7 +166,7 @@ export default function ForexAnalysisPage() {
     }
   };
 
-  const botTrades = closedPositions.filter(p => p.wasBot);
+  const botTrades = (closedPositions || []).filter(p => p && p.wasBot && (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode);
   const winRate = botTrades.length > 0
     ? `${Math.round((botTrades.filter(t => t.profit >= 0).length / botTrades.length) * 100)}%`
     : "0%";
@@ -188,7 +194,7 @@ export default function ForexAnalysisPage() {
             </p>
             <p className="text-lg font-bold font-mono text-white leading-none mt-1">
               {tradingMode === 'REAL' 
-                ? `${solanaBalance !== null ? solanaBalance.toFixed(2) : '0.00'} SOL`
+                ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL`
                 : `${balance.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} $`
               }
             </p>

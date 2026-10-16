@@ -203,17 +203,17 @@ export default function WithdrawPage() {
           <span className="text-[10px] uppercase font-bold text-rose-400 font-headline block">Solde Actuel Retirable</span>
           <div className="text-2xl font-extrabold text-white font-body">
             {tradingMode === 'REAL' 
-              ? `${solanaBalance !== null ? solanaBalance.toFixed(4) : '0.0000'} SOL` 
-              : `${(balance || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`
+              ? `${Math.max(0, (solanaBalance || 0) - (Number(reserveVaultSol) || 0)).toFixed(4)} SOL` 
+              : `${Math.max(0, (balance || 0) - (Number(reserveVault) || 0)).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ USD`
             }
           </div>
           <span className="text-[11px] text-rose-300/80 font-mono block font-semibold">
             {tradingMode === 'REAL' 
-              ? formatSolToUsdAndHtg(solanaBalance).combinedLabel 
-              : `≈ ${formatUsdToHtg(balance)}`
+              ? formatSolToUsdAndHtg(Math.max(0, (solanaBalance || 0) - (Number(reserveVaultSol) || 0))).combinedLabel 
+              : `≈ ${formatUsdToHtg(Math.max(0, (balance || 0) - (Number(reserveVault) || 0)))}`
             }
           </span>
-          <span className="text-[9px] text-white/30 font-body block mt-1">Disponible pour retrait immédiat ({tradingMode})</span>
+          <span className="text-[9px] text-white/30 font-body block mt-1">Disponible hors Coffre-Fort ({tradingMode})</span>
         </Card>
 
         <Card className="bg-[#14101a] border-white/10 rounded-2xl p-5 space-y-2 relative overflow-hidden shadow-xl">
@@ -237,13 +237,7 @@ export default function WithdrawPage() {
             </div>
           </div>
           <Button
-            onClick={() => {
-              if (tradingMode === 'REAL') {
-                getRealSolanaBalance().then(res => {
-                  if (res && res.success && res.balance !== undefined) setSolanaBalance(res.balance);
-                });
-              }
-            }}
+            onClick={refreshLiveBalance}
             size="sm"
             className="h-8 bg-white/10 hover:bg-white/15 text-white border border-white/15 text-xs font-bold font-headline rounded-xl self-start mt-2 flex items-center gap-1.5 cursor-pointer"
           >
