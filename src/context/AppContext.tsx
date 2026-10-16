@@ -157,11 +157,12 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         // A bot is REAL only if explicitly marked as REAL
         const isReal = b.mode === 'REAL';
         // In REAL mode, capital is denominated in SOL (default 0.1 SOL, max 5 SOL unless user explicitly has massive funds)
+        // In DEMO mode, heal any legacy/corrupted dust capital (< $25, e.g. $0.1, $0.5, $1, $20) back to $1000
         const defaultCap = isReal ? 0.1 : 1000;
         const rawCap = typeof b.capital === 'number' && !isNaN(b.capital) && b.capital > 0 ? b.capital : defaultCap;
         const cleanCap = isReal 
           ? (rawCap > 5 ? 0.1 : parseFloat(rawCap.toFixed(4))) 
-          : (rawCap > 100000 ? 1000 : parseFloat(rawCap.toFixed(2)));
+          : ((rawCap < 25 || rawCap > 100000) ? 1000 : parseFloat(rawCap.toFixed(2)));
         const rawProfit = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
         const boundedProfit = Math.max(-cleanCap, Math.min(cleanCap * 10, rawProfit));
         const cleanProfit = parseFloat(boundedProfit.toFixed(isReal ? 4 : 2));

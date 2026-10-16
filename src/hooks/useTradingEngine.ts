@@ -775,7 +775,8 @@ export function useTradingEngine() {
 
             const maxDcaEntries = 3;
             const currentEntries = botPosition.dcaCount || 1;
-            const targetAllocated = bot.capital;
+            const isBotPosReal = botPosition.mode === 'REAL' || tradingModeRef.current === 'REAL';
+            const targetAllocated = (!isBotPosReal && bot.capital < 25) ? 1000 : bot.capital;
             const isLongPos = botPosition.type === 'BUY' || botPosition.type === 'LONG';
             const isAlreadyBreakEven = isLongPos
               ? Boolean(botPosition.sl && botPosition.sl >= botPosition.entryPrice)
@@ -785,7 +786,6 @@ export function useTradingEngine() {
               l => l.pair === botPosition.pair && (!l.type || l.type === botPosition.type) && (l.lossAmount ?? 0) > 0
             );
             
-            const isBotPosReal = botPosition.mode === 'REAL' || tradingModeRef.current === 'REAL';
             if (
               !isBotPosReal &&
               bot.strategy !== 'Pump.fun Sniper Bot' &&
@@ -806,7 +806,7 @@ export function useTradingEngine() {
                 const dcaAllocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
                 const remainingBudget = Math.max(0, targetAllocated - botPosition.amount);
                 const chunkAmount = parseFloat(Math.min(targetAllocated / maxDcaEntries, remainingBudget, dcaAllocatable).toFixed(2));
-                if (chunkAmount < 1) {
+                if (chunkAmount < 10) {
                   continue;
                 }
                 const newAmount = botPosition.amount + chunkAmount;
@@ -1000,19 +1000,21 @@ export function useTradingEngine() {
               let posTradeAmount = bot.capital;
 
               if (tradingModeRef.current === 'DEMO') {
+                const effectiveBotCapital = bot.capital < 25 ? 1000 : bot.capital;
+                if (bot.capital < 25) {
+                  setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: 1000 } : item));
+                }
                 const allocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
-                if (allocatable < 1) {
-                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
+                const minRequiredDemo = Math.min(25, effectiveBotCapital / 3);
+                if (allocatable < minRequiredDemo) {
+                  addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, minimum requis : $${minRequiredDemo.toFixed(2)}, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
                   continue;
                 }
-                const targetCapital = bot.capital * (isWinningPatternMatch ? 1.20 : 1.0);
+                const targetCapital = (effectiveBotCapital / 3) * (isWinningPatternMatch ? 1.20 : 1.0);
                 posTradeAmount = parseFloat(Math.min(targetCapital, allocatable).toFixed(2));
-                if (posTradeAmount < 1) {
+                if (posTradeAmount < minRequiredDemo) {
                   addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Montant trop faible ($${posTradeAmount.toFixed(2)}).`, 'error');
                   continue;
-                }
-                if (bot.capital > allocatable) {
-                  setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: posTradeAmount } : item));
                 }
               } else {
                 const botSubIndex = (bot.subWallet || 1) - 1;
@@ -1574,21 +1576,23 @@ export function useTradingEngine() {
                     continue;
                   }
                 } else {
+                  const effectiveBotCapital = bot.capital < 25 ? 1000 : bot.capital;
+                  if (bot.capital < 25) {
+                    setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: 1000 } : item));
+                  }
                   const allocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
-                  if (allocatable < 1) {
-                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
+                  const minRequiredDemo = Math.min(25, effectiveBotCapital / 3);
+                  if (allocatable < minRequiredDemo) {
+                    addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, minimum requis : $${minRequiredDemo.toFixed(2)}, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
                     continue;
                   }
-                  // En Démo : 5% du capital bot ou max 500 $, boosté si consensus fort OU motif gagnant, plafonné au solde allocable
+                  // En Démo : 1/3 du capital alloué au bot pour l'entrée initiale (garde 2/3 en réserve pour jusqu'à 2 renforts DCA), boosté si consensus fort OU motif gagnant
                   const convictionMult = ((bot.strategy === 'AI Autopilot (Machine à Cash)' && aiConfidenceScore >= 35) ? 1.2 : 1.0) * learningBooster;
-                  const baseTradeAmt = (Math.min(bot.capital * 0.05, 500) || Math.min(50, bot.capital)) * convictionMult;
+                  const baseTradeAmt = (effectiveBotCapital / 3) * convictionMult;
                   calculatedTradeAmt = parseFloat(Math.min(baseTradeAmt, allocatable).toFixed(2));
-                  if (calculatedTradeAmt < 1) {
+                  if (calculatedTradeAmt < minRequiredDemo) {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Montant disponible insuffisant ($${calculatedTradeAmt.toFixed(2)}).`, 'error');
                     continue;
-                  }
-                  if (bot.capital > allocatable) {
-                    setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: parseFloat(allocatable.toFixed(2)) } : item));
                   }
                 }
 

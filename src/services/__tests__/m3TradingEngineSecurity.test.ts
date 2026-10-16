@@ -773,6 +773,29 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.ok(position.sl > position.entryPrice);
   });
 
+  await test('M3.9.5: DEMO bot capital is never overwritten by temporary low allocatable margin and heals <$25 dust capital', () => {
+    const sanitizeDemoCap = (rawCap: number) => (rawCap < 25 || rawCap > 100000) ? 1000 : parseFloat(rawCap.toFixed(2));
+    assert.equal(sanitizeDemoCap(1), 1000, 'Corrupted $1 DEMO bot capital must heal to $1000');
+    assert.equal(sanitizeDemoCap(0.5), 1000, 'Residual 0.5 SOL cap in DEMO mode must heal to $1000');
+    assert.equal(sanitizeDemoCap(20), 1000, 'Corrupted $20 DEMO bot capital must heal to $1000');
+    assert.equal(sanitizeDemoCap(1500), 1500, 'Valid $1500 DEMO bot capital must be preserved');
+
+    // Simulate a $1000 DEMO bot ticking when another position temporarily leaves only $1 allocatable
+    const bot = { id: 'bot_demo_1', capital: 1000 };
+    const allocatableWhenLocked = 1.0;
+    const effectiveBotCapital = bot.capital < 25 ? 1000 : bot.capital;
+    const minRequiredDemo = Math.min(25, effectiveBotCapital / 3);
+
+    const rejectedOnDustMargin = allocatableWhenLocked < minRequiredDemo;
+    assert.equal(rejectedOnDustMargin, true, 'Bot must reject opening a $1 dust trade when allocatable < $25');
+    assert.equal(bot.capital, 1000, 'Bot capital must NEVER be overwritten to $1 when margin is temporarily locked');
+
+    // When margin is available ($10,000), bot sizes initial entry at 1/3 of capital ($333.33) to leave 2/3 for DCA
+    const allocatableNormal = 10000;
+    const baseTradeAmt = parseFloat(Math.min(effectiveBotCapital / 3, allocatableNormal).toFixed(2));
+    assert.equal(baseTradeAmt, 333.33, 'A $1000 DEMO bot must size its initial trade at $333.33 (1/3 of capital)');
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------

@@ -659,9 +659,9 @@ export default function TradingBotsManager({
   const [botCustomRules, setBotCustomRules] = useState<string>('');
 
   React.useEffect(() => {
-    if (tradingMode === 'REAL' && botCapital === 1000) {
+    if (tradingMode === 'REAL' && botCapital > 50) {
       setBotCapital(0.5);
-    } else if (tradingMode === 'DEMO' && botCapital === 0.5) {
+    } else if (tradingMode === 'DEMO' && botCapital < 25) {
       setBotCapital(1000);
     }
   }, [tradingMode, botCapital]);
