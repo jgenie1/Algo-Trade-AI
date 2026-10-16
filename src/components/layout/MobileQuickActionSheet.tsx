@@ -45,9 +45,20 @@ export default function MobileQuickActionSheet() {
     if (confirm(`Transférer ${formattedAmt} du Coffre-Fort vers le Solde Principal ?`)) {
       if (isReal) {
         setReserveVaultSol(0);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('trade_reserve_vault_sol', '0');
+          window.dispatchEvent(new Event('web3_wallet_updated'));
+        }
       } else {
         setReserveVault(0);
-        setBalance(prev => prev + vaultAmt);
+        setBalance(prev => {
+          const next = prev + vaultAmt;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('trade_reserve_vault', '0');
+            localStorage.setItem('trade_balance', next.toString());
+          }
+          return next;
+        });
       }
       setTransactions(prev => [{
         id: 'tx_vault_' + Math.random().toString(36).substring(2, 9),
@@ -85,7 +96,7 @@ export default function MobileQuickActionSheet() {
 
           <div className="grid grid-cols-2 gap-2.5 py-1 font-body">
             <Link
-              href="/?tab=tokens"
+              href="/terminal?tab=tokens"
               onClick={() => setIsOpen(false)}
               className="p-3 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-2xl flex flex-col items-start gap-1.5 active:scale-95 transition-all"
             >
@@ -99,7 +110,7 @@ export default function MobileQuickActionSheet() {
             </Link>
 
             <Link
-              href="/?tab=tokens"
+              href="/terminal?tab=tokens"
               onClick={() => setIsOpen(false)}
               className="p-3 bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 border border-[#c2ff0c]/30 rounded-2xl flex flex-col items-start gap-1.5 active:scale-95 transition-all"
             >

@@ -2688,7 +2688,7 @@ export function useTradingEngine() {
     for (const p of positionsToClose) {
       const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : (p.entryPrice || getRealMarketBasePrice(p.pair) || 1));
       try {
-        await closePositionById(p, current, "Clôture globale");
+        await closePositionByIdRef.current(p, current, "Clôture globale");
       } catch (e: any) {
         console.warn("[Close All] Erreur de clôture sur position:", p.id, e);
       }
@@ -2697,7 +2697,11 @@ export function useTradingEngine() {
 
   useEffect(() => {
     const handlePanicKillSwitch = async (e: Event) => {
-      const mode = (e as CustomEvent)?.detail?.mode;
+      const detail = (e as CustomEvent)?.detail;
+      if (detail && typeof detail === 'object') {
+        detail.handled = true;
+      }
+      const mode = detail?.mode;
       await handleCloseAllPositions(mode);
     };
     if (typeof window !== 'undefined') {

@@ -112,6 +112,11 @@ export default function ReserveVaultCard({ solanaBalance: propSolBalance }: Rese
       return;
     }
 
+    if (!isReal && activeBalance < amountToLock) {
+      setFeedbackMsg({ text: `Solde principal insuffisant ($${activeBalance.toFixed(2)} disponibles).`, type: 'error' });
+      return;
+    }
+
     setIsProcessing(true);
     setTimeout(() => {
       if (isReal) {

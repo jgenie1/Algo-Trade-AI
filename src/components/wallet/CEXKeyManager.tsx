@@ -106,7 +106,8 @@ export default function CEXKeyManager() {
       };
       setExchangeKeys(updated);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('algo_trade_cex_keys', JSON.stringify(updated));
+        const encrypted = await encryptSensitiveData(JSON.stringify(updated));
+        localStorage.setItem('algo_trade_cex_keys', encrypted);
       }
 
       setIsTesting(false);

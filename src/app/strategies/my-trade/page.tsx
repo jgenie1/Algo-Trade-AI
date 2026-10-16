@@ -7,7 +7,7 @@ export default function MyTradeRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/?tab=bots');
+    router.replace('/terminal?tab=bots');
   }, [router]);
 
   return (

@@ -19,7 +19,7 @@ const BinanceOrderSchema = z.object({
 });
 
 const BinanceApiRequestSchema = z.object({
-  action: z.enum(['get_account', 'place_order']),
+  action: z.enum(['get_account', 'place_order', 'emergency_stop']),
   apiKey: z.string().min(16).max(128),
   apiSecret: z.string().min(16).max(128),
   isTestnet: z.boolean().optional().default(false),

@@ -37,7 +37,7 @@ import LogoIcon from '@/components/icons/LogoIcon';
 
 export default function HomePage() {
   const { tradingMode, balance, reserveVault, reserveVaultSol, bots, activePositions, closedPositions } = useAppState();
-  const { livePrices, priceDirections, rpcLatency } = useTradingEngine();
+  const { livePrices, priceDirections, rpcLatency, solanaBalance } = useTradingEngine();
   const [activePreviewTab, setActivePreviewTab] = useState<'terminal' | 'bots' | 'vault' | 'erp'>('terminal');
   const [mounted, setMounted] = useState(false);
 
@@ -614,11 +614,21 @@ export default function HomePage() {
                 <div className="space-y-2 text-xs font-mono">
                   <div className="p-2.5 bg-white/5 rounded-xl flex justify-between items-center">
                     <span className="text-slate-300">Actif Net Total</span>
-                    <span className="font-extrabold text-white">{mounted ? `${balance.toFixed(2)} $` : '10 000.00 $'}</span>
+                    <span className="font-extrabold text-white">
+                      {mounted
+                        ? (isReal
+                            ? `${(solanaBalance ?? 0).toFixed(4)} SOL`
+                            : `${balance.toFixed(2)} $`)
+                        : '10 000.00 $'}
+                    </span>
                   </div>
                   <div className="p-2.5 bg-white/5 rounded-xl flex justify-between items-center">
                     <span className="text-slate-300">Transactions Enregistrées</span>
-                    <span className="font-extrabold text-purple-300">{mounted ? (closedPositions?.length || 0) + ' trades' : '0 trades'}</span>
+                    <span className="font-extrabold text-purple-300">
+                      {mounted
+                        ? `${(closedPositions || []).filter(c => (isRealOnChainPosition(c) ? 'REAL' : 'DEMO') === tradingMode).length} trades`
+                        : '0 trades'}
+                    </span>
                   </div>
                   <div className="p-2.5 bg-white/5 rounded-xl flex justify-between items-center">
                     <span className="text-slate-300">Statut de Synchro Cloud</span>

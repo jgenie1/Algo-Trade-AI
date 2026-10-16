@@ -409,7 +409,7 @@ export default function Header() {
             </span>
             <span className="text-xs font-mono font-black text-[#c2ff0c]">
               {tradingMode === 'REAL' 
-                ? `${(Number(reserveVaultSol) || 0).toFixed(2)} SOL` 
+                ? `${(Number(reserveVaultSol) || 0).toFixed(4)} SOL` 
                 : `$${(Number(reserveVault) || 0).toFixed(2)}`}
             </span>
           </div>

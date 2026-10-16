@@ -10,6 +10,28 @@ const RPC_FALLBACKS = [
   'https://rpc.ankr.com/solana'
 ].filter(Boolean) as string[];
 
+const ALLOWED_RPC_METHODS = new Set([
+  'getBalance',
+  'getLatestBlockhash',
+  'getRecentBlockhash',
+  'sendRawTransaction',
+  'sendTransaction',
+  'simulateTransaction',
+  'getSignatureStatuses',
+  'getTransaction',
+  'getParsedTokenAccountsByOwner',
+  'getTokenAccountsByOwner',
+  'getAccountInfo',
+  'getMultipleAccounts',
+  'getSlot',
+  'getBlockHeight',
+  'getVersion',
+  'getHealth',
+  'getMinimumBalanceForRentExemption',
+  'getFeeForMessage',
+  'getRecentPrioritizationFees',
+]);
+
 /**
  * Server-side proxy for Solana JSON-RPC requests.
  * Completely eliminates browser CORS and HTTP 403 Forbidden errors by
@@ -38,6 +60,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid JSON-RPC Request structure' }, id: body?.id || 1 },
         { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_RPC_METHODS.has(body.method)) {
+      return NextResponse.json(
+        { jsonrpc: '2.0', error: { code: -32601, message: `RPC method '${body.method}' is not permitted` }, id: body?.id || 1 },
+        { status: 403 }
       );
     }
 

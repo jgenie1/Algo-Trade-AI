@@ -130,10 +130,13 @@ export default function StrategyMarketplace() {
       return;
     }
 
+    const rawPair = strat.pairs[0] || 'SOL/USDC';
+    const normalizedPair = rawPair.includes('/') ? rawPair.split('/')[0] : rawPair;
+
     const newBot = {
       id: `bot-${Date.now()}`,
       name: `[Copie] ${strat.name}`,
-      pair: strat.pairs[0] || 'SOL/USDC',
+      pair: normalizedPair,
       strategy: strat.category === 'Sniper' ? 'Pump.fun Sniper Bot' : strat.name,
       status: 'RUNNING' as const,
       pnl: 0,
@@ -219,7 +222,7 @@ export default function StrategyMarketplace() {
               <Zap className="h-5 w-5 text-[#c2ff0c]" />
               <h2 className="text-lg font-bold font-headline text-white">Vos Bots & Stratégies d&apos;App en Tâche de Fond ({bots.length})</h2>
             </div>
-            <Link href="/?tab=bots" className="text-xs text-[#c2ff0c] font-headline font-bold hover:underline">
+            <Link href="/terminal?tab=bots" className="text-xs text-[#c2ff0c] font-headline font-bold hover:underline">
               Gérer dans le Terminal →
             </Link>
           </div>

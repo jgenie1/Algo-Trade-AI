@@ -13,7 +13,7 @@ import {
 import { AlertOctagon, ShieldAlert, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
 import { dispatchAlert } from '@/services/notificationService';
-import { getRealMarketBasePrice } from '@/lib/utils';
+import { getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
 
 export default function PanicKillSwitch() {
   const { 
@@ -32,23 +32,27 @@ export default function PanicKillSwitch() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
+  const safePositions = Array.isArray(activePositions) ? activePositions : [];
+  const modePositions = safePositions.filter(pos => (isRealOnChainPosition(pos) ? 'REAL' : 'DEMO') === tradingMode);
+  const safeBots = Array.isArray(bots) ? bots : [];
+  const modeRunningBots = safeBots.filter(b => b.status === 'RUNNING' && (!b.mode || b.mode === tradingMode));
+
   const handleExecuteKillSwitch = async () => {
     setIsExecuting(true);
 
     await new Promise(resolve => setTimeout(resolve, 800));
 
     // 1. Déclencher la fermeture sécurisée via le moteur de trading (liquidation on-chain réelle + apprentissage IA)
+    const eventDetail = { mode: tradingMode, handled: false };
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('trigger_panic_kill_switch', { detail: { mode: tradingMode } }));
+      window.dispatchEvent(new CustomEvent('trigger_panic_kill_switch', { detail: eventDetail }));
     }
 
-    const safePositions = Array.isArray(activePositions) ? activePositions : [];
-
-    // Clôture locale optimiste uniquement pour le mode DEMO
-    if (tradingMode === 'DEMO') {
+    // Fallback de clôture locale uniquement pour le mode DEMO lorsque useTradingEngine n'est pas monté sur la page actuelle
+    if (tradingMode === 'DEMO' && !eventDetail.handled) {
       const now = Date.now();
       let totalReturnedCapital = 0;
-      const positionsToClose = safePositions.map(pos => {
+      const demoPositionsToClose = safePositions.filter(pos => !isRealOnChainPosition(pos)).map(pos => {
         const margin = typeof pos.amount === 'number' && !isNaN(pos.amount) ? pos.amount : 0;
         const entry = typeof pos.entryPrice === 'number' && !isNaN(pos.entryPrice) && pos.entryPrice > 0 ? pos.entryPrice : getRealMarketBasePrice(pos.pair);
         const current = pos.currentPrice || entry;
@@ -62,35 +66,43 @@ export default function PanicKillSwitch() {
         return {
           ...pos,
           closedAt: now,
+          closeTimestamp: now,
           status: 'CLOSED' as const,
           profit: pnlVal,
-          pnl: pnlVal
+          pnl: pnlVal,
+          mode: 'DEMO' as const
         };
       });
 
       if (totalReturnedCapital > 0) {
         setBalance(prev => Math.max(0, prev + totalReturnedCapital));
       }
-      setClosedPositions(prev => [...positionsToClose, ...prev]);
-      setActivePositions([]);
+      if (demoPositionsToClose.length > 0) {
+        setClosedPositions(prev => [...demoPositionsToClose, ...prev]);
+      }
+      setActivePositions(prev => (Array.isArray(prev) ? prev : []).filter(pos => isRealOnChainPosition(pos)));
     } else if (tradingMode === 'REAL') {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('web3_wallet_updated'));
       }
     }
 
-    // 2. Mettre en pause tous les bots actifs
-    const safeBots = Array.isArray(bots) ? bots : [];
-    const stoppedBots = safeBots.map(b => ({
-      ...b,
-      status: 'PAUSED' as const
-    }));
+    // 2. Mettre en pause tous les bots actifs du mode courant
+    const stoppedBots = safeBots.map(b => {
+      if (!b.mode || b.mode === tradingMode) {
+        return {
+          ...b,
+          status: 'PAUSED' as const
+        };
+      }
+      return b;
+    });
     setBots(stoppedBots);
 
     // 3. Envoyer une alerte d'urgence Telegram & Discord
     await dispatchAlert(
       "🚨 ARRÊT D'URGENCE EXÉCUTÉ (PANIC KILL SWITCH)",
-      `Toutes les positions actives (${safePositions.length}) ont été fermées d'urgence et tous les bots (${safeBots.length}) ont été mis en pause immédiate. Le capital restant est mis en sécurité.`,
+      `Toutes les positions actives (${modePositions.length}) ont été fermées d'urgence et les bots (${modeRunningBots.length}) ont été mis en pause immédiate en mode ${tradingMode}. Le capital restant est mis en sécurité.`,
       'STOP_LOSS'
     );
 
@@ -140,8 +152,8 @@ export default function PanicKillSwitch() {
               <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-300 space-y-1">
                 <p className="font-bold">⚠️ Récapitulatif de l&apos;action d&apos;urgence :</p>
                 <ul className="list-disc pl-4 space-y-1 text-[11px] text-white/70">
-                  <li>Fermeture instantanée de {(Array.isArray(activePositions) ? activePositions : []).length} position(s) ouverte(s).</li>
-                  <li>Mise en pause de {(Array.isArray(bots) ? bots : []).filter(b => b.status === 'RUNNING').length} bot(s) en cours d&apos;exécution.</li>
+                  <li>Fermeture instantanée de {modePositions.length} position(s) ouverte(s) ({tradingMode}).</li>
+                  <li>Mise en pause de {modeRunningBots.length} bot(s) en cours d&apos;exécution.</li>
                   <li>Envoi d&apos;une alerte prioritaire sur votre Telegram / Discord.</li>
                 </ul>
               </div>

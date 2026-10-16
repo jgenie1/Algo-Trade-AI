@@ -318,9 +318,6 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
               setBotLogs(logArr);
               localStorage.setItem('trade_logs', JSON.stringify(logArr));
             }
-            if (data.cexKeys !== undefined) {
-              localStorage.setItem('algo_trade_cex_keys', JSON.stringify(data.cexKeys));
-            }
             if (data.notificationSettings !== undefined) {
               localStorage.setItem('algo_trade_notification_settings', JSON.stringify(data.notificationSettings));
             }
@@ -383,8 +380,11 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
     // B. Debounced Firestore Remote Save
     const timer = setTimeout(() => {
       try {
-        const storedCex = localStorage.getItem('algo_trade_cex_keys');
-        const storedNotif = localStorage.getItem('algo_trade_notification_settings');
+        let parsedNotif: any = undefined;
+        try {
+          const storedNotif = localStorage.getItem('algo_trade_notification_settings');
+          if (storedNotif) parsedNotif = JSON.parse(storedNotif);
+        } catch (_) {}
 
         const currentStateObj: AppState = {
           tradeMode: tradingMode,
@@ -397,8 +397,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           transactions,
           botLearnings,
           botLogs,
-          cexKeys: storedCex ? JSON.parse(storedCex) : undefined,
-          notificationSettings: storedNotif ? JSON.parse(storedNotif) : undefined
+          notificationSettings: parsedNotif
         };
 
         const currentStateHash = JSON.stringify(currentStateObj);

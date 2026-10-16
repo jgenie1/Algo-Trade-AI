@@ -65,12 +65,19 @@ async function fetchRealLiveCryptoPrices(symbols: string[]): Promise<Record<stri
     } catch (e) {}
   }
 
-  // Pour les symboles non gérés par Binance, interroger Coinbase Spot
+  // Pour les symboles non gérés par Binance, interroger Coinbase Spot (strictement filtrés)
   for (const s of symbols) {
     const sym = s.toUpperCase();
+    if (!/^[A-Z0-9]{1,12}$/.test(sym)) continue;
     if (!result[sym]) {
       try {
-        const cbRes = await fetch(`https://api.coinbase.com/v2/prices/${sym}-USD/spot`, { cache: 'no-store' });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const cbRes = await fetch(`https://api.coinbase.com/v2/prices/${encodeURIComponent(sym)}-USD/spot`, {
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         if (cbRes.ok) {
           const cbData = await cbRes.json();
           const p = parseFloat(cbData?.data?.amount);
@@ -106,8 +113,16 @@ async function fetchRealLiveCryptoPrices(symbols: string[]): Promise<Record<stri
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const symbolParam = searchParams.get('symbol') || DEFAULT_SYMBOLS;
-  const convert = (searchParams.get('convert') || 'USD').toUpperCase();
-  const requestedSymbols = symbolParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  const rawConvert = (searchParams.get('convert') || 'USD').toUpperCase();
+  const convert = /^[A-Z]{2,5}$/.test(rawConvert) ? rawConvert : 'USD';
+  const requestedSymbols = symbolParam
+    .split(',')
+    .map(s => s.trim().toUpperCase())
+    .filter(s => /^[A-Z0-9]{1,12}$/.test(s))
+    .slice(0, 20);
+  if (requestedSymbols.length === 0) {
+    requestedSymbols.push(...DEFAULT_SYMBOLS.split(','));
+  }
 
   const now = Date.now();
 
