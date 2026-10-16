@@ -651,6 +651,10 @@ export default function TradingBotsManager({
   const [botStrategy, setBotStrategy] = useState<'RSI Pullback' | 'EMA Cross' | 'BB Mean Reversion' | 'SuperTrend Momentum' | 'VWAP Breakout' | 'AI Autopilot (Machine à Cash)' | 'Pump.fun Sniper Bot'>('AI Autopilot (Machine à Cash)');
   const [botTimeframe, setBotTimeframe] = useState<string>('15');
   const [botCapital, setBotCapital] = useState<number>(() => isReal ? 0.5 : 1000);
+  const [botCapitalInput, setBotCapitalInput] = useState<string>(() => isReal ? '0.5' : '1000');
+  const [editingBotId, setEditingBotId] = useState<string | null>(null);
+  const [editingBotCapitalInput, setEditingBotCapitalInput] = useState<string>('');
+  const prevTradingModeRef = React.useRef(tradingMode);
   const [botSubWallet, setBotSubWallet] = useState<number>(1);
   const [botRiskProfile, setBotRiskProfile] = useState<'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'>('MODERATE');
   const [pumpSniperMode, setPumpSniperMode] = useState<'PRECOCE' | 'MOMENTUM' | 'RAYDIUM'>('PRECOCE');
@@ -659,12 +663,46 @@ export default function TradingBotsManager({
   const [botCustomRules, setBotCustomRules] = useState<string>('');
 
   React.useEffect(() => {
-    if (tradingMode === 'REAL' && botCapital > 50) {
-      setBotCapital(0.5);
-    } else if (tradingMode === 'DEMO' && botCapital < 25) {
-      setBotCapital(1000);
+    if (prevTradingModeRef.current !== tradingMode) {
+      prevTradingModeRef.current = tradingMode;
+      const defaultForMode = tradingMode === 'REAL' ? 0.5 : 1000;
+      setBotCapital(defaultForMode);
+      setBotCapitalInput(String(defaultForMode));
+      setEditingBotId(null);
     }
-  }, [tradingMode, botCapital]);
+  }, [tradingMode]);
+
+  const handleSetCapitalValue = (val: number) => {
+    const clean = tradingMode === 'REAL' ? parseFloat(val.toFixed(4)) : parseFloat(val.toFixed(2));
+    setBotCapital(clean);
+    setBotCapitalInput(String(clean));
+  };
+
+  const handleApplyCapitalToAllBots = () => {
+    if (botCapital <= 0) {
+      alert("Veuillez entrer un capital supérieur à 0.");
+      return;
+    }
+    setBots(prev => (Array.isArray(prev) ? prev : []).map(b => {
+      if (!b) return b;
+      const isBotReal = b.mode === 'REAL';
+      if ((isBotReal ? 'REAL' : 'DEMO') !== tradingMode) return b;
+      return { ...b, capital: botCapital };
+    }));
+    addBotLog('system', 'System', `💰 Capital Allocateur mis à jour à ${botCapital} ${tradingMode === 'REAL' ? 'SOL' : '$'} sur tous vos robots ${tradingMode === 'REAL' ? 'Réels' : 'Démo'}.`, 'info');
+  };
+
+  const handleSaveSingleBotCapital = (botId: string) => {
+    const parsed = parseFloat(editingBotCapitalInput);
+    if (isNaN(parsed) || parsed <= 0) {
+      alert("Le capital du robot doit être supérieur à 0.");
+      return;
+    }
+    const clean = tradingMode === 'REAL' ? parseFloat(parsed.toFixed(4)) : parseFloat(parsed.toFixed(2));
+    setBots(prev => (Array.isArray(prev) ? prev : []).map(b => b && b.id === botId ? { ...b, capital: clean } : b));
+    addBotLog(botId, 'Capital Allocateur', `💰 Capital du robot modifié à ${clean} ${tradingMode === 'REAL' ? 'SOL' : '$'}.`, 'info');
+    setEditingBotId(null);
+  };
 
   const handleStartBot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1502,11 +1540,59 @@ export default function TradingBotsManager({
             </div>
             <Input
               type="number"
-              step={tradingMode === 'REAL' ? "0.1" : "10"}
-              value={botCapital || ""}
-              onChange={(e) => setBotCapital(Math.max(0, parseFloat(e.target.value) || 0))}
+              min="0"
+              step={tradingMode === 'REAL' ? "0.01" : "10"}
+              placeholder={tradingMode === 'REAL' ? "Ex: 0.25" : "Ex: 500"}
+              value={botCapitalInput}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setBotCapitalInput(raw);
+                const parsed = parseFloat(raw);
+                if (!isNaN(parsed) && parsed >= 0) {
+                  setBotCapital(parsed);
+                } else if (raw === '') {
+                  setBotCapital(0);
+                }
+              }}
               className="w-full h-11 bg-black/40 border border-white/15 rounded-xl px-4 text-sm font-bold focus:ring-[#c2ff0c] text-white font-body"
             />
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              {(tradingMode === 'REAL' ? [0.05, 0.1, 0.25, 0.5, 1] : [50, 100, 250, 500, 1000, 2500]).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => handleSetCapitalValue(preset)}
+                  className={cn(
+                    "px-2 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all",
+                    botCapital === preset
+                      ? "bg-[#c2ff0c] text-black border-[#c2ff0c]"
+                      : "bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  {preset} {tradingMode === 'REAL' ? 'SOL' : '$'}
+                </button>
+              ))}
+              {allocatableBalance > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleSetCapitalValue(allocatableBalance)}
+                  className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all"
+                >
+                  Max ({tradingMode === 'REAL' ? `${allocatableBalance.toFixed(3)} SOL` : `${allocatableBalance.toFixed(0)} $`})
+                </button>
+              )}
+            </div>
+            {filteredBots.length > 0 && botCapital > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleApplyCapitalToAllBots}
+                className="w-full h-8 mt-1 bg-[#c2ff0c]/15 hover:bg-[#c2ff0c]/25 text-[#c2ff0c] border border-[#c2ff0c]/30 font-headline font-bold text-[10px] uppercase rounded-lg flex items-center justify-center gap-1.5"
+              >
+                <Zap className="h-3 w-3 fill-[#c2ff0c]" />
+                Appliquer {botCapital} {tradingMode === 'REAL' ? 'SOL' : '$'} à mes {filteredBots.length} bot(s) actif(s)
+              </Button>
+            )}
           </div>
 
           {/* Multi-Wallet Sub-Wallet Selector */}
@@ -1686,11 +1772,61 @@ export default function TradingBotsManager({
                             </Badge>
                           )}
                         </div>
-                        <div className="text-xs font-extrabold text-slate-200 font-mono mt-1 flex items-center flex-wrap gap-1">
-                          <span>Capital: {formatSmartCrypto(((b.mode === 'REAL') && (b.capital || 0) > 5 ? 0.1 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : (b.mode === 'REAL' ? 0.1 : 1000))), b.mode === 'REAL' ? 'SOL' : '$')}</span>
+                        <div className="text-xs font-extrabold text-slate-200 font-mono mt-1 flex items-center flex-wrap gap-1.5">
+                          {editingBotId === b.id ? (
+                            <div className="flex items-center gap-1.5 bg-black/60 border border-[#c2ff0c]/40 rounded-lg px-2 py-1">
+                              <input
+                                type="number"
+                                min="0"
+                                step={b.mode === 'REAL' ? "0.01" : "10"}
+                                value={editingBotCapitalInput}
+                                onChange={(e) => setEditingBotCapitalInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSaveSingleBotCapital(b.id);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingBotId(null);
+                                  }
+                                }}
+                                className="w-24 bg-transparent text-xs font-mono font-bold text-white focus:outline-none"
+                                autoFocus
+                              />
+                              <span className="text-[10px] text-slate-400">{b.mode === 'REAL' ? 'SOL' : '$'}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveSingleBotCapital(b.id)}
+                                className="px-2 py-0.5 rounded bg-[#c2ff0c] text-black text-[10px] font-headline font-extrabold uppercase hover:bg-[#c2ff0c]/90"
+                              >
+                                OK
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingBotId(null)}
+                                className="px-1.5 py-0.5 rounded bg-white/10 text-slate-300 text-[10px] font-headline font-bold hover:bg-white/20"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <span>Capital: {formatSmartCrypto(((b.mode === 'REAL') && (b.capital || 0) > 50 ? 0.1 : (typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : (b.mode === 'REAL' ? 0.1 : 1000))), b.mode === 'REAL' ? 'SOL' : '$')}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingBotId(b.id);
+                                  setEditingBotCapitalInput(String(typeof b.capital === 'number' && !isNaN(b.capital) ? b.capital : (b.mode === 'REAL' ? 0.1 : 1000)));
+                                }}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-[#c2ff0c]/20 text-slate-300 hover:text-[#c2ff0c] border border-white/10 font-headline font-bold transition-all"
+                                title="Modifier le capital alloué à ce robot"
+                              >
+                                ✏️ Modifier
+                              </button>
+                            </>
+                          )}
                           {(b.mode !== 'REAL' && b.capital > allocatableBalance && allocatableBalance > 0) && (
                             <span className="text-[10px] text-amber-400 font-normal bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
-                              (Ajusté à ${allocatableBalance.toFixed(2)} au lancement)
+                              (Plafonné à ${allocatableBalance.toFixed(2)} dispo)
                             </span>
                           )}
                         </div>
