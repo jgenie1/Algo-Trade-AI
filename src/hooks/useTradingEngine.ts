@@ -444,6 +444,7 @@ export function useTradingEngine() {
           lastFlush = Date.now();
 
           if (Object.keys(toUpdate).length > 0) {
+            livePricesRef.current = { ...livePricesRef.current, ...toUpdate };
             setLivePrices(prev => ({ ...prev, ...toUpdate }));
             if (Object.keys(dirsToUpdate).length > 0) {
               setPriceDirections(dirs => ({ ...dirs, ...dirsToUpdate }));
@@ -505,14 +506,16 @@ export function useTradingEngine() {
     };
   }, [isMounted]);
 
-  // 2. Real-Time Market API & On-Chain Solana Pump.fun Data Loop (every 2 seconds)
+  // 2. Real-Time Market API & On-Chain Solana Pump.fun Data Loop (every 3 seconds)
   useEffect(() => {
     const updatePrices = async () => {
       setIsLoadingPrice(true);
+      const currentPositions = Array.isArray(activePositionsRef.current) ? activePositionsRef.current : [];
+      const currentBots = Array.isArray(botsRef.current) ? botsRef.current : [];
       const uniquePairs = Array.from(new Set([
         selectedPair,
-        ...(Array.isArray(activePositions) ? activePositions : []).map(p => p && p.pair),
-        ...(Array.isArray(bots) ? bots : []).filter(b => b && b.status === 'RUNNING').map(b => b.pair)
+        ...currentPositions.map(p => p && p.pair),
+        ...currentBots.filter(b => b && b.status === 'RUNNING').map(b => b.pair)
       ]));
 
       const validPairs = uniquePairs.filter(p => p && p !== 'ALL' && p !== 'SOLANA' && p !== 'SOL:MEME');
@@ -535,7 +538,7 @@ export function useTradingEngine() {
                     const dexPriceSol = parseFloat(bestPair.priceNative);
                     if (!isNaN(dexPriceSol) && dexPriceSol > 0) {
                       newPrices[pairVal] = dexPriceSol;
-                      const oldPrice = livePrices[pairVal];
+                      const oldPrice = livePricesRef.current[pairVal];
                       if (oldPrice) {
                         newDirections[pairVal] = dexPriceSol > oldPrice ? 'up' : dexPriceSol < oldPrice ? 'down' : 'flat';
                       }
@@ -549,7 +552,7 @@ export function useTradingEngine() {
                 if (coin) {
                   const lastClose = calculatePumpCoinPriceInSol(coin);
                   newPrices[pairVal] = lastClose;
-                  const oldPrice = livePrices[pairVal];
+                  const oldPrice = livePricesRef.current[pairVal];
                   if (oldPrice) {
                     newDirections[pairVal] = lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat';
                   }
@@ -562,7 +565,7 @@ export function useTradingEngine() {
               if (candles.length > 0) {
                 const lastClose = candles[candles.length - 1].close;
                 newPrices[pairVal] = lastClose;
-                const oldPrice = livePrices[pairVal];
+                const oldPrice = livePricesRef.current[pairVal];
                 if (oldPrice) {
                   newDirections[pairVal] = lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat';
                 }
@@ -583,6 +586,7 @@ export function useTradingEngine() {
       } catch (e) {}
 
       if (Object.keys(newPrices).length > 0) {
+        livePricesRef.current = { ...livePricesRef.current, ...newPrices };
         setLivePrices(prev => ({ ...prev, ...newPrices }));
         setPriceDirections(prev => ({ ...prev, ...newDirections }));
       }
@@ -590,7 +594,7 @@ export function useTradingEngine() {
     };
 
     updatePrices();
-    const interval = setInterval(updatePrices, 6000);
+    const interval = setInterval(updatePrices, 3000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPair, activePositions.length, bots.length]);
@@ -2078,19 +2082,21 @@ export function useTradingEngine() {
         }
 
         if (!shouldClose) {
+          const slVal = typeof p.sl === 'number' && !isNaN(p.sl) ? p.sl : Number(p.sl);
+          const tpVal = typeof p.tp === 'number' && !isNaN(p.tp) ? p.tp : Number(p.tp);
           if (isLong) {
-            if (p.sl && current <= p.sl) {
+            if (slVal > 0 && current <= slVal) {
               shouldClose = true;
               closeReason = current >= entry ? `Take-Profit Trailing Sécurisé (+${((current - entry) / entry * 100).toFixed(1)}%)` : `Stop-Loss déclenché`;
-            } else if (p.tp && current >= p.tp) {
+            } else if (tpVal > 0 && current >= tpVal) {
               shouldClose = true;
               closeReason = `Take Profit Atteint (+${((current - entry) / entry * 100).toFixed(1)}%)`;
             }
           } else {
-            if (p.sl && current >= p.sl) {
+            if (slVal > 0 && current >= slVal) {
               shouldClose = true;
               closeReason = current <= entry ? `Take-Profit Trailing Sécurisé (+${((entry - current) / entry * 100).toFixed(1)}%)` : `Stop-Loss déclenché`;
-            } else if (p.tp && current <= p.tp) {
+            } else if (tpVal > 0 && current <= tpVal) {
               shouldClose = true;
               closeReason = `Take Profit Atteint (+${((entry - current) / entry * 100).toFixed(1)}%)`;
             }
@@ -2099,9 +2105,8 @@ export function useTradingEngine() {
 
         if (shouldClose) {
           if (closingPositionsRef.current[p.id]) return;
-          closingPositionsRef.current[p.id] = true;
           try {
-            closePositionByIdRef.current(p.id, current, closeReason);
+            closePositionByIdRef.current(p, current, closeReason);
           } catch (e) {
             console.warn('[Auto SL/TP Close Error]', e);
           }
@@ -2160,7 +2165,7 @@ export function useTradingEngine() {
     if (!p) return;
     const posId = p.id;
 
-    if (closingPositionsRef.current[posId] && typeof posIdOrPos !== 'object') {
+    if (closingPositionsRef.current[posId]) {
       return;
     }
     closingPositionsRef.current[posId] = true;

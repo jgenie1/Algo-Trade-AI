@@ -134,6 +134,10 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const expectedBase = getRealMarketBasePrice(cleanPair);
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
+        const rawSl = typeof p.sl === 'number' ? p.sl : (typeof p.sl === 'string' && p.sl.trim() ? parseFloat(p.sl) : undefined);
+        const rawTp = typeof p.tp === 'number' ? p.tp : (typeof p.tp === 'string' && p.tp.trim() ? parseFloat(p.tp) : undefined);
+        const cleanSl = rawSl !== undefined && !isNaN(rawSl) && rawSl > 0 ? rawSl : undefined;
+        const cleanTp = rawTp !== undefined && !isNaN(rawTp) && rawTp > 0 ? rawTp : undefined;
 
         cleaned.push({
           ...p,
@@ -143,6 +147,8 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           entryPrice: entry,
           currentPrice: typeof p.currentPrice === 'number' ? p.currentPrice : entry,
           leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
+          sl: cleanSl,
+          tp: cleanTp,
           mode: calculatedMode
         });
       }
@@ -282,7 +288,7 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
                 const prevSafe = Array.isArray(prev) ? prev : [];
                 if (
                   prevSafe.length === sanitized.length &&
-                  prevSafe.every((p, i) => p.id === sanitized[i]?.id && p.amount === sanitized[i]?.amount && p.entryPrice === sanitized[i]?.entryPrice)
+                  prevSafe.every((p, i) => p.id === sanitized[i]?.id && p.amount === sanitized[i]?.amount && p.entryPrice === sanitized[i]?.entryPrice && p.sl === sanitized[i]?.sl && p.tp === sanitized[i]?.tp)
                 ) {
                   return prev;
                 }

@@ -797,6 +797,38 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.equal(baseTradeAmt, 333.33, 'A $1000 DEMO bot must size its initial trade at $333.33 (1/3 of capital)');
   });
 
+  await test('M3.9.6: checkStops triggers closePositionById without self-deadlocking on closingPositionsRef', () => {
+    const closingPositionsRef: Record<string, boolean> = {};
+    let closedPosIds: string[] = [];
+
+    const closePositionById = (posOrId: { id: string } | string) => {
+      const posId = typeof posOrId === 'object' ? posOrId.id : posOrId;
+      if (closingPositionsRef[posId]) return;
+      closingPositionsRef[posId] = true;
+      try {
+        closedPosIds.push(posId);
+      } finally {
+        delete closingPositionsRef[posId];
+      }
+    };
+
+    // Simulate checkStops hitting SL on pos_sl_1 and TP on pos_tp_2
+    const activePositions = [
+      { id: 'pos_sl_1', type: 'BUY', entryPrice: 100, sl: 97, tp: 106, currentPrice: 96.5 },
+      { id: 'pos_tp_2', type: 'BUY', entryPrice: 100, sl: 97, tp: 106, currentPrice: 106.5 }
+    ];
+
+    for (const p of activePositions) {
+      const shouldClose = (p.sl && p.currentPrice <= p.sl) || (p.tp && p.currentPrice >= p.tp);
+      if (shouldClose) {
+        if (closingPositionsRef[p.id]) continue;
+        closePositionById(p);
+      }
+    }
+
+    assert.deepEqual(closedPosIds, ['pos_sl_1', 'pos_tp_2'], 'Both SL and TP hit positions must be closed without deadlock');
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------

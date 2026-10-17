@@ -9,6 +9,7 @@ import {
   AlertTriangle 
 } from 'lucide-react';
 import { cn, formatSolToUsdAndHtg, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
+import { resolveLivePrice } from '@/lib/symbolUtils';
 import { useAppState } from '@/context/AppContext';
 import { executeRealPumpTrade, executeJupiterSwap, SOLANA_TOKEN_MINTS, fetchLatestPumpCoins, fetchRealPumpCoins } from '@/services/pumpFunService';
 import { getExplorerTxUrl } from '@/utils/explorerLinks';
@@ -157,14 +158,21 @@ export default function ManualOrderForm({
     }
   }, [tradingMode, trendingCoins, selectedPair, setSelectedPair]);
 
+  // Réinitialiser les champs SL/TP manuels lors d'un changement d'actif ou de sens (BUY <-> SELL)
+  React.useEffect(() => {
+    setStopLoss('');
+    setTakeProfit('');
+  }, [selectedPair, orderType]);
+
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingOrderRef.current || isSubmitting) return;
     isSubmittingOrderRef.current = true;
     setIsSubmitting(true);
 
-    const currentPrice = (livePrices[selectedPair] && livePrices[selectedPair] > 0) 
-      ? livePrices[selectedPair] 
+    const resolvedPrice = resolveLivePrice(selectedPair, livePrices);
+    const currentPrice = (resolvedPrice && resolvedPrice > 0) 
+      ? resolvedPrice 
       : getRealMarketBasePrice(selectedPair);
 
     try {
@@ -401,7 +409,7 @@ export default function ManualOrderForm({
     }
   };
 
-  const activePairPrice = livePrices[selectedPair] || 0;
+  const activePairPrice = resolveLivePrice(selectedPair, livePrices) || getRealMarketBasePrice(selectedPair) || 0;
 
   return (
     <Card className="bg-[#150f21] border-white/15 rounded-2xl p-6 space-y-5 shadow-2xl">
@@ -419,7 +427,7 @@ export default function ManualOrderForm({
         <PositionRiskCalculator solanaBalance={solanaBalance} />
       </div>
 
-      <form onSubmit={handlePlaceOrder} className="space-y-4">
+      <form onSubmit={handlePlaceOrder} noValidate className="space-y-4">
         {tradingMode === 'DEMO' ? (
           <>
             {/* Pair Selection */}
@@ -609,7 +617,7 @@ export default function ManualOrderForm({
                   <label className="text-[10px] font-bold text-rose-300/80 uppercase font-headline">Stop Loss (Prix)</label>
                   <Input
                     type="number"
-                    step="0.00001"
+                    step="any"
                     value={stopLoss}
                     placeholder={activePairPrice ? (orderType === 'BUY' ? (activePairPrice * 0.97).toFixed(5) : (activePairPrice * 1.03).toFixed(5)) : 'Auto -3%'}
                     onChange={(e) => setStopLoss(e.target.value)}
@@ -620,7 +628,7 @@ export default function ManualOrderForm({
                   <label className="text-[10px] font-bold text-emerald-300/80 uppercase font-headline">Take Profit (Prix)</label>
                   <Input
                     type="number"
-                    step="0.00001"
+                    step="any"
                     value={takeProfit}
                     placeholder={activePairPrice ? (orderType === 'BUY' ? (activePairPrice * 1.06).toFixed(5) : (activePairPrice * 0.94).toFixed(5)) : 'Auto +6%'}
                     onChange={(e) => setTakeProfit(e.target.value)}
@@ -824,7 +832,7 @@ export default function ManualOrderForm({
                   <label className="text-[10px] font-bold text-rose-300 uppercase font-headline">Stop Loss (Prix / $)</label>
                   <Input
                     type="number"
-                    step="0.0000001"
+                    step="any"
                     value={stopLoss}
                     placeholder={activePairPrice > 0 ? (activePairPrice * 0.92).toFixed(6) : "Auto -8%"}
                     onChange={(e) => setStopLoss(e.target.value)}
@@ -835,7 +843,7 @@ export default function ManualOrderForm({
                   <label className="text-[10px] font-bold text-emerald-300 uppercase font-headline">Take Profit (Prix / $)</label>
                   <Input
                     type="number"
-                    step="0.0000001"
+                    step="any"
                     value={takeProfit}
                     placeholder={activePairPrice > 0 ? (activePairPrice * 1.25).toFixed(6) : "Auto +25%"}
                     onChange={(e) => setTakeProfit(e.target.value)}

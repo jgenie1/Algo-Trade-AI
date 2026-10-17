@@ -81,6 +81,15 @@ export default function PositionDetailsModal({
     const nextSl = editSl.trim() ? parseFloat(editSl) : undefined;
     const nextTp = editTp.trim() ? parseFloat(editTp) : undefined;
 
+    if (nextSl !== undefined && (isNaN(nextSl) || nextSl <= 0)) {
+      setCloseError('Veuillez saisir un prix de Stop-Loss valide (> 0).');
+      return;
+    }
+    if (nextTp !== undefined && (isNaN(nextTp) || nextTp <= 0)) {
+      setCloseError('Veuillez saisir un prix de Take-Profit valide (> 0).');
+      return;
+    }
+
     if (nextSl !== undefined && !isNaN(nextSl)) {
       if (isLong && nextSl >= current) {
         setCloseError(`Le Stop-Loss LONG (${formatDisplayPrice(nextSl)}) doit être inférieur au prix actuel (${formatDisplayPrice(current)}).`);
@@ -111,7 +120,15 @@ export default function PositionDetailsModal({
     setActivePositions(prev => {
       const updated = prev.map(item =>
         item.id === position.id
-          ? { ...item, sl: nextSl, tp: nextTp, isBreakEvenLocked: nextBe }
+          ? {
+              ...item,
+              sl: nextSl,
+              tp: nextTp,
+              isBreakEvenLocked: nextBe,
+              highestPrice: current,
+              lowestPrice: current,
+              trailingTier: nextBe ? Math.max(item.trailingTier || 0, 1) : 0
+            }
           : item
       );
       if (typeof window !== 'undefined') {
@@ -120,8 +137,8 @@ export default function PositionDetailsModal({
       return updated;
     });
     setIsEditingSlTp(false);
-    setActionFeedback('Stop-Loss & Take-Profit mis à jour en direct.');
-    setTimeout(() => setActionFeedback(null), 3000);
+    setActionFeedback('✅ Stop-Loss & Take-Profit enregistrés et activés en direct !');
+    setTimeout(() => setActionFeedback(null), 3500);
   };
 
   const handleLockBreakEvenNow = () => {
@@ -425,14 +442,45 @@ export default function PositionDetailsModal({
 
           {isEditingSlTp && (
             <div className="pt-2 border-t border-white/10 space-y-2.5 animate-in fade-in duration-150">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <span className="text-[9px] text-white/50 uppercase font-headline font-bold">Préréglages rapides (depuis prix actuel) :</span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {[
+                    { label: 'Serré (-1% / +2.5%)', slPct: 0.01, tpPct: 0.025 },
+                    { label: 'Standard (-2.5% / +6%)', slPct: 0.025, tpPct: 0.06 },
+                    { label: 'Large (-5% / +12%)', slPct: 0.05, tpPct: 0.12 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        if (current > 0) {
+                          const decimals = current >= 100 ? 2 : current >= 1 ? 4 : current >= 0.001 ? 6 : 8;
+                          const nextSlVal = isLong ? current * (1 - preset.slPct) : current * (1 + preset.slPct);
+                          const nextTpVal = isLong ? current * (1 + preset.tpPct) : current * (1 - preset.tpPct);
+                          setEditSl(nextSlVal.toFixed(decimals));
+                          setEditTp(nextTpVal.toFixed(decimals));
+                          setCloseError(null);
+                        }
+                      }}
+                      className="px-2 py-0.5 text-[9px] font-mono font-bold bg-white/5 hover:bg-white/15 border border-white/10 rounded text-slate-300 hover:text-[#c2ff0c] transition-all cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <label className="text-[9px] uppercase font-headline font-bold text-rose-300">Nouveau Stop-Loss</label>
                   <Input
                     type="number"
-                    step="0.000001"
+                    step="any"
                     value={editSl}
-                    onChange={(e) => setEditSl(e.target.value)}
+                    onChange={(e) => {
+                      setEditSl(e.target.value);
+                      setCloseError(null);
+                    }}
                     className="h-9 bg-black/40 border-white/15 text-xs font-mono text-white"
                   />
                 </div>
@@ -440,13 +488,21 @@ export default function PositionDetailsModal({
                   <label className="text-[9px] uppercase font-headline font-bold text-emerald-300">Nouveau Take-Profit</label>
                   <Input
                     type="number"
-                    step="0.000001"
+                    step="any"
                     value={editTp}
-                    onChange={(e) => setEditTp(e.target.value)}
+                    onChange={(e) => {
+                      setEditTp(e.target.value);
+                      setCloseError(null);
+                    }}
                     className="h-9 bg-black/40 border-white/15 text-xs font-mono text-white"
                   />
                 </div>
               </div>
+              {closeError && (
+                <div className="p-2 bg-rose-500/15 border border-rose-500/30 rounded-lg text-rose-300 text-[11px] font-medium">
+                  ⚠️ {closeError}
+                </div>
+              )}
               <Button
                 type="button"
                 size="sm"
