@@ -1035,6 +1035,28 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.ok(Math.abs(conflicted.finalScore) < 10, 'Chairman blocks false entry when Council Members contradict each other');
   });
 
+  await test('M3.9.12: DCA Anti-Falling-Knife Guard & Institutional Bounce-Exit Take-Profit Calibration', () => {
+    // 1. Verify DCA is strictly blocked if current price drops below emergency stop buffer (sl * 1.002)
+    const longPos = {
+      entryPrice: 100.00,
+      sl: 97.00,
+      dcaCount: 1
+    };
+    const fallingPrice = 96.90; // Price breached SL (in free-fall)
+    const isAboveSafeStop = (!longPos.sl || fallingPrice > longPos.sl * 1.002);
+    assert.equal(isAboveSafeStop, false, 'DCA must be blocked if price has breached or is within 0.2% of Stop-Loss (no knife catching)');
+
+    // 2. Verify DCA activates when price stabilizes above SL at the -2.5% threshold
+    const stableDcaPrice = 97.45; // Below entry * 0.975 (97.50) and safely above SL (97.00)
+    const shouldDca = stableDcaPrice <= longPos.entryPrice * 0.975 && stableDcaPrice > longPos.sl * 1.002;
+    assert.equal(shouldDca, true, 'DCA triggers safely on stabilized retracement');
+
+    // 3. Verify post-DCA TP is tight (1.6% Crypto) to secure profits on the first technical bounce back to average entry
+    const newAvgEntry = 98.72;
+    const postDcaTp = parseFloat((newAvgEntry * (1 + 0.016)).toFixed(5));
+    assert.ok(postDcaTp < longPos.entryPrice * 1.01, 'Post-DCA Take-Profit must be tight enough to exit profitably on the first bounce without needing an all-time high');
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------

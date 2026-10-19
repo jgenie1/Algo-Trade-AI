@@ -863,9 +863,16 @@ export function useTradingEngine() {
                 const isCrypto = !botPosition.pair.startsWith('FX:');
                 // Seuil DCA adapté à la volatilité d'actif : ±2.5% sur Crypto, ±1.2% sur Forex
                 const dcaThreshold = isCrypto ? 0.975 : 0.988;
-                const shouldTriggerDca = isLongPos
+                const priceReachedDca = isLongPos
                   ? currentPrice <= botPosition.entryPrice * dcaThreshold
                   : currentPrice >= botPosition.entryPrice * (2 - dcaThreshold);
+                // Sécurité Anti-Couteau qui Tombe (Institutional Bounce Rule) :
+                // Le DCA ne se déclenche que si le cours reste au-dessus du Stop-Loss de sécurité (+0.2% de marge)
+                // pour ne jamais réinjecter de marge dans une position en cours d'arrêt d'urgence.
+                const isAboveSafeStop = isLongPos
+                  ? (!botPosition.sl || currentPrice > botPosition.sl * 1.002)
+                  : (!botPosition.sl || currentPrice < botPosition.sl * 0.998);
+                const shouldTriggerDca = priceReachedDca && isAboveSafeStop;
                 
                 if (shouldTriggerDca) {
                   const newEntryCount = currentEntries + 1;
@@ -882,8 +889,10 @@ export function useTradingEngine() {
                   balanceRef.current = Math.max(0, balanceRef.current - chunkAmount);
                   setBalance(bal => Math.max(0, bal - chunkAmount));
 
-                  const slDistance = isCrypto ? 0.016 : 0.009;
-                  const tpDistance = isCrypto ? 0.022 : 0.012;
+                  // Calibration post-DCA : Stop-Loss protecteur à 1.5% et Take-Profit resserré (1.6% Crypto, 0.9% Forex)
+                  // permettant d'encaisser le profit dès le premier rebond technique vers le nouveau P.R.U
+                  const slDistance = isCrypto ? 0.015 : 0.009;
+                  const tpDistance = isCrypto ? 0.016 : 0.010;
                   const nextSl = isLongPos
                     ? parseFloat((newAvgEntry * (1 - slDistance)).toFixed(5))
                     : parseFloat((newAvgEntry * (1 + slDistance)).toFixed(5));
@@ -2706,7 +2715,7 @@ export function useTradingEngine() {
     try {
       recordTradeTelemetry({
         botId: p.botId,
-        strategyName: p.botId ? 'Bot Strategy' : 'Ordre Manuel',
+        strategyName: botConfig?.strategy || p.botName || (p.botId ? 'Bot Strategy' : 'Ordre Manuel'),
         symbol: p.pair,
         type: profit >= 0 ? 'WIN' : (reason.includes('Stop Loss') ? 'STOP_LOSS_HIT' : 'LOSS'),
         pnlUsd: profit,
