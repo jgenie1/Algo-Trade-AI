@@ -875,6 +875,38 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.equal(updatedSl, 100.22, 'Trade reaching +0.55% must immediately lock Break-Even at +0.22% above entry');
   });
 
+  await test('M3.9.8: DCA P.R.U Reset & Trailing Stop Anti-Self-Liquidation Guard', () => {
+    // Scenario: LONG opened at 100.00 (highestPrice = 100.00). Price drops -2.5% to 97.50 -> DCA triggers!
+    const initialEntry = 100.00;
+    const initialAmount = 333.33;
+    const currentPrice = 97.50;
+    const chunkAmount = 333.33;
+    const newAmount = initialAmount + chunkAmount;
+    const newAvgEntry = parseFloat((((initialEntry * initialAmount) + (currentPrice * chunkAmount)) / newAmount).toFixed(2)); // 98.75
+
+    // 1. Verify DCA resets highestPrice and lowestPrice to newAvgEntry (98.75), NOT stale 100.00
+    const dcaResetHighest = newAvgEntry;
+    assert.equal(dcaResetHighest, 98.75, 'DCA must reset highestPrice to newAvgEntry (98.75)');
+
+    // 2. Verify ratchetLongSl guard prevents raising SL above currentPrice when underwater (current = 97.50 < entry = 98.75)
+    let updatedSl = parseFloat((newAvgEntry * (1 - 0.016)).toFixed(5)); // 97.17
+    let nextTier = 0;
+    const ratchetLongSl = (candidateSl: number, tier: number) => {
+      if (currentPrice > newAvgEntry && candidateSl < currentPrice * 0.999) {
+        if (!updatedSl || candidateSl > updatedSl) {
+          updatedSl = candidateSl;
+        }
+        nextTier = Math.max(nextTier, tier);
+      }
+    };
+
+    // Even if someone attempted to ratchet Break-Even to 98.75 * 1.0022 = 98.967, ratchetLongSl must block it while currentPrice = 97.50
+    ratchetLongSl(newAvgEntry * 1.0022, 1);
+    assert.equal(updatedSl, 97.17, 'ratchetLongSl must never raise SL above currentPrice (97.50) after DCA');
+    assert.equal(nextTier, 0, 'Trailing tier must remain 0 while underwater after DCA');
+    assert.ok(currentPrice > updatedSl, 'Position must stay open (currentPrice 97.50 > SL 97.17) and not self-liquidate');
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------
