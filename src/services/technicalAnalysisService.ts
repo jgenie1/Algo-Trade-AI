@@ -19,6 +19,12 @@ export interface IndicatorResults {
     direction: ('UP' | 'DOWN')[];
   };
   vwap?: number[];
+  atr?: number[];
+  adx?: {
+    adx: number[];
+    plusDI: number[];
+    minusDI: number[];
+  };
   volumeProfile?: {
     bins: { min: number; max: number; volume: number }[];
     poc: number; // Point of Control price
@@ -320,6 +326,90 @@ export function calculateIndicators(candles: Candle[], activeIndicators: string[
       }
     }
     result.patterns = patterns;
+  }
+
+  // 8. ATR (14 periods, Wilder's RMA)
+  if (activeIndicators.includes('ATR') || activeIndicators.includes('ADX')) {
+    const period = 14;
+    const trArr: number[] = [];
+    const atrArr: number[] = [];
+
+    for (let i = 0; i < len; i++) {
+      const high = candles[i].high;
+      const low = candles[i].low;
+      const prevClose = i > 0 ? candles[i - 1].close : candles[i].open;
+      const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+      trArr.push(tr);
+
+      if (i === 0) {
+        atrArr.push(tr);
+      } else if (i < period) {
+        const sum = trArr.slice(0, i + 1).reduce((s, v) => s + v, 0);
+        atrArr.push(sum / (i + 1));
+      } else {
+        atrArr.push((atrArr[i - 1] * (period - 1) + tr) / period);
+      }
+    }
+
+    if (activeIndicators.includes('ATR')) {
+      result.atr = atrArr;
+    }
+
+    // 9. ADX (14 periods, Average Directional Index + +DI / -DI)
+    if (activeIndicators.includes('ADX')) {
+      const plusDI: number[] = [];
+      const minusDI: number[] = [];
+      const dxArr: number[] = [];
+      const adxArr: number[] = [];
+
+      let smoothedPlusDM = 0;
+      let smoothedMinusDM = 0;
+      let smoothedTR = 0;
+
+      for (let i = 0; i < len; i++) {
+        if (i === 0) {
+          plusDI.push(0);
+          minusDI.push(0);
+          dxArr.push(0);
+          adxArr.push(15);
+          smoothedTR = trArr[0];
+          continue;
+        }
+
+        const upMove = candles[i].high - candles[i - 1].high;
+        const downMove = candles[i - 1].low - candles[i].low;
+        const pDM = (upMove > downMove && upMove > 0) ? upMove : 0;
+        const mDM = (downMove > upMove && downMove > 0) ? downMove : 0;
+
+        if (i < period) {
+          smoothedPlusDM += pDM;
+          smoothedMinusDM += mDM;
+          smoothedTR += trArr[i];
+        } else {
+          smoothedPlusDM = smoothedPlusDM - (smoothedPlusDM / period) + pDM;
+          smoothedMinusDM = smoothedMinusDM - (smoothedMinusDM / period) + mDM;
+          smoothedTR = smoothedTR - (smoothedTR / period) + trArr[i];
+        }
+
+        const pDI = smoothedTR > 0 ? (smoothedPlusDM / smoothedTR) * 100 : 0;
+        const mDI = smoothedTR > 0 ? (smoothedMinusDM / smoothedTR) * 100 : 0;
+        plusDI.push(pDI);
+        minusDI.push(mDI);
+
+        const diSum = pDI + mDI;
+        const dx = diSum > 0 ? (Math.abs(pDI - mDI) / diSum) * 100 : 0;
+        dxArr.push(dx);
+
+        if (i < period) {
+          const avgDx = dxArr.slice(1, i + 1).reduce((s, v) => s + v, 0) / i;
+          adxArr.push(avgDx || 15);
+        } else {
+          adxArr.push(((adxArr[i - 1] * (period - 1)) + dx) / period);
+        }
+      }
+
+      result.adx = { adx: adxArr, plusDI, minusDI };
+    }
   }
 
   return result;

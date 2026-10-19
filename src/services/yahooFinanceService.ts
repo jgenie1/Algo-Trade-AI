@@ -94,7 +94,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
   if (binanceSymbol) {
     try {
       const interval = binanceIntervalMap[timeframe] || '15m';
-      const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=30`, { cache: 'no-store' }, 4000);
+      const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=60`, { cache: 'no-store' }, 4000);
 
       if (res.ok) {
         const rawKlines = await res.json();
@@ -123,7 +123,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
   const yahooTicker = YAHOO_SYMBOL_MAP[cleanSymbol] || `${cleanSymbol}=X`;
   try {
     const yInterval = timeframe === '1' ? '1m' : timeframe === '5' ? '5m' : timeframe === '60' ? '1h' : '15m';
-    const yRes = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=${yInterval}&range=2d`, { cache: 'no-store' }, 4000);
+    const yRes = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=${yInterval}&range=5d`, { cache: 'no-store' }, 4000);
 
     if (yRes.ok) {
       const yData = await yRes.json();
@@ -148,7 +148,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
         }
 
         if (validCandles.length > 0) {
-          const sliced = validCandles.slice(-30);
+          const sliced = validCandles.slice(-60);
           updateLiveMarketPrice(cleanSymbol, sliced[sliced.length - 1].close);
           candleCache[cacheKey] = { candles: sliced, timestamp: Date.now() };
           return sliced;
@@ -172,9 +172,9 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
         const stepSec = timeframe === '1' ? 60 : timeframe === '5' ? 300 : timeframe === '60' ? 3600 : 900;
         const baseChange = (quote.percent_change_24h || 0) / 100;
 
-        for (let i = 0; i < 30; i++) {
-          const time = nowSec - (30 - i) * stepSec;
-          const ratio = (i / 30);
+        for (let i = 0; i < 60; i++) {
+          const time = nowSec - (60 - i) * stepSec;
+          const ratio = (i / 60);
           const priceAtStep = livePrice * (1 - baseChange * (1 - ratio));
           candles.push({
             time,
@@ -182,7 +182,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
             high: priceAtStep * 1.0005,
             low: priceAtStep * 0.9995,
             close: priceAtStep,
-            volume: Math.floor(volume / 30)
+            volume: Math.floor(volume / 60)
           });
         }
 

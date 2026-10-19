@@ -1451,6 +1451,9 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   }
   if (isSystemCreator) risks.push("Adresse de créateur suspecte / système");
   if (solReserves < 15) risks.push("Faible réserve initiale (< 15 SOL)");
+  if (solReserves <= 30.2 && (coin.reply_count || 0) < 5) {
+    risks.push("Traction organique initiale insuffisante (< 5 réponses sur réserve de départ)");
+  }
   if (!hasTwitter && !hasTelegram) risks.push("Absence de canaux sociaux officiels (Twitter/Telegram)");
   if (curveProgressPct > 90) risks.push("Bonding curve quasi-complète (Risque de dump de transition Raydium)");
   if (ageMinutes < 2) risks.push("Token ultra-récent (< 2 min) : forte volatilité initiale");
@@ -1460,6 +1463,7 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   if (isVolumeSufficient) alertsTriggered.push(`Volume 24h validé ($${estimatedVolume24h.toLocaleString()} USD)`);
   if (marketCapUsd < 150000) alertsTriggered.push("Market Cap inférieur à 150 000 $ (Niveau précoce sniper)");
   if (coin.reply_count >= 10) alertsTriggered.push("Croissance rapide des holders/replies (+30% récent)");
+  if (curveProgressPct >= 35 && curveProgressPct <= 78) alertsTriggered.push("Sweet-Spot Bonding Curve (35%-78% : Vélocité Optimale)");
   if (curveProgressPct >= 78) alertsTriggered.push("Bonding curve proche de la complétion (Raydium imminent)");
   if (smartMoneyScore >= 7) alertsTriggered.push("Au moins 3 wallets Smart Money identifiés en achat");
 
@@ -1469,15 +1473,15 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   let recommendation: PumpCoinAnalysisReport['recommendation'] = 'SURVEILLER';
   if (isScamKeywords || hasNoBranding) {
     recommendation = 'IGNORE';
-  } else if (!isVolumeSufficient && risks.length >= 2) {
+  } else if (!isVolumeSufficient || (solReserves <= 30.2 && (coin.reply_count || 0) < 3)) {
     recommendation = 'SURVEILLER';
-  } else if (globalScoreAvg >= 6.8 && risks.length <= 1) {
+  } else if (globalScoreAvg >= 7.0 && risks.length <= 1) {
     recommendation = 'ACHAT EXCEPTIONNEL';
-  } else if (globalScoreAvg >= 5.8 && risks.length <= 2) {
+  } else if (globalScoreAvg >= 6.0 && risks.length <= 2) {
     recommendation = 'ACHAT FORT';
-  } else if (globalScoreAvg >= 4.8 && risks.length <= 2) {
+  } else if (globalScoreAvg >= 5.1 && risks.length <= 2) {
     recommendation = 'ACHAT SPECULATIF';
-  } else if (risks.length >= 3 || globalScoreAvg < 4.0) {
+  } else if (risks.length >= 3 || globalScoreAvg < 4.2) {
     recommendation = 'IGNORE';
   }
 

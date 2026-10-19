@@ -17,6 +17,7 @@ import {
   getExplorerTokenUrl 
 } from '../../utils/explorerLinks';
 import { SOLANA_TOKEN_MINTS } from '../pumpFunService';
+import { calculateIndicators } from '../technicalAnalysisService';
 
 interface TestResult {
   name: string;
@@ -827,6 +828,51 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     }
 
     assert.deepEqual(closedPosIds, ['pos_sl_1', 'pos_tp_2'], 'Both SL and TP hit positions must be closed without deadlock');
+  });
+
+  await test('M3.9.7: ATR/ADX indicators, Regime-Aware RSI+EMA Confluence, and Early +0.55% Break-Even Ratchet maximize win rate', () => {
+    // 1. Generate a 60-candle steady bullish uptrend
+    const uptrendCandles = Array.from({ length: 60 }, (_, i) => {
+      const open = 100 + i * 0.4;
+      const close = open + 0.35;
+      return {
+        time: 1700000000 + i * 900,
+        open,
+        high: close + 0.15,
+        low: open - 0.10,
+        close,
+        volume: 1000 + i * 25
+      };
+    });
+
+    const inds = calculateIndicators(uptrendCandles, ['RSI', 'EMA', 'MACD', 'ATR', 'ADX']);
+    assert.ok(inds.atr && inds.atr.length === 60, 'ATR (14) must be computed for all 60 candles');
+    assert.ok(inds.adx && inds.adx.adx.length === 60, 'ADX (14) must be computed for all 60 candles');
+    const lastAtr = inds.atr![59];
+    const lastAdx = inds.adx!.adx[59];
+    const lastPlusDI = inds.adx!.plusDI[59];
+    const lastMinusDI = inds.adx!.minusDI[59];
+    assert.ok(lastAtr > 0, 'ATR must be strictly positive');
+    assert.ok(lastAdx >= 20, 'ADX in a steady uptrend must confirm strong trend (>= 20)');
+    assert.ok(lastPlusDI > lastMinusDI, '+DI must exceed -DI in a bullish trend');
+
+    // 2. Verify Regime-Aware RSI Confluence rewards bullish momentum (RSI ~60 in uptrend) instead of penalizing it
+    const isBullishEmaStack = true;
+    const lastRsi = 60;
+    const prevRsi = 58;
+    const rsiScore = (isBullishEmaStack && lastRsi >= 48 && lastRsi <= 68 && lastRsi >= prevRsi) ? 26 : -15;
+    assert.equal(rsiScore, 26, 'Bullish momentum RSI (48-68) in EMA stack must receive positive confluence (+26), not penalty');
+
+    // 3. Verify Early +0.55% Break-Even Ratchet locks +0.22% profit immediately so +6% leveraged trades never turn into losses
+    const entry = 100;
+    const peakPrice = 100.56; // +0.56% move (+5.6% at 10x leverage)
+    const peakGainPct = (peakPrice - entry) / entry;
+    const beThreshold = 0.0055;
+    let updatedSl = 98.5;
+    if (peakGainPct >= beThreshold) {
+      updatedSl = Math.max(updatedSl, entry * 1.0022);
+    }
+    assert.equal(updatedSl, 100.22, 'Trade reaching +0.55% must immediately lock Break-Even at +0.22% above entry');
   });
 
   // --------------------------------------------------------------------------

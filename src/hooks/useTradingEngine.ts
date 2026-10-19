@@ -475,11 +475,16 @@ export function useTradingEngine() {
                 if (!isNaN(livePrice) && livePrice > 0) {
                   const oldPrice = livePricesRef.current[pairKey];
                   if (oldPrice && oldPrice !== livePrice) {
-                    pendingDirections[pairKey] = livePrice > oldPrice ? 'up' : 'down';
+                    const dir = livePrice > oldPrice ? 'up' : 'down';
+                    pendingDirections[pairKey] = dir;
+                    pendingDirections[`${pairKey}-USD`] = dir;
                   }
                   pendingPrices[pairKey] = livePrice;
-
+                  pendingPrices[`${pairKey}-USD`] = livePrice;
                   const now = Date.now();
+                  wsUpdatedAtRef.current[pairKey] = now;
+                  wsUpdatedAtRef.current[`${pairKey}-USD`] = now;
+
                   if (now - lastFlush >= 300) {
                     flushBatch();
                   } else if (!batchTimer) {
@@ -561,27 +566,36 @@ export function useTradingEngine() {
             }
           } else {
             try {
+              const cleanSym = pairVal.replace('FX:', '').replace('-USD', '').replace('=', '').toUpperCase();
+              const wsLastTick = wsUpdatedAtRef.current[cleanSym] || wsUpdatedAtRef.current[pairVal] || 0;
+              const hasFreshWsPrice = (Date.now() - wsLastTick) < 8000 && (livePricesRef.current[pairVal] || livePricesRef.current[cleanSym]);
+
               const candles = await fetchLiveMarketData(pairVal, '15');
-              if (candles.length > 0) {
+              if (candles.length > 0 && !hasFreshWsPrice) {
                 const lastClose = candles[candles.length - 1].close;
                 newPrices[pairVal] = lastClose;
                 const oldPrice = livePricesRef.current[pairVal];
                 if (oldPrice) {
                   newDirections[pairVal] = lastClose > oldPrice ? 'up' : lastClose < oldPrice ? 'down' : 'flat';
                 }
+              } else if (hasFreshWsPrice && livePricesRef.current[cleanSym] && !livePricesRef.current[pairVal]) {
+                newPrices[pairVal] = livePricesRef.current[cleanSym];
               }
             } catch (e) {}
           }
         })
       );
 
-      // Always fetch live SOL quote directly from CoinMarketCap Pro API
+      // Fetch CoinMarketCap quote for USD rate hydration; only set livePrices['SOL'] if Binance WS/REST is not already active
       try {
         const cmcSol = await fetchCoinMarketCapQuotes(['SOL']);
         if (cmcSol && cmcSol['SOL']?.quote?.USD?.price) {
           const solCmcPrice = cmcSol['SOL'].quote.USD.price;
-          newPrices['SOL-USD'] = solCmcPrice;
-          newPrices['SOL'] = solCmcPrice;
+          const solWsFresh = (Date.now() - (wsUpdatedAtRef.current['SOL'] || 0)) < 10000;
+          if (!solWsFresh && !livePricesRef.current['SOL'] && !newPrices['SOL']) {
+            newPrices['SOL-USD'] = solCmcPrice;
+            newPrices['SOL'] = solCmcPrice;
+          }
         }
       } catch (e) {}
 
@@ -652,6 +666,7 @@ export function useTradingEngine() {
   const botsRef = useRef(bots);
   const activePositionsRef = useRef(activePositions);
   const livePricesRef = useRef(livePrices);
+  const wsUpdatedAtRef = useRef<Record<string, number>>({});
   const liveWsCoinsRef = useRef<any[]>([]);
   const botLearningsRef = useRef(botLearnings);
   const subWalletsRef = useRef(subWallets);
@@ -870,19 +885,19 @@ export function useTradingEngine() {
             const mode = bot.pumpMode || 'PRECOCE';
             const modeLabel = mode === 'PRECOCE' ? 'Ultra-Précoce' : mode === 'MOMENTUM' ? 'Momentum' : 'Raydium Proche';
 
-            // Filtrage des candidats selon le mode sélectionné
+            // Filtrage des candidats selon le mode sélectionné (Sweet-Spot Bonding Curve & Traction Organique)
             let modeCandidates = latestCoins.filter(c => !c.complete);
             if (mode === 'PRECOCE') {
-              modeCandidates = modeCandidates.filter(c => (c.virtual_sol_reserves / 1e9) < 55);
+              modeCandidates = modeCandidates.filter(c => (c.virtual_sol_reserves / 1e9) >= 30.2 && (c.virtual_sol_reserves / 1e9) < 55 && (c.reply_count || 0) >= 3);
             } else if (mode === 'MOMENTUM') {
-              modeCandidates = modeCandidates.filter(c => (c.reply_count || 0) >= 10 && (c.virtual_sol_reserves / 1e9) >= 30 && (c.virtual_sol_reserves / 1e9) < 75);
+              modeCandidates = modeCandidates.filter(c => (c.reply_count || 0) >= 10 && (c.virtual_sol_reserves / 1e9) >= 32 && (c.virtual_sol_reserves / 1e9) < 75);
             } else if (mode === 'RAYDIUM') {
-              modeCandidates = modeCandidates.filter(c => (c.virtual_sol_reserves / 1e9) >= 65);
+              modeCandidates = modeCandidates.filter(c => (c.virtual_sol_reserves / 1e9) >= 60 && (c.virtual_sol_reserves / 1e9) < 82 && (c.reply_count || 0) >= 10);
             }
 
-            // Si aucun candidat strict en mode précoce/momentum, autoriser un scan élargi des jetons actifs
+            // Si aucun candidat strict en mode précoce/momentum, autoriser un scan élargi des jetons actifs avec traction minimale
             if (modeCandidates.length === 0 && latestCoins.length > 0) {
-              modeCandidates = latestCoins.filter(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 15);
+              modeCandidates = latestCoins.filter(c => !c.complete && (c.virtual_sol_reserves / 1e9) >= 25 && (c.reply_count || 0) >= 3);
             }
 
             // Élimination proactive des scams, créateurs invalides et tokens sans nom
@@ -1059,14 +1074,15 @@ export function useTradingEngine() {
               }
 
               const orderId = 'pos_' + Math.random().toString(36).substring(2, 9);
-              const slDistance = isWinningPatternMatch ? 0.072 : 0.08;
+              const slDistance = isWinningPatternMatch ? 0.065 : 0.075;
               const isExceptionalGem = analysis.recommendation === 'ACHAT EXCEPTIONNEL';
               const isStrongGem = analysis.recommendation === 'ACHAT FORT';
-              let tpDistance = isExceptionalGem ? 0.45 : isStrongGem ? 0.30 : 0.22;
+              let tpDistance = isExceptionalGem ? 0.28 : isStrongGem ? 0.20 : 0.14;
               if (isWinningPatternMatch) {
-                tpDistance = parseFloat((tpDistance * 1.25).toFixed(3));
+                tpDistance = parseFloat((tpDistance * 1.20).toFixed(3));
               }
 
+              livePricesRef.current = { ...livePricesRef.current, [targetPair]: lastClose };
               setLivePrices(prev => ({ ...prev, [targetPair]: lastClose }));
 
               const slPrice = lastClose * (1 - slDistance);
@@ -1085,6 +1101,7 @@ export function useTradingEngine() {
                 timestamp: Date.now(),
                 botId: bot.id,
                 highestPrice: lastClose,
+                lowestPrice: lastClose,
                 dcaCount: 1,
                 bondingCurveProgress: curveProgress,
                 replyCount: replies,
@@ -1217,20 +1234,41 @@ export function useTradingEngine() {
               const fetchedCandles = await fetchLiveMarketData(currentPair, bot.timeframe || '15');
               if (!fetchedCandles || fetchedCandles.length < 15) continue;
               
-              const indicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA', 'MACD', 'Bollinger Bands', 'Candlestick Patterns', 'SuperTrend']) || {};
+              const indicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA', 'MACD', 'Bollinger Bands', 'Candlestick Patterns', 'SuperTrend', 'VWAP', 'ATR', 'ADX']) || {};
               const rsiValues = indicators.rsi || [];
               if (!rsiValues || rsiValues.length === 0) continue;
 
               const lastRsi = rsiValues[rsiValues.length - 1];
+              const prevRsi = rsiValues.length >= 2 ? rsiValues[rsiValues.length - 2] : lastRsi;
               const emaValues = indicators.ema || [];
-              const lastClose = fetchedCandles[fetchedCandles.length - 1]?.close || 0;
+              const lastCandle = fetchedCandles[fetchedCandles.length - 1];
+              const prevCandle = fetchedCandles.length >= 2 ? fetchedCandles[fetchedCandles.length - 2] : lastCandle;
+              const lastClose = lastCandle?.close || 0;
+              if (!lastClose || lastClose <= 0) continue;
+
+              // Confirmation directionnelle de la bougie en cours (ne jamais acheter sur une bougie rouge en chute ni vendre sur une bougie verte)
+              const isGreenCandle = lastCandle.close >= lastCandle.open;
+              const isRedCandle = lastCandle.close <= lastCandle.open;
+
+              // Indicateurs de volatilité (ATR 14) et de force de tendance (ADX 14 + DI)
+              const atrValues = indicators.atr || [];
+              const lastAtr = atrValues.length > 0 ? atrValues[atrValues.length - 1] : 0;
+              const adxValues = indicators.adx?.adx || [];
+              const plusDIValues = indicators.adx?.plusDI || [];
+              const minusDIValues = indicators.adx?.minusDI || [];
+              const lastAdx = adxValues.length > 0 ? adxValues[adxValues.length - 1] : 20;
+              const lastPlusDI = plusDIValues.length > 0 ? plusDIValues[plusDIValues.length - 1] : 20;
+              const lastMinusDI = minusDIValues.length > 0 ? minusDIValues[minusDIValues.length - 1] : 20;
+
+              const macdHist = indicators.macd?.histogram || [];
+              const lastHist = macdHist.length > 0 ? macdHist[macdHist.length - 1] : 0;
+              const prevHist = macdHist.length > 1 ? macdHist[macdHist.length - 2] : 0;
 
               let signal: 'BUY' | 'SELL' | null = null;
               let reason = '';
               let aiConfidenceScore = 0;
 
               const mult = bot.selectivityMultiplier || 1.0;
-              const triggerChance = 0.45 / mult;
               const closes = fetchedCandles.map(c => c.close);
               const volumes = fetchedCandles.map(c => c.volume || 0);
 
@@ -1246,17 +1284,18 @@ export function useTradingEngine() {
                 return ema;
               };
 
+              const ema50Series = getEMA(closes, Math.min(50, closes.length));
+              const lastEma50 = ema50Series[ema50Series.length - 1] || lastClose;
+
               if (bot.strategy === 'RSI Pullback' && closes.length >= 2) {
-                const buyThreshold = 35 - (mult - 1.0) * 4;
-                const sellThreshold = 65 + (mult - 1.0) * 4;
-                const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2];
-                const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2];
+                const buyThreshold = 38 - (mult - 1.0) * 4;
+                const sellThreshold = 62 + (mult - 1.0) * 4;
+                const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2] && isGreenCandle && lastRsi > prevRsi;
+                const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2] && isRedCandle && lastRsi < prevRsi;
 
                 // Filtre de tendance EMA 50 : évite d'acheter en pleine capitulation ou de shorter un breakout
-                const ema50 = getEMA(closes, Math.min(50, closes.length));
-                const lastEma50 = ema50[ema50.length - 1] || lastClose;
-                const isTrendFavorableBuy = lastClose >= lastEma50 * 0.97;
-                const isTrendFavorableSell = lastClose <= lastEma50 * 1.03;
+                const isTrendFavorableBuy = lastClose >= lastEma50 * 0.985;
+                const isTrendFavorableSell = lastClose <= lastEma50 * 1.015;
 
                 // Confirmation de volume : évite les mèches creuses
                 const lastVol = volumes[volumes.length - 1] || 0;
@@ -1264,14 +1303,14 @@ export function useTradingEngine() {
                 const hasReversalVolume = lastVol >= avgVol * 0.85;
 
                 // Protection anti-capitulation extrême (RSI trop bas = risque de chute libre)
-                const isSafeRsiBounds = lastRsi >= 18 && lastRsi <= 82;
+                const isSafeRsiBounds = lastRsi >= 22 && lastRsi <= 78;
 
                 if (lastRsi <= buyThreshold && isBullishReversal && isTrendFavorableBuy && hasReversalVolume && isSafeRsiBounds) {
                   signal = 'BUY';
-                  reason = `RSI Survente (${lastRsi.toFixed(1)} <= ${buyThreshold.toFixed(1)}) confirmé par rebond haussier, volume et support EMA`;
+                  reason = `RSI Pullback Haussier (${lastRsi.toFixed(1)} ↗) confirmé par bougie verte, volume et support EMA 50`;
                 } else if (lastRsi >= sellThreshold && isBearishReversal && isTrendFavorableSell && hasReversalVolume && isSafeRsiBounds) {
                   signal = 'SELL';
-                  reason = `RSI Surachat (${lastRsi.toFixed(1)} >= ${sellThreshold.toFixed(1)}) confirmé par rejet baissier, volume et résistance EMA`;
+                  reason = `RSI Pullback Baissier (${lastRsi.toFixed(1)} ↘) confirmé par bougie rouge, volume et résistance EMA 50`;
                 }
               } else if (bot.strategy === 'EMA Cross' && closes.length >= 20) {
                 const fastEma = getEMA(closes, 9);
@@ -1290,24 +1329,22 @@ export function useTradingEngine() {
 
                 const lastVol = volumes[lastIdx] || 0;
                 const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
-                const volumeConfirm = lastVol >= avgVol * 1.02;
+                const volumeConfirm = lastVol >= avgVol * 0.95;
 
-                // Filtre de momentum de pente : élimine les faux croisements en marché plat (sideways chop)
+                // Filtre de momentum de pente + ADX : élimine les faux croisements en marché plat (sideways chop)
                 const emaSlope = (slowLast - slowPrev) / (slowPrev || 1);
-                const hasTrendMomentum = Math.abs(emaSlope) > 0.00012;
+                const hasTrendMomentum = Math.abs(emaSlope) > 0.00012 && lastAdx >= 16;
 
-                // Filtre de tendance Macro EMA 50
-                const ema50 = getEMA(closes, Math.min(50, closes.length));
-                const lastEma50 = ema50[ema50.length - 1] || slowLast;
-                const isMacroAlignedBuy = lastClose >= lastEma50 * 0.985;
-                const isMacroAlignedSell = lastClose <= lastEma50 * 1.015;
+                // Filtre de tendance Macro EMA 50 + RSI non-épuisé
+                const isMacroAlignedBuy = lastClose >= lastEma50 * 0.99 && isGreenCandle && lastRsi >= 46 && lastRsi <= 70 && lastHist >= prevHist;
+                const isMacroAlignedSell = lastClose <= lastEma50 * 1.01 && isRedCandle && lastRsi <= 54 && lastRsi >= 30 && lastHist <= prevHist;
 
                 if (goldenCross && volumeConfirm && hasTrendMomentum && isMacroAlignedBuy) {
                   signal = 'BUY';
-                  reason = `Crossover haussier EMA 9/20 avec pente ascendante confirmée par volume et macro tendance`;
+                  reason = `Crossover haussier EMA 9/20 confirmé par ADX (${lastAdx.toFixed(0)}), MACD et bougie directionnelle`;
                 } else if (deathCross && volumeConfirm && hasTrendMomentum && isMacroAlignedSell) {
                   signal = 'SELL';
-                  reason = `Crossover baissier EMA 9/20 avec pente descendante confirmée par volume et macro tendance`;
+                  reason = `Crossover baissier EMA 9/20 confirmé par ADX (${lastAdx.toFixed(0)}), MACD et bougie directionnelle`;
                 }
               } else if (bot.strategy === 'BB Mean Reversion') {
                 const bbInds = indicators.bollingerBands ? indicators : (calculateIndicators(fetchedCandles, ['Bollinger Bands']) || {});
@@ -1321,85 +1358,118 @@ export function useTradingEngine() {
                   const lower = mean - 2.0 * stdDev;
                   const upper = mean + 2.0 * stdDev;
                   
-                  const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2];
-                  const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2];
+                  const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2] && isGreenCandle && lastRsi > prevRsi;
+                  const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2] && isRedCandle && lastRsi < prevRsi;
 
-                  // Protection anti-chute libre : évite d'acheter un crash en dessous de RSI 20
-                  const isSafeRsiBuy = lastRsi >= 20;
-                  const isSafeRsiSell = lastRsi <= 80;
+                  // Protection anti-chute libre & anti-breakout : ne jamais contre-trader si ADX > 36 (forte cassure directionnelle)
+                  const isSafeRsiBuy = lastRsi >= 22 && lastRsi <= 45 && lastAdx < 36;
+                  const isSafeRsiSell = lastRsi <= 78 && lastRsi >= 55 && lastAdx < 36;
 
                   // Filtre de compression (Squeeze) : ne pas trader si les bandes sont ultra-serrées (explosion imminente)
                   const bbBandwidth = (upper - lower) / (mean || 1);
                   const isNormalVolatility = bbBandwidth >= 0.005;
 
-                  if (lastClose <= lower && isBullishRebound && isSafeRsiBuy && isNormalVolatility) {
+                  if ((lastClose <= lower || prevCandle.low <= lower) && isBullishRebound && isSafeRsiBuy && isNormalVolatility) {
                     signal = 'BUY';
-                    reason = `Rebond BB basse stabilisé (Prix: ${lastClose.toFixed(5)} <= Bas: ${lower.toFixed(5)} | RSI: ${lastRsi.toFixed(1)})`;
-                  } else if (lastClose >= upper && isBearishRebound && isSafeRsiSell && isNormalVolatility) {
+                    reason = `Rebond BB basse confirmé par bougie verte (Prix: ${lastClose.toFixed(5)} | RSI: ${lastRsi.toFixed(1)} ↗)`;
+                  } else if ((lastClose >= upper || prevCandle.high >= upper) && isBearishRebound && isSafeRsiSell && isNormalVolatility) {
                     signal = 'SELL';
-                    reason = `Rejet BB haute confirmé (Prix: ${lastClose.toFixed(5)} >= Haut: ${upper.toFixed(5)} | RSI: ${lastRsi.toFixed(1)})`;
+                    reason = `Rejet BB haute confirmé par bougie rouge (Prix: ${lastClose.toFixed(5)} | RSI: ${lastRsi.toFixed(1)} ↘)`;
                   }
                 }
               } else if (bot.strategy === 'SuperTrend Momentum') {
-                const stInds = calculateIndicators(fetchedCandles, ['SuperTrend']) || {};
+                const stInds = indicators.superTrend ? indicators : (calculateIndicators(fetchedCandles, ['SuperTrend']) || {});
                 if (stInds.superTrend && stInds.superTrend.direction && stInds.superTrend.direction.length >= 2) {
                   const dirs = stInds.superTrend.direction;
                   const lastDir = dirs[dirs.length - 1];
                   const prevDir = dirs[dirs.length - 2];
-                  if (prevDir === 'DOWN' && lastDir === 'UP') {
+                  const isBullishConfirm = isGreenCandle && lastClose >= lastEma50 * 0.995 && lastHist >= prevHist && lastRsi >= 48 && lastRsi <= 70 && lastAdx >= 16;
+                  const isBearishConfirm = isRedCandle && lastClose <= lastEma50 * 1.005 && lastHist <= prevHist && lastRsi <= 52 && lastRsi >= 30 && lastAdx >= 16;
+
+                  if (prevDir === 'DOWN' && lastDir === 'UP' && isBullishConfirm) {
                     signal = 'BUY';
-                    reason = `Changement de tendance SuperTrend (Baissier ➔ Haussier)`;
-                  } else if (prevDir === 'UP' && lastDir === 'DOWN') {
+                    reason = `Retournement SuperTrend Haussier confirmé par EMA 50, MACD et ADX (${lastAdx.toFixed(0)})`;
+                  } else if (prevDir === 'UP' && lastDir === 'DOWN' && isBearishConfirm) {
                     signal = 'SELL';
-                    reason = `Changement de tendance SuperTrend (Haussier ➔ Baissier)`;
+                    reason = `Retournement SuperTrend Baissier confirmé par EMA 50, MACD et ADX (${lastAdx.toFixed(0)})`;
                   }
                 }
               } else if (bot.strategy === 'VWAP Breakout') {
-                const vwapInds = calculateIndicators(fetchedCandles, ['VWAP']) || {};
+                const vwapInds = indicators.vwap ? indicators : (calculateIndicators(fetchedCandles, ['VWAP']) || {});
                 if (vwapInds.vwap && vwapInds.vwap.length >= 2) {
                   const vwapVals = vwapInds.vwap;
                   const lastVwap = vwapVals[vwapVals.length - 1];
                   const prevClose = closes[closes.length - 2];
-                  if (prevClose < lastVwap && lastClose > lastVwap) {
+                  const lastEma20 = emaValues.length > 0 ? (emaValues[emaValues.length - 1] || lastClose) : lastClose;
+                  const lastVol = volumes[volumes.length - 1] || 0;
+                  const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
+                  const hasBreakoutVol = lastVol >= avgVol * 0.95;
+
+                  if (prevClose < lastVwap && lastClose > lastVwap && isGreenCandle && lastClose >= lastEma20 && lastHist >= 0 && lastRsi >= 48 && lastRsi <= 70 && hasBreakoutVol) {
                     signal = 'BUY';
-                    reason = `Cassure haussière du VWAP (Prix ${lastClose.toFixed(5)} > VWAP ${lastVwap.toFixed(5)})`;
-                  } else if (prevClose > lastVwap && lastClose < lastVwap) {
+                    reason = `Cassure haussière du VWAP (${lastClose.toFixed(5)} > ${lastVwap.toFixed(5)}) validée par EMA 20, MACD et volume`;
+                  } else if (prevClose > lastVwap && lastClose < lastVwap && isRedCandle && lastClose <= lastEma20 && lastHist <= 0 && lastRsi <= 52 && lastRsi >= 30 && hasBreakoutVol) {
                     signal = 'SELL';
-                    reason = `Cassure baissière du VWAP (Prix ${lastClose.toFixed(5)} < VWAP ${lastVwap.toFixed(5)})`;
+                    reason = `Cassure baissière du VWAP (${lastClose.toFixed(5)} < ${lastVwap.toFixed(5)}) validée par EMA 20, MACD et volume`;
                   }
                 }
               } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
                 const ema9 = getEMA(closes, 9);
                 const ema20 = indicators.ema || getEMA(closes, 20);
-                const ema50 = getEMA(closes, Math.min(50, closes.length));
 
                 const lastEma9 = ema9[ema9.length - 1] || lastClose;
                 const lastEma20 = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;
-                const lastEma50 = ema50[ema50.length - 1] || lastClose;
 
-                // Alignement de tendance multi-périodes (Stack EMA 9/20/50)
-                const isBullishEmaStack = lastEma9 > lastEma20 && lastEma20 > lastEma50;
-                const isBearishEmaStack = lastEma9 < lastEma20 && lastEma20 < lastEma50;
-                const isBullishEma = lastClose > lastEma20;
+                // 1. Alignement de tendance multi-périodes (Stack EMA 9/20/50)
+                const isBullishEmaStack = lastClose >= lastEma9 && lastEma9 >= lastEma20 && lastEma20 >= lastEma50;
+                const isBearishEmaStack = lastClose <= lastEma9 && lastEma9 <= lastEma20 && lastEma20 <= lastEma50;
+                const isBullishEma = lastClose > lastEma20 && lastEma20 >= lastEma50 * 0.995;
+                const isBearishEma = lastClose < lastEma20 && lastEma20 <= lastEma50 * 1.005;
 
-                const trendAlignmentScore = isBullishEmaStack ? 25 : isBearishEmaStack ? -25 : (isBullishEma ? 10 : -10);
-                const rsiScore = (lastRsi < 38 ? 35 : lastRsi > 62 ? -35 : (lastRsi < 45 ? 15 : lastRsi > 55 ? -15 : 0));
-                const agentMathScore = trendAlignmentScore + rsiScore;
+                const trendAlignmentScore = isBullishEmaStack ? 30 : isBearishEmaStack ? -30 : (isBullishEma ? 16 : isBearishEma ? -16 : 0);
 
-                const priceTrend = closes[closes.length - 1] - closes[closes.length - 5];
+                // 2. Confluence RSI Régime-Adaptative (Ne pénalise plus le momentum haussier sain 50-68 !)
+                let rsiScore = 0;
+                if ((isBullishEmaStack || isBullishEma) && lastRsi >= 48 && lastRsi <= 68 && lastRsi >= prevRsi) {
+                  // Momentum haussier sain dans le sens de la tendance
+                  rsiScore = 26;
+                } else if (lastClose >= lastEma50 * 0.988 && lastRsi < 42 && lastRsi >= 24 && lastRsi > prevRsi && isGreenCandle) {
+                  // Rebond sur repli (Buy the dip) uniquement si support macro intact et bougie verte
+                  rsiScore = 24;
+                } else if ((isBearishEmaStack || isBearishEma) && lastRsi <= 52 && lastRsi >= 32 && lastRsi <= prevRsi) {
+                  // Momentum baissier sain dans le sens de la tendance
+                  rsiScore = -26;
+                } else if (lastClose <= lastEma50 * 1.012 && lastRsi > 58 && lastRsi <= 76 && lastRsi < prevRsi && isRedCandle) {
+                  // Rejet sur rallye baissier confirmé par bougie rouge
+                  rsiScore = -24;
+                } else if (lastRsi > 74) {
+                  // Zone de surachat extrême : bloque l'achat au sommet
+                  rsiScore = -22;
+                } else if (lastRsi < 26) {
+                  // Zone de survente extrême : bloque la vente au plus bas
+                  rsiScore = 22;
+                }
+
+                // 3. Force de tendance ADX (14) & Direction (+DI / -DI)
+                let adxScore = 0;
+                if (lastAdx >= 20) {
+                  if (lastPlusDI > lastMinusDI) adxScore = 18;
+                  else if (lastMinusDI > lastPlusDI) adxScore = -18;
+                }
+
+                const agentMathScore = trendAlignmentScore + rsiScore + adxScore;
+
+                const priceTrend = closes[closes.length - 1] - closes[Math.max(0, closes.length - 5)];
                 const lastVol = volumes[volumes.length - 1] || 0;
                 const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
-                const isVolumeSpiking = lastVol > avgVol * 1.25;
+                const isVolumeSpiking = lastVol > avgVol * 1.15;
 
-                // Confirmation de momentum MACD (expansion de l'histogramme dans le sens de la tendance)
-                const macdHist = indicators.macd?.histogram || [];
-                const lastHist = macdHist.length > 0 ? macdHist[macdHist.length - 1] : 0;
-                const prevHist = macdHist.length > 1 ? macdHist[macdHist.length - 2] : 0;
-                const isMacdBullishExpansion = lastHist > 0 && lastHist > prevHist;
-                const isMacdBearishExpansion = lastHist < 0 && lastHist < prevHist;
-                const macdScore = isMacdBullishExpansion ? 20 : isMacdBearishExpansion ? -20 : (lastHist > 0 ? 10 : -10);
+                // 4. Confirmation de momentum MACD (expansion de l'histogramme dans le sens de la tendance)
+                const isMacdBullishExpansion = lastHist > 0 && lastHist >= prevHist;
+                const isMacdBearishExpansion = lastHist < 0 && lastHist <= prevHist;
+                const macdScore = isMacdBullishExpansion ? 22 : isMacdBearishExpansion ? -22 : (lastHist > 0 ? 8 : -8);
 
-                // Patterns de chandeliers japonais récents (Marteau, Avalement)
+                // 5. Patterns de chandeliers japonais récents (Marteau, Avalement)
                 let patternScore = 0;
                 if (indicators.patterns && indicators.patterns.length > 0) {
                   const recentPatterns = indicators.patterns.filter(p => p.index >= closes.length - 2);
@@ -1412,7 +1482,8 @@ export function useTradingEngine() {
                   }
                 }
 
-                const agentMomentumScore = (priceTrend > 0 ? 25 : -25) + (isVolumeSpiking ? 20 : 0) + macdScore + patternScore;
+                const volumeDirectionalBoost = isVolumeSpiking ? (priceTrend >= 0 ? 15 : -15) : 0;
+                const agentMomentumScore = (priceTrend > 0 ? 20 : -20) + volumeDirectionalBoost + macdScore + patternScore;
 
                 let agentCustomScore = 0;
                 let customLog = "";
@@ -1424,10 +1495,10 @@ export function useTradingEngine() {
                     const hasLt = rules.includes('<') || rules.includes('inférieur') || rules.includes('sous');
                     const hasGt = rules.includes('>') || rules.includes('supérieur') || rules.includes('sur');
                     
-                    if (hasLt && lastRsi < 35) {
+                    if (hasLt && lastRsi < 38) {
                       agentCustomScore += 35;
                       matches++;
-                    } else if (hasGt && lastRsi > 65) {
+                    } else if (hasGt && lastRsi > 62) {
                       agentCustomScore -= 35;
                       matches++;
                     }
@@ -1435,7 +1506,7 @@ export function useTradingEngine() {
                   
                   if (rules.includes('volume') || rules.includes('vol')) {
                     if (isVolumeSpiking) {
-                      agentCustomScore += 30;
+                      agentCustomScore += (priceTrend >= 0 ? 30 : -30);
                       matches++;
                     }
                   }
@@ -1444,7 +1515,7 @@ export function useTradingEngine() {
                     if (isBullishEma) {
                       agentCustomScore += 25;
                       matches++;
-                    } else {
+                    } else if (isBearishEma) {
                       agentCustomScore -= 25;
                       matches++;
                     }
@@ -1465,28 +1536,29 @@ export function useTradingEngine() {
                   }
                 }
 
-                // Filtre de volatilité de base : réduire le score si marché complètement plat
+                // Filtre anti-chop (marché plat sans tendance) : amortir si volatilité faible ou ADX < 15
                 const avgClose10 = closes.slice(-10).reduce((s, c) => s + c, 0) / 10;
                 const stdDev10 = Math.sqrt(closes.slice(-10).reduce((s, c) => s + Math.pow(c - avgClose10, 2), 0) / 10);
                 const volRatio = stdDev10 / (avgClose10 || 1);
-                const volatilityDamping = volRatio < 0.0006 ? 0.6 : 1.0;
+                const chopDamping = (volRatio < 0.0006 || lastAdx < 15) ? 0.55 : 1.0;
 
-                const finalScore = ((agentMathScore * 0.45 + agentMomentumScore * 0.45 + (bot.customRules ? agentCustomScore * 0.2 : 0)) * volatilityDamping) / mult;
+                const finalScore = ((agentMathScore * 0.50 + agentMomentumScore * 0.45 + (bot.customRules ? agentCustomScore * 0.2 : 0)) * chopDamping) / mult;
                 aiConfidenceScore = Math.abs(finalScore);
                 const risk = bot.riskProfile || 'MODERATE';
-                const reqScore = risk === 'CONSERVATIVE' ? 35 : risk === 'AGGRESSIVE' ? 15 : 25;
+                const reqScore = risk === 'CONSERVATIVE' ? 36 : risk === 'AGGRESSIVE' ? 22 : 28;
 
                 const assetLabel = currencyPairs.find(c => c.value === currentPair)?.label || currentPair;
 
-                if (finalScore > reqScore) {
+                // Validation stricte par la bougie courante : on n'achète que sur bougie haussière et on ne vend que sur bougie baissière
+                if (finalScore > reqScore && isGreenCandle && lastClose >= prevCandle.close && lastRsi <= 72) {
                   signal = 'BUY';
-                  reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% > ${reqScore}%] Autopilot haussier sur ${assetLabel}.${customLog}`;
-                } else if (finalScore < -reqScore) {
+                  reason = `[Consensus IA Confluence: +${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion haussière validée sur ${assetLabel}.${customLog}`;
+                } else if (finalScore < -reqScore && isRedCandle && lastClose <= prevCandle.close && lastRsi >= 28) {
                   signal = 'SELL';
-                  reason = `[Consensus Multi-Agent IA: ${finalScore.toFixed(0)}% < -${reqScore}%] Autopilot baissier sur ${assetLabel}.${customLog}`;
+                  reason = `[Consensus IA Confluence: ${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion baissière validée sur ${assetLabel}.${customLog}`;
                 } else {
                   if (Math.random() < 0.15) {
-                    addBotLogRef.current(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${reqScore}%)${customLog}. Aucun signal.`, 'info');
+                    addBotLogRef.current(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${reqScore}% | ADX: ${lastAdx.toFixed(0)})${customLog}. Attente de confluence optimale.`, 'info');
                   }
                 }
               }
@@ -1600,39 +1672,42 @@ export function useTradingEngine() {
                   }
                 }
 
+                // Synchronisation stricte du prix d'exécution avec le flux temps réel (évite tout écart initial avec checkStops)
+                const executionPrice = resolveLivePrice(currentPair, livePricesRef.current) || lastClose;
+                livePricesRef.current = { ...livePricesRef.current, [currentPair]: executionPrice };
+                setLivePrices(prev => ({ ...prev, [currentPair]: executionPrice }));
+
                 const orderId = 'pos_' + Math.random().toString(36).substring(2, 9);
-                let slDistance = 0.012;
-                let tpDistance = 0.032;
+                const isForexOrMetal = currentPair.startsWith('FX:') || ['GOLD', 'SILVER', 'OIL'].includes(pairSymbol);
 
                 const closesForVol = fetchedCandles.map(c => c.close);
                 const avg = closesForVol.slice(-15).reduce((s, val) => s + val, 0) / Math.min(15, closesForVol.length);
                 const stdDev = Math.sqrt(closesForVol.slice(-15).reduce((s, val) => s + Math.pow(val - avg, 2), 0) / Math.min(15, closesForVol.length));
-                const volatilityPct = stdDev / (avg || 1) || 0.0015;
+                const volatilityPct = stdDev / (avg || 1) || 0.002;
+                const atrPct = (lastAtr > 0 && executionPrice > 0) ? (lastAtr / executionPrice) : (volatilityPct * 1.3);
 
-                // Ratio Asymétrique Risk/Reward R:R >= 1:2.75 minimum avec espace de respiration technique
-                if (volatilityPct > 0.003) {
-                  slDistance = Math.max(0.010, volatilityPct * 1.8);
-                  tpDistance = Math.max(0.028, volatilityPct * 5.0);
-                } else {
-                  slDistance = Math.max(0.008, volatilityPct * 1.6);
-                  tpDistance = Math.max(0.022, volatilityPct * 4.4);
-                }
+                // Stop-Loss calibré sur 1.8x ATR (avec plancher anti-bruit de 1.2% sur Crypto et 0.6% sur Forex)
+                // Take-Profit haute probabilité à 1.65x SL (tandis que le Trailing Stop 4-paliers capture les grands mouvements)
+                const minSl = isForexOrMetal ? 0.006 : 0.012;
+                const maxSl = isForexOrMetal ? 0.015 : 0.025;
+                let slDistance = Math.min(maxSl, Math.max(minSl, atrPct * 1.8));
+                let tpDistance = Math.min(isForexOrMetal ? 0.028 : 0.045, Math.max(isForexOrMetal ? 0.010 : 0.019, slDistance * 1.65));
 
                 // Optimisation Risk/Reward par Apprentissage IA sur motif gagnant
                 if (isWinningPatternMatch) {
-                  slDistance = Math.max(0.007, slDistance * 0.90);
-                  tpDistance = parseFloat((tpDistance * 1.25).toFixed(4));
+                  slDistance = Math.max(minSl * 0.9, slDistance * 0.92);
+                  tpDistance = parseFloat((tpDistance * 1.20).toFixed(4));
                 }
 
-                const slPrice = signal === 'BUY' ? lastClose * (1 - slDistance) : lastClose * (1 + slDistance);
-                const tpPrice = signal === 'BUY' ? lastClose * (1 + tpDistance) : lastClose * (1 - tpDistance);
+                const slPrice = signal === 'BUY' ? executionPrice * (1 - slDistance) : executionPrice * (1 + slDistance);
+                const tpPrice = signal === 'BUY' ? executionPrice * (1 + tpDistance) : executionPrice * (1 - tpDistance);
 
                 const newPos = {
                   id: orderId,
                   pair: currentPair,
                   type: signal,
-                  entryPrice: lastClose,
-                  currentPrice: lastClose,
+                  entryPrice: executionPrice,
+                  currentPrice: executionPrice,
                   amount: calculatedTradeAmt,
                   leverage: isRealMode ? 1 : (bot.strategy === 'AI Autopilot (Machine à Cash)'
                     ? (bot.riskProfile === 'CONSERVATIVE' ? 5 : bot.riskProfile === 'AGGRESSIVE' ? 20 : 10)
@@ -1641,7 +1716,8 @@ export function useTradingEngine() {
                   tp: tpPrice,
                   timestamp: Date.now(),
                   botId: bot.id,
-                  highestPrice: lastClose,
+                  highestPrice: executionPrice,
+                  lowestPrice: executionPrice,
                   dcaCount: 1,
                   entryRsi: lastRsi !== 0 ? lastRsi : undefined,
                   entryEmaTrend: currentEmaTrend,
@@ -1742,7 +1818,7 @@ export function useTradingEngine() {
                   });
                   balanceRef.current = Math.max(0, balanceRef.current - calculatedTradeAmt);
                   setBalance(bal => Math.max(0, bal - calculatedTradeAmt));
-                  addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} (${calculatedTradeAmt} $) à ${lastClose.toFixed(5)}. Raison: ${reason}`, 'trade');
+                  addBotLogRef.current(bot.id, bot.strategy, `Ordre ${signal} ouvert sur ${cleanPair} (${calculatedTradeAmt} $) à ${executionPrice.toFixed(5)}. Raison: ${reason}`, 'trade');
                   signalOpened = true;
                 }
                 break;
@@ -1795,13 +1871,13 @@ export function useTradingEngine() {
         let calculatedTp = p.tp;
 
         if (!p.sl || isNaN(p.sl)) {
-          const slRatio = isMemeToken ? 0.08 : 0.03;
+          const slRatio = isMemeToken ? 0.075 : 0.018;
           calculatedSl = isLong ? (entry * (1 - slRatio)) : (entry * (1 + slRatio));
           p.sl = calculatedSl;
           slUpdated = true;
         }
         if (!p.tp || isNaN(p.tp)) {
-          const tpRatio = isMemeToken ? 0.25 : 0.06;
+          const tpRatio = isMemeToken ? 0.18 : 0.030;
           calculatedTp = isLong ? (entry * (1 + tpRatio)) : (entry * (1 - tpRatio));
           p.tp = calculatedTp;
           slUpdated = true;
@@ -1811,7 +1887,7 @@ export function useTradingEngine() {
           setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, sl: calculatedSl, tp: calculatedTp } : item));
         }
 
-        // VERROUILLAGE DES PROFITS EN MULTI-PALIERS DYNAMIQUES & TRAILING STOP INTELLIGENT
+        // VERROUILLAGE DES PROFITS EN MULTI-PALIERS DYNAMIQUES & TRAILING STOP INTELLIGENT (ULTRA-RÉACTIF)
         const lev = p.leverage || 1;
         const priceDiff = current - entry;
         const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
@@ -1834,76 +1910,76 @@ export function useTradingEngine() {
           const isBoosted = !!p.isAiPatternBoosted;
 
           if (isMemeToken) {
-            // Configuration pour Meme Coins (Volatilité Élevée)
-            // Palier 1 : Breakeven sécurisé (+0.5% garanti pour couvrir les frais)
-            const beThreshold = isBoosted ? 0.020 : 0.025;
+            // Configuration pour Meme Coins (Volatilité Élevée - Protection Rapide Anti-Dump)
+            // Palier 1 : Breakeven sécurisé dès +1.2% / +1.5% (+0.45% net garanti)
+            const beThreshold = isBoosted ? 0.012 : 0.015;
             if (peakGainPct >= beThreshold) {
-              const breakEvenSl = entry * 1.005;
+              const breakEvenSl = entry * 1.0045;
               if (!updatedSl || breakEvenSl > updatedSl) {
                 updatedSl = breakEvenSl;
               }
               nextTier = Math.max(nextTier, 1);
             }
-            // Palier 2 : Verrouillage de profit garanti
-            const p2Threshold = isBoosted ? 0.040 : 0.050;
+            // Palier 2 : Verrouillage de profit garanti dès +2.8% / +3.2%
+            const p2Threshold = isBoosted ? 0.028 : 0.032;
             if (peakGainPct >= p2Threshold) {
-              const lockProfitSl = entry * (isBoosted ? 1.030 : 1.025);
+              const lockProfitSl = entry * (isBoosted ? 1.020 : 1.016);
               if (!updatedSl || lockProfitSl > updatedSl) {
                 updatedSl = lockProfitSl;
               }
               nextTier = Math.max(nextTier, 2);
             }
-            // Palier 3 : Verrouillage de profit sécurisé étendu
-            const p3Threshold = isBoosted ? 0.080 : 0.100;
+            // Palier 3 : Verrouillage de profit sécurisé étendu dès +5.5% / +6.5%
+            const p3Threshold = isBoosted ? 0.055 : 0.065;
             if (peakGainPct >= p3Threshold) {
-              const lockProfitSl2 = entry * (isBoosted ? 1.070 : 1.060);
+              const lockProfitSl2 = entry * (isBoosted ? 1.042 : 1.038);
               if (!updatedSl || lockProfitSl2 > updatedSl) {
                 updatedSl = lockProfitSl2;
               }
               nextTier = Math.max(nextTier, 3);
             }
-            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice)
-            const p4Threshold = isBoosted ? 0.120 : 0.150;
+            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice) dès +8.5% / +10%
+            const p4Threshold = isBoosted ? 0.085 : 0.100;
             if (peakGainPct >= p4Threshold) {
-              const runnerSl = peakPrice * (isBoosted ? 0.970 : 0.965);
+              const runnerSl = peakPrice * (isBoosted ? 0.978 : 0.972);
               if (!updatedSl || runnerSl > updatedSl) {
                 updatedSl = runnerSl;
               }
               nextTier = Math.max(nextTier, 4);
             }
           } else {
-            // Configuration pour Crypto / Forex standard
-            // Palier 1 : Breakeven sécurisé (+0.3% garanti pour couvrir frais/spread)
-            const beThreshold = isBoosted ? 0.009 : 0.012;
+            // Configuration pour Crypto / Forex standard (Verrouillage précoce dès +0.45% / +0.55% = +5.5% en levier 10x)
+            // Palier 1 : Breakeven sécurisé (+0.22% garanti pour couvrir frais/spread — zéro perte possible après +0.55%)
+            const beThreshold = isBoosted ? 0.0045 : 0.0055;
             if (peakGainPct >= beThreshold) {
-              const breakEvenSl = entry * 1.003;
+              const breakEvenSl = entry * 1.0022;
               if (!updatedSl || breakEvenSl > updatedSl) {
                 updatedSl = breakEvenSl;
               }
               nextTier = Math.max(nextTier, 1);
             }
-            // Palier 2 : Verrouillage de profit garanti
-            const p2Threshold = isBoosted ? 0.022 : 0.028;
+            // Palier 2 : Verrouillage de profit garanti dès +1.0% / +1.2% (+10% à +12% en levier 10x)
+            const p2Threshold = isBoosted ? 0.010 : 0.012;
             if (peakGainPct >= p2Threshold) {
-              const lockProfitSl = entry * (isBoosted ? 1.018 : 1.014);
+              const lockProfitSl = entry * (isBoosted ? 1.0065 : 1.0055);
               if (!updatedSl || lockProfitSl > updatedSl) {
                 updatedSl = lockProfitSl;
               }
               nextTier = Math.max(nextTier, 2);
             }
-            // Palier 3 : Verrouillage de profit garanti étendu
-            const p3Threshold = isBoosted ? 0.040 : 0.050;
+            // Palier 3 : Verrouillage de profit garanti étendu dès +1.7% / +2.0%
+            const p3Threshold = isBoosted ? 0.017 : 0.020;
             if (peakGainPct >= p3Threshold) {
-              const lockProfitSl2 = entry * (isBoosted ? 1.036 : 1.030);
+              const lockProfitSl2 = entry * (isBoosted ? 1.0125 : 1.0110);
               if (!updatedSl || lockProfitSl2 > updatedSl) {
                 updatedSl = lockProfitSl2;
               }
               nextTier = Math.max(nextTier, 3);
             }
-            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice)
-            const p4Threshold = isBoosted ? 0.055 : 0.070;
+            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice) dès +2.5% / +3.0%
+            const p4Threshold = isBoosted ? 0.025 : 0.030;
             if (peakGainPct >= p4Threshold) {
-              const runnerSl = peakPrice * (isBoosted ? 0.988 : 0.985);
+              const runnerSl = peakPrice * (isBoosted ? 0.992 : 0.990);
               if (!updatedSl || runnerSl > updatedSl) {
                 updatedSl = runnerSl;
               }
@@ -1962,66 +2038,66 @@ export function useTradingEngine() {
           const isBoosted = !!p.isAiPatternBoosted;
 
           if (isMemeToken) {
-            const beThreshold = isBoosted ? 0.020 : 0.025;
+            const beThreshold = isBoosted ? 0.012 : 0.015;
             if (peakGainPct >= beThreshold) {
-              const breakEvenSl = entry * 0.995;
+              const breakEvenSl = entry * 0.9955;
               if (!updatedSl || breakEvenSl < updatedSl) {
                 updatedSl = breakEvenSl;
               }
               nextTier = Math.max(nextTier, 1);
             }
-            const p2Threshold = isBoosted ? 0.040 : 0.050;
+            const p2Threshold = isBoosted ? 0.028 : 0.032;
             if (peakGainPct >= p2Threshold) {
-              const lockProfitSl = entry * (isBoosted ? 0.970 : 0.975);
+              const lockProfitSl = entry * (isBoosted ? 0.980 : 0.984);
               if (!updatedSl || lockProfitSl < updatedSl) {
                 updatedSl = lockProfitSl;
               }
               nextTier = Math.max(nextTier, 2);
             }
-            const p3Threshold = isBoosted ? 0.080 : 0.100;
+            const p3Threshold = isBoosted ? 0.055 : 0.065;
             if (peakGainPct >= p3Threshold) {
-              const lockProfitSl2 = entry * (isBoosted ? 0.930 : 0.940);
+              const lockProfitSl2 = entry * (isBoosted ? 0.958 : 0.962);
               if (!updatedSl || lockProfitSl2 < updatedSl) {
                 updatedSl = lockProfitSl2;
               }
               nextTier = Math.max(nextTier, 3);
             }
-            const p4Threshold = isBoosted ? 0.120 : 0.150;
+            const p4Threshold = isBoosted ? 0.085 : 0.100;
             if (peakGainPct >= p4Threshold) {
-              const runnerSl = troughPrice * (isBoosted ? 1.030 : 1.035);
+              const runnerSl = troughPrice * (isBoosted ? 1.022 : 1.028);
               if (!updatedSl || runnerSl < updatedSl) {
                 updatedSl = runnerSl;
               }
               nextTier = Math.max(nextTier, 4);
             }
           } else {
-            const beThreshold = isBoosted ? 0.009 : 0.012;
+            const beThreshold = isBoosted ? 0.0045 : 0.0055;
             if (peakGainPct >= beThreshold) {
-              const breakEvenSl = entry * 0.997;
+              const breakEvenSl = entry * 0.9978;
               if (!updatedSl || breakEvenSl < updatedSl) {
                 updatedSl = breakEvenSl;
               }
               nextTier = Math.max(nextTier, 1);
             }
-            const p2Threshold = isBoosted ? 0.022 : 0.028;
+            const p2Threshold = isBoosted ? 0.010 : 0.012;
             if (peakGainPct >= p2Threshold) {
-              const lockProfitSl = entry * (isBoosted ? 0.982 : 0.986);
+              const lockProfitSl = entry * (isBoosted ? 0.9935 : 0.9945);
               if (!updatedSl || lockProfitSl < updatedSl) {
                 updatedSl = lockProfitSl;
               }
               nextTier = Math.max(nextTier, 2);
             }
-            const p3Threshold = isBoosted ? 0.040 : 0.050;
+            const p3Threshold = isBoosted ? 0.017 : 0.020;
             if (peakGainPct >= p3Threshold) {
-              const lockProfitSl2 = entry * (isBoosted ? 0.964 : 0.970);
+              const lockProfitSl2 = entry * (isBoosted ? 0.9875 : 0.9890);
               if (!updatedSl || lockProfitSl2 < updatedSl) {
                 updatedSl = lockProfitSl2;
               }
               nextTier = Math.max(nextTier, 3);
             }
-            const p4Threshold = isBoosted ? 0.055 : 0.070;
+            const p4Threshold = isBoosted ? 0.025 : 0.030;
             if (peakGainPct >= p4Threshold) {
-              const runnerSl = troughPrice * (isBoosted ? 1.012 : 1.015);
+              const runnerSl = troughPrice * (isBoosted ? 1.008 : 1.010);
               if (!updatedSl || runnerSl < updatedSl) {
                 updatedSl = runnerSl;
               }
