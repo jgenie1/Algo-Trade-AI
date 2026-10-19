@@ -32,7 +32,7 @@ export default function PositionDetailsModal({
   livePrices,
   handleClosePosition
 }: PositionDetailsModalProps) {
-  const { activePositions, setActivePositions, setBalance, setReserveVault, setClosedPositions } = useAppState();
+  const { activePositions, setActivePositions, setBalance, setReserveVault, setClosedPositions, setBots } = useAppState();
   const position = React.useMemo(
     () => activePositions.find(p => p.id === initialPosition.id) || initialPosition,
     [activePositions, initialPosition]
@@ -232,6 +232,27 @@ export default function PositionDetailsModal({
       },
       ...prev
     ]);
+
+    if (position.botId && setBots) {
+      const isWin = halfProfit >= 0;
+      setBots(prev => prev.map(b => {
+        if (b.id !== position.botId) return b;
+        const nextTotal = (b.tradesCount || b.totalTrades || 0) + 1;
+        const nextWins = (b.winningTrades || 0) + (isWin ? 1 : 0);
+        const nextWinRate = Math.round((nextWins / nextTotal) * 100);
+        const nextNetProfit = parseFloat(((b.netProfit || 0) + halfProfit).toFixed(2));
+        return {
+          ...b,
+          totalTrades: nextTotal,
+          tradesCount: nextTotal,
+          winningTrades: nextWins,
+          winRate: nextWinRate,
+          consecutiveLosses: isWin ? 0 : (b.consecutiveLosses || 0),
+          netProfit: nextNetProfit,
+          pnl: nextNetProfit
+        };
+      }));
+    }
 
     setActionFeedback(`✂️ 50% encaissé (${halfAmount.toFixed(2)} $ + PnL ${halfProfit >= 0 ? '+' : ''}${halfProfit.toFixed(2)} $). Restant: ${remainingAmount.toFixed(2)} $ sécurisé !`);
     setTimeout(() => setActionFeedback(null), 4000);
@@ -446,9 +467,9 @@ export default function PositionDetailsModal({
                 <span className="text-[9px] text-white/50 uppercase font-headline font-bold">Préréglages rapides (depuis prix actuel) :</span>
                 <div className="flex flex-wrap items-center gap-1">
                   {[
-                    { label: 'Serré (-1% / +2.5%)', slPct: 0.01, tpPct: 0.025 },
-                    { label: 'Standard (-2.5% / +6%)', slPct: 0.025, tpPct: 0.06 },
-                    { label: 'Large (-5% / +12%)', slPct: 0.05, tpPct: 0.12 }
+                    { label: 'Serré (-0.8% / +1.8%)', slPct: 0.008, tpPct: 0.018 },
+                    { label: 'Standard (-1.5% / +2.8%)', slPct: 0.015, tpPct: 0.028 },
+                    { label: 'Étendu (-2.5% / +5.0%)', slPct: 0.025, tpPct: 0.050 }
                   ].map((preset) => (
                     <button
                       key={preset.label}

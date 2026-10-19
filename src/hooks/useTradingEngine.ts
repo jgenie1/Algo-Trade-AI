@@ -24,7 +24,7 @@ import {
   analyzePumpCoinWithSniperPrompt,
   calculatePumpCoinPriceInSol
 } from '@/services/pumpFunService';
-import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
+import { recordTradeTelemetry, getLearningTelemetrySummary } from '@/services/aiClosedLoopLearningService';
 import { resolveLivePrice, canonicalizePair } from '@/lib/symbolUtils';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
@@ -1301,10 +1301,12 @@ export function useTradingEngine() {
 
               const ema50Series = getEMA(closes, Math.min(50, closes.length));
               const lastEma50 = ema50Series[ema50Series.length - 1] || lastClose;
+              const telemetrySummary = getLearningTelemetrySummary();
+              const telemetryRsiOffset = telemetrySummary.totalTradesRecorded >= 3 ? telemetrySummary.suggestedRsiAdjustment : 0;
 
               if (bot.strategy === 'RSI Pullback' && closes.length >= 2) {
-                const buyThreshold = 38 - (mult - 1.0) * 4;
-                const sellThreshold = 62 + (mult - 1.0) * 4;
+                const buyThreshold = 38 - (mult - 1.0) * 4 - telemetryRsiOffset;
+                const sellThreshold = 62 + (mult - 1.0) * 4 + telemetryRsiOffset;
                 const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2] && isGreenCandle && lastRsi > prevRsi;
                 const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2] && isRedCandle && lastRsi < prevRsi;
 
@@ -2112,6 +2114,109 @@ export function useTradingEngine() {
               sl: updatedSl
             } : item));
           }
+        }
+
+        // ENCAISSEMENT PARTIEL AUTOMATIQUE (AUTO SCALE-OUT 50%) AU PALIER 2 :
+        // Dès que la position atteint le Palier 2 de profit, 50% de la position est encaissée immédiatement en cash
+        // (avec 10% vers le Coffre-Fort Anti-Faillite) et les 50% restants courent sans risque avec Stop-Loss garanti en profit !
+        if (
+          !isRealOnChainPosition(p) &&
+          nextTier >= 2 &&
+          (p.partialCloseCount || 0) === 0 &&
+          (p.amount || 0) >= 10 &&
+          liveProfit > 0.50
+        ) {
+          const halfAmount = parseFloat((p.amount * 0.5).toFixed(2));
+          const remainingAmount = parseFloat((p.amount - halfAmount).toFixed(2));
+          const halfProfit = parseFloat((liveProfit * 0.5).toFixed(2));
+          const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
+          const vaultSkim = autoReserveEnabled ? parseFloat((halfProfit * 0.10).toFixed(2)) : 0;
+          const netProfit = parseFloat((halfProfit - vaultSkim).toFixed(2));
+
+          p.amount = remainingAmount;
+          p.partialCloseCount = 1;
+          p.pnl = parseFloat((liveProfit * 0.5).toFixed(2));
+          p.isBreakEvenLocked = true;
+
+          balanceRef.current = balanceRef.current + halfAmount + netProfit;
+          setBalance(bal => bal + halfAmount + netProfit);
+
+          if (vaultSkim > 0 && setReserveVault) {
+            setReserveVault(vault => {
+              const updated = vault + vaultSkim;
+              if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault', updated.toString());
+              return updated;
+            });
+          }
+
+          setActivePositions(prev => {
+            const next = prev.map(item => item.id === p.id ? {
+              ...item,
+              amount: remainingAmount,
+              partialCloseCount: 1,
+              pnl: p.pnl,
+              isBreakEvenLocked: true
+            } : item);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('trade_positions', JSON.stringify(next));
+            }
+            return next;
+          });
+
+          const partialClosedId = `${p.id}_auto50_${Date.now()}`;
+          setClosedPositions(prev => [
+            {
+              id: partialClosedId,
+              pair: p.pair,
+              type: p.type,
+              entryPrice: entry,
+              exitPrice: current,
+              amount: halfAmount,
+              leverage: lev,
+              profit: halfProfit,
+              pnl: halfProfit,
+              timestamp: p.timestamp || Date.now(),
+              closeTimestamp: Date.now(),
+              wasBot: !!p.botId,
+              botId: p.botId,
+              botName: p.botName,
+              isAiPatternBoosted: p.isAiPatternBoosted,
+              aiBoostReason: p.aiBoostReason,
+              mode: 'DEMO' as const
+            },
+            ...prev
+          ]);
+
+          if (p.botId) {
+            const updatedBots = botsRef.current.map(b => {
+              if (b.id !== p.botId) return b;
+              const nextTotal = (b.tradesCount || b.totalTrades || 0) + 1;
+              const nextWins = (b.winningTrades || 0) + 1;
+              const nextWinRate = Math.round((nextWins / nextTotal) * 100);
+              const nextNetProfit = parseFloat(((b.netProfit || 0) + halfProfit).toFixed(2));
+              return {
+                ...b,
+                totalTrades: nextTotal,
+                tradesCount: nextTotal,
+                winningTrades: nextWins,
+                winRate: nextWinRate,
+                consecutiveLosses: 0,
+                netProfit: nextNetProfit,
+                pnl: nextNetProfit,
+                selectivityMultiplier: Math.max(1.0, (b.selectivityMultiplier || 1.0) - 0.15)
+              };
+            });
+            botsRef.current = updatedBots;
+            setBots(updatedBots);
+          }
+
+          const cleanPair = p.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+          addBotLogRef.current(
+            p.botId || 'manual',
+            p.botId ? 'Auto Scale-Out' : 'Manuel',
+            `[💰 TP PARTIEL AUTO 50%] +${halfProfit.toFixed(2)} $ encaissés immédiatement sur ${cleanPair} (${halfAmount.toFixed(2)} $ libérés). Les 50% restants (${remainingAmount.toFixed(2)} $) courent en Runner 100% sans risque !`,
+            'trade'
+          );
         }
 
         let shouldClose = false;

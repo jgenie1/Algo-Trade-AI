@@ -47,7 +47,7 @@ export default function ActivePositionsTable({
   handleClosePosition,
   handleCloseAllPositions
 }: ActivePositionsTableProps) {
-  const { activePositions, setActivePositions, tradingMode, isLoading } = useAppState();
+  const { activePositions, setActivePositions, setBalance, setReserveVault, setClosedPositions, setBots, tradingMode, isLoading } = useAppState();
   const [closingIds, setClosingIds] = React.useState<Record<string, boolean>>({});
   const [isClosingAll, setIsClosingAll] = React.useState(false);
 
@@ -74,6 +74,96 @@ export default function ActivePositionsTable({
       }
       return updated;
     });
+  };
+
+  const handleQuickPartial50 = (p: any, currentPriceVal: number, totalProfitVal: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!p || isRealOnChainPosition(p) || (p.amount || 0) < 2) return;
+    const halfAmount = parseFloat((p.amount * 0.5).toFixed(2));
+    const remainingAmount = parseFloat((p.amount - halfAmount).toFixed(2));
+    const halfProfit = parseFloat((totalProfitVal * 0.5).toFixed(2));
+    const autoReserveEnabled = typeof window !== 'undefined' ? localStorage.getItem('auto_reserve_10_percent_enabled') !== 'false' : true;
+    const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+
+    if (halfProfit > 0) {
+      const vaultSkim = autoReserveEnabled ? parseFloat((halfProfit * 0.10).toFixed(2)) : 0;
+      const netProfit = parseFloat((halfProfit - vaultSkim).toFixed(2));
+      setBalance(bal => bal + halfAmount + netProfit);
+      if (vaultSkim > 0) {
+        setReserveVault(vault => {
+          const updated = vault + vaultSkim;
+          if (typeof window !== 'undefined') localStorage.setItem('trade_reserve_vault', updated.toString());
+          return updated;
+        });
+      }
+    } else {
+      setBalance(bal => bal + Math.max(0, halfAmount + halfProfit));
+    }
+
+    const bufferRatio = 0.003;
+    const autoBeSl = halfProfit > 0 && p.entryPrice
+      ? (isLong ? Math.max(p.sl || 0, p.entryPrice * (1 + bufferRatio)) : Math.min(p.sl || Infinity, p.entryPrice * (1 - bufferRatio)))
+      : p.sl;
+
+    setActivePositions(prev => {
+      const updated = prev.map(item =>
+        item.id === p.id
+          ? {
+              ...item,
+              amount: remainingAmount,
+              sl: autoBeSl,
+              isBreakEvenLocked: halfProfit > 0 ? true : item.isBreakEvenLocked,
+              partialCloseCount: (item.partialCloseCount || 0) + 1
+            }
+          : item
+      );
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('trade_positions', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    setClosedPositions(prev => [
+      {
+        id: `${p.id}_part_${Date.now()}`,
+        pair: p.pair,
+        type: p.type,
+        entryPrice: p.entryPrice,
+        exitPrice: currentPriceVal,
+        amount: halfAmount,
+        leverage: p.leverage || 1,
+        profit: halfProfit,
+        pnl: halfProfit,
+        timestamp: p.timestamp || Date.now(),
+        closeTimestamp: Date.now(),
+        wasBot: !!p.botId,
+        botId: p.botId,
+        botName: p.botName,
+        mode: 'DEMO'
+      },
+      ...prev
+    ]);
+
+    if (p.botId && setBots) {
+      const isWin = halfProfit >= 0;
+      setBots(prev => prev.map(b => {
+        if (b.id !== p.botId) return b;
+        const nextTotal = (b.tradesCount || b.totalTrades || 0) + 1;
+        const nextWins = (b.winningTrades || 0) + (isWin ? 1 : 0);
+        const nextWinRate = Math.round((nextWins / nextTotal) * 100);
+        const nextNetProfit = parseFloat(((b.netProfit || 0) + halfProfit).toFixed(2));
+        return {
+          ...b,
+          totalTrades: nextTotal,
+          tradesCount: nextTotal,
+          winningTrades: nextWins,
+          winRate: nextWinRate,
+          consecutiveLosses: isWin ? 0 : (b.consecutiveLosses || 0),
+          netProfit: nextNetProfit,
+          pnl: nextNetProfit
+        };
+      }));
+    }
   };
 
   const safePositions = React.useMemo(() => {
@@ -341,6 +431,14 @@ export default function ActivePositionsTable({
                           🛡️ BE
                         </Button>
                       )}
+                      {isProfit && !isPosReal && amt >= 4 && (p.partialCloseCount || 0) === 0 && (
+                        <Button
+                          onClick={(e) => handleQuickPartial50(p, current, profit, e)}
+                          className="h-9 px-3 bg-amber-500/25 hover:bg-amber-500/40 border border-amber-500/40 text-amber-200 text-xs font-headline font-bold rounded-xl cursor-pointer"
+                        >
+                          ✂️ 50%
+                        </Button>
+                      )}
                       <Button
                         onClick={(e) => handleSingleClose(p, e)}
                         disabled={Boolean(p.id && closingIds[p.id]) || isClosingAll}
@@ -421,6 +519,11 @@ export default function ActivePositionsTable({
                           {p.dcaCount && p.dcaCount > 1 && (
                             <span className="bg-blue-950/60 text-blue-300 border border-blue-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono">
                               DCA x{p.dcaCount}
+                            </span>
+                          )}
+                          {(p.partialCloseCount || 0) >= 1 && (
+                            <span className="bg-amber-950/70 text-amber-300 border border-amber-500/40 text-[9px] font-extrabold px-1.5 py-0.5 rounded font-mono">
+                              ✂️ 50% Encaissé
                             </span>
                           )}
                           {isBeLocked && (
@@ -514,6 +617,16 @@ export default function ActivePositionsTable({
                                 className="h-8 px-2 bg-emerald-600/25 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold rounded-lg cursor-pointer active:scale-95 transition-all"
                               >
                                 🛡️ BE
+                              </Button>
+                            )}
+                            {isProfit && !isPosReal && amt >= 4 && (p.partialCloseCount || 0) === 0 && (
+                              <Button
+                                onClick={(e) => handleQuickPartial50(p, current, profit, e)}
+                                size="sm"
+                                title="Encaisser 50% du profit immédiatement et laisser courir le reste sans risque"
+                                className="h-8 px-2 bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 text-[10px] font-bold rounded-lg cursor-pointer active:scale-95 transition-all"
+                              >
+                                ✂️ 50%
                               </Button>
                             )}
                             <Button

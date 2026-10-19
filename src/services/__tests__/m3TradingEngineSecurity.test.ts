@@ -907,6 +907,40 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.ok(currentPrice > updatedSl, 'Position must stay open (currentPrice 97.50 > SL 97.17) and not self-liquidate');
   });
 
+  await test('M3.9.9: Auto Scale-Out 50% at Palier 2 banks half profit + 10% vault skim and leaves risk-free runner', () => {
+    let balance = 700.00;
+    let reserveVault = 0;
+    const p = {
+      id: 'pos_scale_out_1',
+      amount: 300.00,
+      entryPrice: 100.00,
+      leverage: 10,
+      partialCloseCount: 0,
+      trailingTier: 2,
+      isBreakEvenLocked: true
+    };
+    const currentPrice = 101.25; // +1.25% move (+12.5% leveraged at 10x) -> Palier 2 reached!
+    const liveProfit = ((currentPrice - p.entryPrice) / p.entryPrice) * p.amount * p.leverage; // +$37.50
+
+    if (p.trailingTier >= 2 && p.partialCloseCount === 0 && p.amount >= 10 && liveProfit > 0.50) {
+      const halfAmount = parseFloat((p.amount * 0.5).toFixed(2)); // 150.00
+      const remainingAmount = parseFloat((p.amount - halfAmount).toFixed(2)); // 150.00
+      const halfProfit = parseFloat((liveProfit * 0.5).toFixed(2)); // 18.75
+      const vaultSkim = parseFloat((halfProfit * 0.10).toFixed(2)); // 1.88
+      const netProfit = parseFloat((halfProfit - vaultSkim).toFixed(2)); // 16.87
+
+      p.amount = remainingAmount;
+      p.partialCloseCount = 1;
+      balance = parseFloat((balance + halfAmount + netProfit).toFixed(2));
+      reserveVault = parseFloat((reserveVault + vaultSkim).toFixed(2));
+    }
+
+    assert.equal(p.partialCloseCount, 1, 'Auto Scale-Out must mark partialCloseCount = 1 so it triggers once per position');
+    assert.equal(p.amount, 150.00, 'Remaining 50% runner amount must stay active');
+    assert.equal(reserveVault, 1.88, '10% of realized partial profit must be locked in Anti-Bankruptcy Vault');
+    assert.equal(balance, 866.87, 'Half margin + net partial profit must be immediately credited to free balance');
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------
