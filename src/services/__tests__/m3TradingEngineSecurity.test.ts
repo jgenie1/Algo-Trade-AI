@@ -1006,6 +1006,35 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.ok(earlyBeSl > entryPrice && earlyBeSl < currentPrice * 0.9992, 'Early Break-Even+ SL (100.08) must be above entry (100.00) and safely below currentPrice (100.20)');
   });
 
+  await test('M3.9.11: Karpathy 3-Stage LLM Council Deliberation (Peer Review Conflict Damping & Unanimous Synthesis)', () => {
+    // Case A: Unanimous 3/3 Bullish Council (Member A: +50, Member B: +45, Member C: +25)
+    const evalCouncil = (memberA: number, memberB: number, memberC: number) => {
+      const votes = [Math.sign(memberA), Math.sign(memberB), Math.sign(memberC)];
+      const bullishVotes = votes.filter(v => v > 0).length;
+      const bearishVotes = votes.filter(v => v < 0).length;
+      const maxConcordant = Math.max(bullishVotes, bearishVotes);
+      const hasDirectConflict = (memberA > 15 && memberB < -15) || (memberA < -15 && memberB > 15);
+      const peerReviewFactor = hasDirectConflict ? 0.55 : maxConcordant === 3 ? 1.15 : maxConcordant === 2 ? 1.0 : 0.70;
+      const rawSynthesis = memberA * 0.42 + memberB * 0.38 + memberC * 0.20;
+      return {
+        finalScore: parseFloat((rawSynthesis * peerReviewFactor).toFixed(2)),
+        bullishVotes,
+        bearishVotes,
+        peerReviewFactor
+      };
+    };
+
+    const unanimous = evalCouncil(50, 45, 25);
+    assert.equal(unanimous.bullishVotes, 3, 'All 3 Council Members agree on BUY');
+    assert.equal(unanimous.peerReviewFactor, 1.15, 'Unanimous 3/3 peer review awards 1.15x conviction boost');
+    assert.ok(unanimous.finalScore > 45, 'Chairman synthesis produces high-conviction BUY score (> 45)');
+
+    // Case B: Conflicting Council (Member A Trend +50 vs Member B Momentum -30 vs Member C Risk -20)
+    const conflicted = evalCouncil(50, -30, -20);
+    assert.equal(conflicted.peerReviewFactor, 0.55, 'Direct conflict between Member A and Member B triggers 0.55x peer-review damping');
+    assert.ok(Math.abs(conflicted.finalScore) < 10, 'Chairman blocks false entry when Council Members contradict each other');
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------

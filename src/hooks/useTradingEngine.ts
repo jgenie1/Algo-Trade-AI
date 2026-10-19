@@ -1570,6 +1570,27 @@ export function useTradingEngine() {
                 const volumeDirectionalBoost = isVolumeSpiking ? (priceTrend >= 0 ? 15 : -15) : 0;
                 const agentMomentumScore = (priceTrend > 0 ? 20 : -20) + volumeDirectionalBoost + macdScore + patternScore;
 
+                // 6. Membre C du Conseil (Risk & Contrarian Guard — inspiration karpathy/llm-council) :
+                // Vérifie que la bougie n'est pas en épuisement (mèche de rejet contraire > corps) ni bloquée contre VWAP
+                const candleRange = Math.max(1e-8, lastCandle.high - lastCandle.low);
+                const upperWickRatio = (lastCandle.high - Math.max(lastCandle.open, lastCandle.close)) / candleRange;
+                const lowerWickRatio = (Math.min(lastCandle.open, lastCandle.close) - lastCandle.low) / candleRange;
+                const vwapSeries = indicators.vwap || [];
+                const currentVwap = vwapSeries.length > 0 ? vwapSeries[vwapSeries.length - 1] : lastClose;
+
+                let agentRiskContrarianScore = 0;
+                if (lastClose >= currentVwap && upperWickRatio < 0.45 && lastRsi >= 44 && lastRsi <= 68) {
+                  agentRiskContrarianScore = 25;
+                } else if (lastClose <= currentVwap && lowerWickRatio < 0.45 && lastRsi <= 56 && lastRsi >= 32) {
+                  agentRiskContrarianScore = -25;
+                } else if (upperWickRatio >= 0.55 || lastRsi > 72) {
+                  // Forte mèche haute de rejet ou surachat : avis défavorable à l'achat
+                  agentRiskContrarianScore = -20;
+                } else if (lowerWickRatio >= 0.55 || lastRsi < 28) {
+                  // Forte mèche basse de rejet ou survente : avis défavorable à la vente
+                  agentRiskContrarianScore = 20;
+                }
+
                 let agentCustomScore = 0;
                 let customLog = "";
                 if (bot.customRules) {
@@ -1621,29 +1642,47 @@ export function useTradingEngine() {
                   }
                 }
 
+                // Stage 2 (Peer Review Anonymisé du LLM Council) : évalue la concordance entre Membre A (Math/Trend), Membre B (Momentum) et Membre C (Risk/VWAP)
+                const councilVotes = [
+                  Math.sign(agentMathScore),
+                  Math.sign(agentMomentumScore),
+                  Math.sign(agentRiskContrarianScore)
+                ];
+                const bullishVotes = councilVotes.filter(v => v > 0).length;
+                const bearishVotes = councilVotes.filter(v => v < 0).length;
+                const maxConcordantVotes = Math.max(bullishVotes, bearishVotes);
+                const hasDirectConflict = (agentMathScore > 15 && agentMomentumScore < -15) || (agentMathScore < -15 && agentMomentumScore > 15);
+                const peerReviewFactor = hasDirectConflict ? 0.55 : maxConcordantVotes === 3 ? 1.15 : maxConcordantVotes === 2 ? 1.0 : 0.70;
+
                 // Filtre anti-chop (marché plat sans tendance) : amortir si volatilité faible ou ADX < 15
                 const avgClose10 = closes.slice(-10).reduce((s, c) => s + c, 0) / 10;
                 const stdDev10 = Math.sqrt(closes.slice(-10).reduce((s, c) => s + Math.pow(c - avgClose10, 2), 0) / 10);
                 const volRatio = stdDev10 / (avgClose10 || 1);
                 const chopDamping = (volRatio < 0.0006 || lastAdx < 15) ? 0.55 : 1.0;
 
-                const finalScore = ((agentMathScore * 0.50 + agentMomentumScore * 0.45 + (bot.customRules ? agentCustomScore * 0.2 : 0)) * chopDamping) / mult;
+                // Stage 3 (Chairman Synthesis) : synthèse pondérée par la revue par les pairs et le filtre de régime
+                const rawCouncilSynthesis =
+                  agentMathScore * 0.42 +
+                  agentMomentumScore * 0.38 +
+                  agentRiskContrarianScore * 0.20 +
+                  (bot.customRules ? agentCustomScore * 0.20 : 0);
+                const finalScore = (rawCouncilSynthesis * peerReviewFactor * chopDamping) / mult;
                 aiConfidenceScore = Math.abs(finalScore);
                 const risk = bot.riskProfile || 'MODERATE';
                 const reqScore = risk === 'CONSERVATIVE' ? 36 : risk === 'AGGRESSIVE' ? 22 : 28;
 
                 const assetLabel = currencyPairs.find(c => c.value === currentPair)?.label || currentPair;
 
-                // Validation stricte par la bougie courante : on n'achète que sur bougie haussière et on ne vend que sur bougie baissière
-                if (finalScore > reqScore && isGreenCandle && lastClose >= prevCandle.close && lastRsi <= 72) {
+                // Validation stricte par le Chairman : au moins 2 membres sur 3 alignés + bougie courante directionnelle
+                if (finalScore > reqScore && bullishVotes >= 2 && isGreenCandle && lastClose >= prevCandle.close && lastRsi <= 72) {
                   signal = 'BUY';
-                  reason = `[Consensus IA Confluence: +${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion haussière validée sur ${assetLabel}.${customLog}`;
-                } else if (finalScore < -reqScore && isRedCandle && lastClose <= prevCandle.close && lastRsi >= 28) {
+                  reason = `[LLM Council ${bullishVotes}/3 • Synthèse Chairman: +${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion haussière validée sur ${assetLabel}.${customLog}`;
+                } else if (finalScore < -reqScore && bearishVotes >= 2 && isRedCandle && lastClose <= prevCandle.close && lastRsi >= 28) {
                   signal = 'SELL';
-                  reason = `[Consensus IA Confluence: ${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion baissière validée sur ${assetLabel}.${customLog}`;
+                  reason = `[LLM Council ${bearishVotes}/3 • Synthèse Chairman: ${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion baissière validée sur ${assetLabel}.${customLog}`;
                 } else {
                   if (Math.random() < 0.15) {
-                    addBotLogRef.current(bot.id, "IA Autopilot", `Scan de ${assetLabel} (Score: ${finalScore.toFixed(0)}% / Requis: ±${reqScore}% | ADX: ${lastAdx.toFixed(0)})${customLog}. Attente de confluence optimale.`, 'info');
+                    addBotLogRef.current(bot.id, "IA Autopilot", `Scan Council de ${assetLabel} (Votes: ${maxConcordantVotes}/3 | Score: ${finalScore.toFixed(0)}% / Requis: ±${reqScore}% | ADX: ${lastAdx.toFixed(0)})${customLog}. Attente de consensus.`, 'info');
                   }
                 }
               }
