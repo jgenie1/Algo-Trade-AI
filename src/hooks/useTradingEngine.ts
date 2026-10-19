@@ -786,91 +786,159 @@ export function useTradingEngine() {
             continue;
           }
 
-          const botPosition = activePositionsRef.current.find(p => p.botId === bot.id);
+          const botPositions = activePositionsRef.current.filter(p => p.botId === bot.id);
 
-          if (botPosition) {
-            // Surveillance active du trade ouvert (DCA intelligent si applicable)
-            const currentPrice = resolveLivePrice(botPosition.pair, livePricesRef.current) || botPosition.entryPrice;
+          if (botPositions.length > 0) {
+            for (const botPosition of botPositions) {
+              // Surveillance active du trade ouvert (Protection anti-retournement précoce + DCA intelligent)
+              const currentPrice = resolveLivePrice(botPosition.pair, livePricesRef.current) || botPosition.entryPrice;
 
-            const maxDcaEntries = 3;
-            const currentEntries = botPosition.dcaCount || 1;
-            const isBotPosReal = botPosition.mode === 'REAL' || tradingModeRef.current === 'REAL';
-            const targetAllocated = (!isBotPosReal && bot.capital <= 1) ? 1000 : bot.capital;
-            const isLongPos = botPosition.type === 'BUY' || botPosition.type === 'LONG';
-            const isAlreadyBreakEven = isLongPos
-              ? Boolean(botPosition.sl && botPosition.sl >= botPosition.entryPrice)
-              : Boolean(botPosition.sl && botPosition.sl <= botPosition.entryPrice);
+              const maxDcaEntries = 3;
+              const currentEntries = botPosition.dcaCount || 1;
+              const isBotPosReal = botPosition.mode === 'REAL' || tradingModeRef.current === 'REAL';
+              const targetAllocated = (!isBotPosReal && bot.capital <= 1) ? 1000 : bot.capital;
+              const isLongPos = botPosition.type === 'BUY' || botPosition.type === 'LONG';
+              const isAlreadyBreakEven = Boolean(
+                botPosition.isBreakEvenLocked ||
+                (botPosition.trailingTier && botPosition.trailingTier >= 1) ||
+                (isLongPos
+                  ? Boolean(botPosition.sl && botPosition.sl >= botPosition.entryPrice)
+                  : Boolean(botPosition.sl && botPosition.sl <= botPosition.entryPrice))
+              );
 
-            const hasLearningLossBlock = (botLearningsRef.current || []).some(
-              l => l.pair === botPosition.pair && (!l.type || l.type === botPosition.type) && (l.lossAmount ?? 0) > 0
-            );
-            
-            if (
-              !isBotPosReal &&
-              bot.strategy !== 'Pump.fun Sniper Bot' &&
-              !isAlreadyBreakEven &&
-              !hasLearningLossBlock &&
-              currentEntries < maxDcaEntries &&
-              botPosition.amount < targetAllocated
-            ) {
-              const isCrypto = !botPosition.pair.startsWith('FX:');
-              // Seuil DCA adapté à la volatilité d'actif : ±2.5% sur Crypto, ±1.2% sur Forex
-              const dcaThreshold = isCrypto ? 0.975 : 0.988;
-              const shouldTriggerDca = isLongPos
-                ? currentPrice <= botPosition.entryPrice * dcaThreshold
-                : currentPrice >= botPosition.entryPrice * (2 - dcaThreshold);
-              
-              if (shouldTriggerDca) {
-                const newEntryCount = currentEntries + 1;
-                const dcaAllocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
-                const remainingBudget = Math.max(0, targetAllocated - botPosition.amount);
-                const chunkAmount = parseFloat(Math.min(targetAllocated / maxDcaEntries, remainingBudget, dcaAllocatable).toFixed(2));
-                if (chunkAmount < Math.min(5, targetAllocated / maxDcaEntries)) {
-                  continue;
+              // Protection Anti-Retournement Précoce : si le trade a atteint +0.32% brut (+3.2% levier 10x) et amorce un repli tout en restant en gain, verrouiller immédiatement Break-Even+
+              if (!isAlreadyBreakEven && bot.strategy !== 'Pump.fun Sniper Bot' && botPosition.entryPrice > 0) {
+                const peakPrice = isLongPos
+                  ? Math.max(botPosition.highestPrice || botPosition.entryPrice, currentPrice)
+                  : Math.min(botPosition.lowestPrice || botPosition.entryPrice, currentPrice);
+                const peakMovePct = isLongPos
+                  ? ((peakPrice - botPosition.entryPrice) / botPosition.entryPrice) * 100
+                  : ((botPosition.entryPrice - peakPrice) / botPosition.entryPrice) * 100;
+                const currentMovePct = isLongPos
+                  ? ((currentPrice - botPosition.entryPrice) / botPosition.entryPrice) * 100
+                  : ((botPosition.entryPrice - currentPrice) / botPosition.entryPrice) * 100;
+
+                if (peakMovePct >= 0.32 && currentMovePct >= 0.14 && currentMovePct <= peakMovePct * 0.72) {
+                  const earlyBeSl = isLongPos
+                    ? parseFloat((botPosition.entryPrice * 1.0008).toFixed(5))
+                    : parseFloat((botPosition.entryPrice * 0.9992).toFixed(5));
+                  const isSafeEarlyBe = isLongPos
+                    ? earlyBeSl < currentPrice * 0.9992
+                    : earlyBeSl > currentPrice * 1.0008;
+
+                  if (isSafeEarlyBe) {
+                    const applyEarlyBe = (p: Position): Position => {
+                      if (p.id !== botPosition.id) return p;
+                      return {
+                        ...p,
+                        currentPrice,
+                        highestPrice: isLongPos ? peakPrice : p.highestPrice,
+                        lowestPrice: !isLongPos ? peakPrice : p.lowestPrice,
+                        sl: earlyBeSl,
+                        trailingTier: Math.max(p.trailingTier || 0, 1),
+                        isBreakEvenLocked: true
+                      };
+                    };
+                    activePositionsRef.current = activePositionsRef.current.map(applyEarlyBe);
+                    setActivePositions(prev => prev.map(applyEarlyBe));
+                    const cleanPair = botPosition.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+                    addBotLogRef.current(bot.id, bot.strategy, `[Bouclier Anti-Retournement] Repli détecté après pic (+${peakMovePct.toFixed(2)}%) sur ${cleanPair} : Stop-Loss verrouillé en Break-Even+ (${earlyBeSl.toFixed(5)})`, 'info');
+                    continue;
+                  }
                 }
-                const newAmount = botPosition.amount + chunkAmount;
-                const newAvgEntry = ((botPosition.entryPrice * botPosition.amount) + (currentPrice * chunkAmount)) / newAmount;
+              }
 
-                // Verrouiller la marge DCA immédiatement (synchro ref pour les bots suivants du même tick)
-                balanceRef.current = Math.max(0, balanceRef.current - chunkAmount);
-                setBalance(bal => Math.max(0, bal - chunkAmount));
-
-                const slDistance = isCrypto ? 0.016 : 0.009;
-                const tpDistance = isCrypto ? 0.022 : 0.012;
-                const nextSl = isLongPos
-                  ? parseFloat((newAvgEntry * (1 - slDistance)).toFixed(5))
-                  : parseFloat((newAvgEntry * (1 + slDistance)).toFixed(5));
-                const nextTp = isLongPos
-                  ? parseFloat((newAvgEntry * (1 + tpDistance)).toFixed(5))
-                  : parseFloat((newAvgEntry * (1 - tpDistance)).toFixed(5));
-
-                const applyDcaUpdate = (p: Position): Position => {
-                  if (p.id !== botPosition.id) return p;
-                  return {
-                    ...p,
-                    amount: newAmount,
-                    entryPrice: newAvgEntry,
-                    currentPrice,
-                    dcaCount: newEntryCount,
-                    // Réinitialiser les extrêmes de prix et paliers Trailing au nouveau P.R.U pour éviter toute auto-liquidation Break-Even
-                    highestPrice: newAvgEntry,
-                    lowestPrice: newAvgEntry,
-                    trailingTier: 0,
-                    isBreakEvenLocked: false,
-                    highestPnlPct: 0,
-                    sl: nextSl,
-                    tp: nextTp
-                  };
-                };
-
-                activePositionsRef.current = activePositionsRef.current.map(applyDcaUpdate);
-                setActivePositions(prev => prev.map(applyDcaUpdate));
+              const hasLearningLossBlock = (botLearningsRef.current || []).some(
+                l => l.pair === botPosition.pair && (!l.type || l.type === botPosition.type) && (l.lossAmount ?? 0) > 0
+              );
+              
+              if (
+                !isBotPosReal &&
+                bot.strategy !== 'Pump.fun Sniper Bot' &&
+                !isAlreadyBreakEven &&
+                !hasLearningLossBlock &&
+                currentEntries < maxDcaEntries &&
+                botPosition.amount < targetAllocated
+              ) {
+                const isCrypto = !botPosition.pair.startsWith('FX:');
+                // Seuil DCA adapté à la volatilité d'actif : ±2.5% sur Crypto, ±1.2% sur Forex
+                const dcaThreshold = isCrypto ? 0.975 : 0.988;
+                const shouldTriggerDca = isLongPos
+                  ? currentPrice <= botPosition.entryPrice * dcaThreshold
+                  : currentPrice >= botPosition.entryPrice * (2 - dcaThreshold);
                 
-                const cleanPair = botPosition.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-                addBotLogRef.current(bot.id, bot.strategy, `[DCA Accumulation ${newEntryCount}/${maxDcaEntries}] Position ${botPosition.type} renforcée de ${chunkAmount} $ sur ${cleanPair} à ${currentPrice.toFixed(5)} (P.R.U recalculé: ${newAvgEntry.toFixed(5)})`, 'trade');
+                if (shouldTriggerDca) {
+                  const newEntryCount = currentEntries + 1;
+                  const dcaAllocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
+                  const remainingBudget = Math.max(0, targetAllocated - botPosition.amount);
+                  const chunkAmount = parseFloat(Math.min(targetAllocated / maxDcaEntries, remainingBudget, dcaAllocatable).toFixed(2));
+                  if (chunkAmount < Math.min(5, targetAllocated / maxDcaEntries)) {
+                    continue;
+                  }
+                  const newAmount = botPosition.amount + chunkAmount;
+                  const newAvgEntry = ((botPosition.entryPrice * botPosition.amount) + (currentPrice * chunkAmount)) / newAmount;
+
+                  // Verrouiller la marge DCA immédiatement (synchro ref pour les bots suivants du même tick)
+                  balanceRef.current = Math.max(0, balanceRef.current - chunkAmount);
+                  setBalance(bal => Math.max(0, bal - chunkAmount));
+
+                  const slDistance = isCrypto ? 0.016 : 0.009;
+                  const tpDistance = isCrypto ? 0.022 : 0.012;
+                  const nextSl = isLongPos
+                    ? parseFloat((newAvgEntry * (1 - slDistance)).toFixed(5))
+                    : parseFloat((newAvgEntry * (1 + slDistance)).toFixed(5));
+                  const nextTp = isLongPos
+                    ? parseFloat((newAvgEntry * (1 + tpDistance)).toFixed(5))
+                    : parseFloat((newAvgEntry * (1 - tpDistance)).toFixed(5));
+
+                  const applyDcaUpdate = (p: Position): Position => {
+                    if (p.id !== botPosition.id) return p;
+                    return {
+                      ...p,
+                      amount: newAmount,
+                      entryPrice: newAvgEntry,
+                      currentPrice,
+                      dcaCount: newEntryCount,
+                      // Réinitialiser les extrêmes de prix et paliers Trailing au nouveau P.R.U pour éviter toute auto-liquidation Break-Even
+                      highestPrice: newAvgEntry,
+                      lowestPrice: newAvgEntry,
+                      trailingTier: 0,
+                      isBreakEvenLocked: false,
+                      highestPnlPct: 0,
+                      sl: nextSl,
+                      tp: nextTp
+                    };
+                  };
+
+                  activePositionsRef.current = activePositionsRef.current.map(applyDcaUpdate);
+                  setActivePositions(prev => prev.map(applyDcaUpdate));
+                  
+                  const cleanPair = botPosition.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
+                  addBotLogRef.current(bot.id, bot.strategy, `[DCA Accumulation ${newEntryCount}/${maxDcaEntries}] Position ${botPosition.type} renforcée de ${chunkAmount} $ sur ${cleanPair} à ${currentPrice.toFixed(5)} (P.R.U recalculé: ${newAvgEntry.toFixed(5)})`, 'trade');
+                }
               }
             }
-            continue;
+
+            // Si le bot est Multi-Actifs ('ALL') en DEMO et que sa 1ère position est déjà 100% Risk-Free (Break-Even verrouillé), autoriser un 2ème slot sur une autre paire
+            const refreshedBotPositions = activePositionsRef.current.filter(p => p.botId === bot.id);
+            const allRiskFree = refreshedBotPositions.every(p => {
+              const isL = p.type === 'BUY' || p.type === 'LONG';
+              return Boolean(
+                p.isBreakEvenLocked ||
+                (p.trailingTier && p.trailingTier >= 1) ||
+                (isL ? (p.sl && p.sl >= p.entryPrice) : (p.sl && p.sl <= p.entryPrice))
+              );
+            });
+            const canOpenRiskFreeSecondSlot =
+              bot.pair === 'ALL' &&
+              tradingModeRef.current === 'DEMO' &&
+              bot.strategy !== 'Pump.fun Sniper Bot' &&
+              refreshedBotPositions.length < 2 &&
+              allRiskFree;
+
+            if (!canOpenRiskFreeSecondSlot) {
+              continue;
+            }
           }
 
           // If no active position, look for new signals

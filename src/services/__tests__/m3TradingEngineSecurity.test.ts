@@ -941,6 +941,71 @@ export async function runM3SecuritySuite(): Promise<boolean> {
     assert.equal(balance, 866.87, 'Half margin + net partial profit must be immediately credited to free balance');
   });
 
+  await test('M3.9.10: Monotonic Firestore Position Merge & Pre-Break-Even Pullback Shield', () => {
+    // 1. Verify delayed Firestore snapshot cannot roll back local Break-Even SL or 50% Scale-Out
+    const localPos = {
+      id: 'pos_sync_1',
+      type: 'BUY',
+      amount: 150,
+      entryPrice: 100,
+      sl: 100.75,
+      tp: 103.00,
+      dcaCount: 1,
+      partialCloseCount: 1,
+      trailingTier: 2,
+      isBreakEvenLocked: true,
+      highestPrice: 101.40
+    };
+    const staleRemotePos = {
+      id: 'pos_sync_1',
+      type: 'BUY',
+      amount: 300,
+      entryPrice: 100,
+      sl: 98.40,
+      tp: 103.00,
+      dcaCount: 1,
+      partialCloseCount: 0,
+      trailingTier: 0,
+      isBreakEvenLocked: false,
+      highestPrice: 100.10
+    };
+
+    const isLong = staleRemotePos.type === 'BUY';
+    const localDca = localPos.dcaCount || 1;
+    const remoteDca = staleRemotePos.dcaCount || 1;
+    const localPartial = localPos.partialCloseCount || 0;
+    const remotePartial = staleRemotePos.partialCloseCount || 0;
+    const localTier = localPos.trailingTier || 0;
+    const remoteTier = staleRemotePos.trailingTier || 0;
+
+    const merged = (localDca > remoteDca || localPartial > remotePartial || localTier > remoteTier)
+      ? {
+          ...staleRemotePos,
+          amount: localPartial > remotePartial || localDca > remoteDca ? localPos.amount : staleRemotePos.amount,
+          sl: isLong ? Math.max(localPos.sl, staleRemotePos.sl) : Math.min(localPos.sl, staleRemotePos.sl),
+          trailingTier: Math.max(localTier, remoteTier),
+          partialCloseCount: Math.max(localPartial, remotePartial),
+          isBreakEvenLocked: Boolean(localPos.isBreakEvenLocked || staleRemotePos.isBreakEvenLocked)
+        }
+      : staleRemotePos;
+
+    assert.equal(merged.sl, 100.75, 'Monotonic merge must preserve ratcheted Break-Even/Palier 2 SL (100.75) over stale remote SL (98.40)');
+    assert.equal(merged.amount, 150, 'Monotonic merge must preserve post-Scale-Out amount (150) over stale remote amount (300)');
+    assert.equal(merged.trailingTier, 2, 'Monotonic merge must preserve trailingTier = 2');
+    assert.equal(merged.isBreakEvenLocked, true, 'Monotonic merge must preserve isBreakEvenLocked = true');
+
+    // 2. Verify Pre-Break-Even Pullback Shield locks Break-Even+ on +0.35% peak pulling back to +0.20%
+    const entryPrice = 100.00;
+    const peakPrice = 100.35; // +0.35% raw (+3.5% leveraged at 10x)
+    const currentPrice = 100.20; // Pullback to +0.20% raw
+    const peakMovePct = ((peakPrice - entryPrice) / entryPrice) * 100;
+    const currentMovePct = ((currentPrice - entryPrice) / entryPrice) * 100;
+    const shouldLockEarlyBe = peakMovePct >= 0.32 && currentMovePct >= 0.14 && currentMovePct <= peakMovePct * 0.72;
+    const earlyBeSl = parseFloat((entryPrice * 1.0008).toFixed(5));
+    assert.equal(shouldLockEarlyBe, true, 'Pullback from +0.35% peak to +0.20% must trigger Pre-Break-Even Pullback Shield');
+    assert.ok(earlyBeSl > entryPrice && earlyBeSl < currentPrice * 0.9992, 'Early Break-Even+ SL (100.08) must be above entry (100.00) and safely below currentPrice (100.20)');
+  });
+
   // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------

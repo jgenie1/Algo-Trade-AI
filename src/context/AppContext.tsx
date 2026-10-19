@@ -134,10 +134,37 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
         const expectedBase = getRealMarketBasePrice(cleanPair);
         const isInvalidEntry = !p.entryPrice || isNaN(p.entryPrice) || p.entryPrice <= 0 || (expectedBase < 10 && p.entryPrice > 500) || (expectedBase > 1000 && p.entryPrice < 100);
         const entry = isInvalidEntry ? expectedBase : p.entryPrice;
+        const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
+        const isBe = Boolean(p.isBreakEvenLocked || (p.trailingTier && p.trailingTier >= 1));
+
         const rawSl = typeof p.sl === 'number' ? p.sl : (typeof p.sl === 'string' && p.sl.trim() ? parseFloat(p.sl) : undefined);
         const rawTp = typeof p.tp === 'number' ? p.tp : (typeof p.tp === 'string' && p.tp.trim() ? parseFloat(p.tp) : undefined);
-        const cleanSl = rawSl !== undefined && !isNaN(rawSl) && rawSl > 0 ? rawSl : undefined;
-        const cleanTp = rawTp !== undefined && !isNaN(rawTp) && rawTp > 0 ? rawTp : undefined;
+
+        let cleanSl = rawSl !== undefined && !isNaN(rawSl) && rawSl > 0 ? rawSl : undefined;
+        let cleanTp = rawTp !== undefined && !isNaN(rawTp) && rawTp > 0 ? rawTp : undefined;
+
+        // Éliminer tout SL/TP hors échelle (ex: ancien prix corrompu) ou inversé par rapport au sens de la position
+        if (cleanSl !== undefined && entry > 0) {
+          const slRatio = cleanSl / entry;
+          const isInvertedNonBeSl = !isBe && ((isLong && cleanSl >= entry) || (!isLong && cleanSl <= entry));
+          if (slRatio > 3 || slRatio < 0.33 || isInvertedNonBeSl) {
+            cleanSl = undefined;
+          }
+        }
+        if (cleanTp !== undefined && entry > 0) {
+          const tpRatio = cleanTp / entry;
+          const isInvertedTp = (isLong && cleanTp <= entry) || (!isLong && cleanTp >= entry);
+          if (tpRatio > 4 || tpRatio < 0.25 || isInvertedTp) {
+            cleanTp = undefined;
+          }
+        }
+
+        const cleanHighest = (typeof p.highestPrice === 'number' && !isNaN(p.highestPrice) && p.highestPrice >= entry && p.highestPrice <= entry * 3)
+          ? p.highestPrice
+          : entry;
+        const cleanLowest = (typeof p.lowestPrice === 'number' && !isNaN(p.lowestPrice) && p.lowestPrice <= entry && p.lowestPrice >= entry * 0.33)
+          ? p.lowestPrice
+          : entry;
 
         cleaned.push({
           ...p,
@@ -145,7 +172,9 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
           pair: cleanPair,
           amount: amt,
           entryPrice: entry,
-          currentPrice: typeof p.currentPrice === 'number' ? p.currentPrice : entry,
+          currentPrice: (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 && p.currentPrice / entry < 3 && p.currentPrice / entry > 0.33) ? p.currentPrice : entry,
+          highestPrice: cleanHighest,
+          lowestPrice: cleanLowest,
           leverage: typeof p.leverage === 'number' && !isNaN(p.leverage) ? p.leverage : 1,
           sl: cleanSl,
           tp: cleanTp,
@@ -286,14 +315,47 @@ export function AppContextProvider({ children }: { children: React.ReactNode }) 
                 .filter(p => p && !recentlyClosedIdsRef.current.has(p.id) && !recentlyClosedIdsRef.current.has((p as any)._id));
               setActivePositions(prev => {
                 const prevSafe = Array.isArray(prev) ? prev : [];
+                // Fusion monotone : ne jamais laisser un snapshot Firestore retardé écraser un verrouillage Break-Even, un encaissement partiel 50% ou un renfort DCA local plus récent
+                const merged = sanitized.map(remotePos => {
+                  const localPos = prevSafe.find(lp => lp && lp.id === remotePos.id);
+                  if (!localPos) return remotePos;
+                  const isLong = remotePos.type === 'BUY' || (remotePos.type as string) === 'LONG';
+                  const localDca = localPos.dcaCount || 1;
+                  const remoteDca = remotePos.dcaCount || 1;
+                  const localPartial = localPos.partialCloseCount || 0;
+                  const remotePartial = remotePos.partialCloseCount || 0;
+                  const localTier = localPos.trailingTier || 0;
+                  const remoteTier = remotePos.trailingTier || 0;
+
+                  if (localDca > remoteDca || localPartial > remotePartial || localTier > remoteTier) {
+                    const bestSl = (localPos.sl && remotePos.sl && localDca === remoteDca)
+                      ? (isLong ? Math.max(localPos.sl, remotePos.sl) : Math.min(localPos.sl, remotePos.sl))
+                      : (localPos.sl ?? remotePos.sl);
+                    return {
+                      ...remotePos,
+                      amount: localPartial > remotePartial || localDca > remoteDca ? localPos.amount : remotePos.amount,
+                      entryPrice: localDca > remoteDca ? localPos.entryPrice : remotePos.entryPrice,
+                      dcaCount: Math.max(localDca, remoteDca),
+                      partialCloseCount: Math.max(localPartial, remotePartial),
+                      trailingTier: Math.max(localTier, remoteTier),
+                      isBreakEvenLocked: Boolean(localPos.isBreakEvenLocked || remotePos.isBreakEvenLocked),
+                      highestPrice: isLong ? Math.max(localPos.highestPrice || remotePos.entryPrice, remotePos.highestPrice || remotePos.entryPrice) : localPos.highestPrice,
+                      lowestPrice: !isLong ? Math.min(localPos.lowestPrice || remotePos.entryPrice, remotePos.lowestPrice || remotePos.entryPrice) : localPos.lowestPrice,
+                      sl: bestSl,
+                      tp: localDca > remoteDca ? localPos.tp : (localPos.tp ?? remotePos.tp)
+                    };
+                  }
+                  return remotePos;
+                });
+
                 if (
-                  prevSafe.length === sanitized.length &&
-                  prevSafe.every((p, i) => p.id === sanitized[i]?.id && p.amount === sanitized[i]?.amount && p.entryPrice === sanitized[i]?.entryPrice && p.sl === sanitized[i]?.sl && p.tp === sanitized[i]?.tp)
+                  prevSafe.length === merged.length &&
+                  prevSafe.every((p, i) => p.id === merged[i]?.id && p.amount === merged[i]?.amount && p.entryPrice === merged[i]?.entryPrice && p.sl === merged[i]?.sl && p.tp === merged[i]?.tp && p.trailingTier === merged[i]?.trailingTier && p.partialCloseCount === merged[i]?.partialCloseCount)
                 ) {
                   return prev;
                 }
-                localStorage.setItem('trade_positions', JSON.stringify(sanitized));
-                return sanitized;
+                localStorage.setItem('trade_positions', JSON.stringify(merged));
+                return merged;
               });
             }
             if (data.bots !== undefined) {
