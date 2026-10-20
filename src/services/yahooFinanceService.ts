@@ -1,6 +1,6 @@
 
+import { getRealMarketBasePrice,updateLiveMarketPrice } from '@/lib/utils';
 import { fetchCoinMarketCapQuotes } from './coinmarketcapService';
-import { updateLiveMarketPrice, getRealMarketBasePrice } from '@/lib/utils';
 
 export interface Candle {
   time: number; // timestamp in seconds

@@ -1,22 +1,22 @@
 "use client";
 
-import React from 'react';
-import { Activity, Eye, TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
-import { cn, formatSmartPnl, getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
-import { resolveLivePrice, getDisplayPairLabel } from '@/lib/symbolUtils';
-import { getExplorerTxUrl } from '@/utils/explorerLinks';
-import { useAppState } from '@/context/AppContext';
-import { 
-  Table, 
-  TableHeader, 
-  TableBody, 
-  TableRow, 
-  TableCell, 
-  TableHead 
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
+import { useAppState } from '@/context/AppContext';
+import { getDisplayPairLabel,resolveLivePrice } from '@/lib/symbolUtils';
+import { cn,formatSmartPnl,getRealMarketBasePrice,isRealOnChainPosition } from '@/lib/utils';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import { Activity,ExternalLink,Eye } from 'lucide-react';
+import React from 'react';
 
 interface ActivePositionsTableProps {
   livePrices: { [key: string]: number };

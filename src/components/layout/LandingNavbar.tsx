@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { Zap, Bot, Building2, LineChart, Trophy, Menu, X, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import LogoIcon from '@/components/icons/LogoIcon';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ArrowRight,Bot,Building2,LineChart,Menu,Trophy,X,Zap } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export default function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

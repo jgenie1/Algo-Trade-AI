@@ -1,45 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Button } from "@/components/ui/button";
-import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
-import { 
-  Search, 
-  Bell, 
-  Settings, 
-  ChevronDown, 
-  Sparkles,
-  Volume2,
-  SlidersHorizontal,
-  RotateCcw,
-  LogOut,
-  Info,
-  CheckCircle2,
-  AlertTriangle,
-  User,
-  Wallet,
-  ShieldCheck,
-  Check,
-  ExternalLink,
-  ArrowDownUp,
-  Lock,
-  PanelLeft,
-  Bot
-} from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAppState } from '@/context/AppContext';
-import { cn, getUsdHtgRate, fetchLiveUsdHtgRate, isRealOnChainPosition } from '@/lib/utils';
 import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
 import PWAInstallBanner from '@/components/layout/PWAInstallBanner';
-import { getStoredLanguage, setStoredLanguage, Language } from '@/services/languageService';
-import DEXSwapModal from '@/components/wallet/DEXSwapModal';
-import BinanceAgentConnectModal from '@/components/wallet/BinanceAgentConnectModal';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Avatar,AvatarFallback,AvatarImage } from '@/components/ui/avatar';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -56,20 +20,48 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import BinanceAgentConnectModal from '@/components/wallet/BinanceAgentConnectModal';
+import DEXSwapModal from '@/components/wallet/DEXSwapModal';
+import { useAppState } from '@/context/AppContext';
+import { cn,fetchLiveUsdHtgRate,getUsdHtgRate,isRealOnChainPosition } from '@/lib/utils';
+import { getStoredLanguage,Language,setStoredLanguage } from '@/services/languageService';
+import {
+  AlertTriangle,
+  ArrowDownUp,
+  Bell,
+  Bot,
+  CheckCircle2,
+  ChevronDown,
+  Info,
+  Lock,
+  LogOut,
+  RotateCcw,
+  Settings,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  User,
+  Wallet
+} from 'lucide-react';
+import Link from 'next/link';
+import React,{ useEffect,useState } from 'react';
 
 export default function Header() {
-  const { isMobile, state, toggleSidebar } = useSidebar();
   const { 
     tradingMode, 
     setTradingMode, 
-    balance, 
     setBalance, 
     reserveVault,
     reserveVaultSol,
     bots, 
     closedPositions, 
-    transactions,
-    setTransactions 
+    transactions
   } = useAppState();
 
   const [isMounted, setIsMounted] = useState(false);

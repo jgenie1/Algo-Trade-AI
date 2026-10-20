@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wand2, Sparkles, Bot, CheckCircle, ArrowRight, RefreshCw } from 'lucide-react';
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from '@/components/ui/card';
 import { useAppState } from '@/context/AppContext';
-import { currencyPairs, timeframes } from '@/hooks/useTradingEngine';
 import { getLearningTelemetrySummary } from '@/services/aiClosedLoopLearningService';
+import { ArrowRight,Bot,CheckCircle,RefreshCw,Sparkles,Wand2 } from 'lucide-react';
+import React,{ useState } from 'react';
 
 export default function AIStrategyGeneratorForm() {
-  const { tradingMode, balance, setBalance, setBots, setBotLogs } = useAppState();
+  const { tradingMode, setBots, setBotLogs } = useAppState();
 
   const [prompt, setPrompt] = useState<string>(
     "Achat automatique sur EUR/USD en 15min si RSI < 35 ou cassure VWAP, avec Take Profit 4% et Stop Loss 1.5%."

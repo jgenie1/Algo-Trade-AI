@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
-import { Download, Smartphone, Share, PlusSquare, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2,PlusSquare,Share,Smartphone } from 'lucide-react';
+import { useEffect,useState } from 'react';
 
 export default function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);

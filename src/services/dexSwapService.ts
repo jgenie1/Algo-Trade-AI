@@ -1,8 +1,8 @@
 // Service pour Swaps DEX multi-chain (Solana via Jupiter API, EVM via Uniswap/1inch)
 import { getRealMarketBasePrice } from '@/lib/utils';
 import {
-  executeRealPumpTrade,
   executeJupiterSwap,
+  executeRealPumpTrade,
   getSolanaWalletProvider,
   getWorkingConnection
 } from '@/services/pumpFunService';

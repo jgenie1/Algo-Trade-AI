@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { getForexAnalysis } from '@/ai/flows/get-forex-analysis-flow';
 import { GetForexAnalysisInputSchema } from '@/ai/schemas';
-import { rateLimiter, getClientIp } from '@/lib/rateLimiter';
+import { getClientIp,rateLimiter } from '@/lib/rateLimiter';
+import { NextRequest,NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   const clientIp = getClientIp(req);

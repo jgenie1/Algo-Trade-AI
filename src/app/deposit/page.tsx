@@ -1,30 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { ArrowDownLeft, Copy, Check, Lock, Wallet, RefreshCw, AlertCircle, Edit2, ExternalLink } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
-import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
-import { useAppState } from '@/context/AppContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import TransactionHistoryTable from '@/components/trading/TransactionHistoryTable';
+import { Button } from '@/components/ui/button';
+import { Card,CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import DepositGuidesCard from '@/components/wallet/DepositGuidesCard';
 import ReserveVaultCard from '@/components/wallet/ReserveVaultCard';
+import { useAppState } from '@/context/AppContext';
+import { cn,formatSolToUsdAndHtg,formatUsdToHtg } from '@/lib/utils';
+import { fetchLiveWalletBalance } from '@/services/pumpFunService';
+import { AlertCircle,ArrowDownLeft,Check,Copy,Edit2,ExternalLink,RefreshCw,Wallet } from 'lucide-react';
+import React,{ useEffect,useState } from 'react';
 
 const SOL_EXPLORER = 'https://solscan.io/account/';
 const MANUAL_SOL_KEY = 'manual_solana_deposit_address';
 
 export default function DepositPage() {
-  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, setReserveVault, reserveVaultSol, setReserveVaultSol, transactions, setTransactions } = useAppState();
+  const { tradingMode, setTradingMode, balance, setBalance, reserveVault, reserveVaultSol, transactions, setTransactions } = useAppState();
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
-  const [evmAddress, setEvmAddress] = useState<string>('');
   const [walletChain, setWalletChain] = useState<string>('');
   const [isCopied, setIsCopied] = useState(false);
   const [depositAmount, setDepositAmount] = useState<string>('1000');
-  const [vaultUnlockAmount, setVaultUnlockAmount] = useState<string>('');
-  const [isUnlockingVault, setIsUnlockingVault] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -55,8 +52,6 @@ export default function DepositPage() {
         setWalletChain(parsed.chain);
         if (parsed.chain === 'Solana') {
           setSolanaPubKey(parsed.address);
-        } else {
-          setEvmAddress(parsed.address);
         }
       } catch (e) {}
     }
@@ -95,52 +90,6 @@ export default function DepositPage() {
     setIsEditingAddress(false);
   };
 
-  const handleUnlockVault = (e: React.FormEvent) => {
-    e.preventDefault();
-    const isReal = tradingMode === 'REAL';
-    const currentVault = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
-    const amt = parseFloat(vaultUnlockAmount) || currentVault;
-    if (amt <= 0 || amt > currentVault) return;
-    setIsUnlockingVault(true);
-    setTimeout(() => {
-      if (isReal) {
-        setReserveVaultSol(prev => {
-          const next = Math.max(0, prev - amt);
-          localStorage.setItem('trade_reserve_vault_sol', next.toString());
-          return next;
-        });
-        setSolanaBalance(prev => {
-          const next = (prev || 0) + amt;
-          localStorage.setItem('trade_solana_balance', next.toString());
-          return next;
-        });
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('web3_wallet_updated'));
-        }
-      } else {
-        setReserveVault(prev => {
-          const next = Math.max(0, prev - amt);
-          localStorage.setItem('trade_reserve_vault', next.toString());
-          return next;
-        });
-        setBalance(prev => {
-          const next = prev + amt;
-          localStorage.setItem('trade_balance', next.toString());
-          return next;
-        });
-      }
-      setTransactions(prev => [{
-        id: 'tx_vault_' + Math.random().toString(36).substring(2, 9),
-        type: 'DEPOSIT' as const,
-        amount: amt,
-        currency: isReal ? 'SOL' : 'USD',
-        timestamp: Date.now(),
-        status: 'COMPLETED'
-      }, ...(prev || [])]);
-      setIsUnlockingVault(false);
-      setVaultUnlockAmount('');
-    }, 600);
-  };
 
   const handleDemoDeposit = (e: React.FormEvent) => {
     e.preventDefault();

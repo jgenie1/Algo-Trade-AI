@@ -1,5 +1,5 @@
-import { fetchLiveMarketData, type Candle } from './yahooFinanceService';
 import { calculateIndicators } from './technicalAnalysisService';
+import { fetchLiveMarketData } from './yahooFinanceService';
 
 export interface BacktestResult {
   pair: string;
@@ -48,7 +48,6 @@ export async function runBacktest(
   }
 
   const indicators = calculateIndicators(candles, ['RSI', 'EMA', 'SuperTrend', 'VWAP', 'Bollinger Bands', 'MT5']);
-  const closes = candles.map(c => c.close);
   const rsiVals = indicators.rsi || [];
   const emaVals = indicators.ema || [];
   const stDirs = indicators.superTrend?.direction || [];

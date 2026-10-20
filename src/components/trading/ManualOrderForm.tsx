@@ -1,33 +1,33 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Activity, 
-  Zap,
-  AlertTriangle 
-} from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
-import { resolveLivePrice } from '@/lib/symbolUtils';
-import { useAppState } from '@/context/AppContext';
-import { executeRealPumpTrade, executeJupiterSwap, SOLANA_TOKEN_MINTS, fetchLatestPumpCoins, fetchRealPumpCoins } from '@/services/pumpFunService';
-import { getExplorerTxUrl } from '@/utils/explorerLinks';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card,CardHeader,CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectTrigger, 
-  SelectValue, 
-  SelectContent, 
-  SelectItem 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { useAppState } from '@/context/AppContext';
+import { resolveLivePrice } from '@/lib/symbolUtils';
+import { cn,formatSolToUsdAndHtg,getRealMarketBasePrice } from '@/lib/utils';
+import { executeJupiterSwap,executeRealPumpTrade,fetchRealPumpCoins,SOLANA_TOKEN_MINTS } from '@/services/pumpFunService';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import {
+  Activity,
+  AlertTriangle,
+  TrendingDown,
+  TrendingUp,
+  Zap
+} from 'lucide-react';
+import React,{ useRef,useState } from 'react';
 
 import PositionRiskCalculator from '@/components/trading/PositionRiskCalculator';
-import type { Position } from '@/types';
 import { currencyPairs as allCurrencyPairs } from '@/hooks/useTradingEngine';
+import type { Position } from '@/types';
 const currencyPairs = allCurrencyPairs.filter(c => c.value !== 'ALL');
 
 interface ManualOrderFormProps {
@@ -51,7 +51,7 @@ export default function ManualOrderForm({
   selectedPair,
   setSelectedPair
 }: ManualOrderFormProps) {
-  const { tradingMode, balance, setBalance, reserveVault, reserveVaultSol, setActivePositions, activePositions, botLearnings } = useAppState();
+  const { tradingMode, balance, setBalance, reserveVault, reserveVaultSol, setActivePositions, botLearnings } = useAppState();
 
   // Local Form States
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');

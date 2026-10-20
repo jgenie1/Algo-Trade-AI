@@ -1,18 +1,18 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { db, DEFAULT_USER, getActiveUserId, saveFullState, AppState } from '@/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { getRealMarketBasePrice, initClientUsdHtgRate, fetchLiveUsdHtgRate, isRealOnChainPosition } from '@/lib/utils';
-import type { 
-  AppContextType, 
-  Position, 
-  ClosedPosition, 
-  BotInstance, 
-  Transaction, 
-  BotLearning, 
-  BotLog 
+import { AppState,db,DEFAULT_USER,getActiveUserId,saveFullState } from '@/lib/firebase';
+import { fetchLiveUsdHtgRate,getRealMarketBasePrice,initClientUsdHtgRate,isRealOnChainPosition } from '@/lib/utils';
+import type {
+  AppContextType,
+  BotInstance,
+  BotLearning,
+  BotLog,
+  ClosedPosition,
+  Position,
+  Transaction
 } from '@/types';
+import { doc,onSnapshot } from 'firebase/firestore';
+import React,{ createContext,useContext,useEffect,useRef,useState } from 'react';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 

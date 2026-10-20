@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { KeyRound, ShieldCheck, CheckCircle2, XCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { dispatchAlert } from '@/services/notificationService';
+import { CheckCircle2,Eye,EyeOff,KeyRound,RefreshCw,XCircle } from 'lucide-react';
+import React,{ useEffect,useState } from 'react';
 
+import { decryptSensitiveData,encryptSensitiveData } from '@/lib/cryptoStorage';
 import { saveBinanceAgentConfig } from '@/services/binanceMcpService';
-import { encryptSensitiveData, decryptSensitiveData } from '@/lib/cryptoStorage';
 
 export interface CEXCredentials {
   exchange: 'binance' | 'bybit' | 'okx' | 'coinbase';

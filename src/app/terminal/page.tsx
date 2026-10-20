@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Zap, Bot, Coins } from 'lucide-react';
-import { useTradingEngine } from '@/hooks/useTradingEngine';
-import { useAppState } from '@/context/AppContext';
+import PortfolioStatsHeader from '@/components/layout/PortfolioStatsHeader';
 import ActivePositionsTable from '@/components/trading/ActivePositionsTable';
 import ManualOrderForm from '@/components/trading/ManualOrderForm';
+import MarketRadarAndChart from '@/components/trading/MarketRadarAndChart';
+import PositionDetailsModal from '@/components/trading/PositionDetailsModal';
 import TradingBotsManager from '@/components/trading/TradingBotsManager';
+import { Tabs,TabsContent,TabsList,TabsTrigger } from '@/components/ui/tabs';
+import DEXSwapModal from '@/components/wallet/DEXSwapModal';
 import MultiWalletsManager from '@/components/wallet/MultiWalletsManager';
 import WalletTokenPortfolio from '@/components/wallet/WalletTokenPortfolio';
-import DEXSwapModal from '@/components/wallet/DEXSwapModal';
-import PositionDetailsModal from '@/components/trading/PositionDetailsModal';
-import MarketRadarAndChart from '@/components/trading/MarketRadarAndChart';
-import PortfolioStatsHeader from '@/components/layout/PortfolioStatsHeader';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useAppState } from '@/context/AppContext';
+import { useTradingEngine } from '@/hooks/useTradingEngine';
 import type { SwapToken } from '@/services/dexSwapService';
+import { Bot,Coins,Zap } from 'lucide-react';
+import { useEffect,useState } from 'react';
 
 export default function TradingTerminalPage() {
   const [activeTab, setActiveTab] = useState<'manual' | 'bots' | 'tokens' | 'wallets'>('manual');

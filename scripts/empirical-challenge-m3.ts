@@ -5,20 +5,19 @@
  *          disconnected state enforcement, and unmapped pair rejection.
  */
 
+import { PublicKey,TransactionMessage,VersionedTransaction } from '@solana/web3.js';
 import assert from 'node:assert/strict';
-import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
-import { 
-  getExplorerTxUrl, 
-  getExplorerAddressUrl, 
-  getExplorerTokenUrl 
-} from '../src/utils/explorerLinks';
-import { 
+import { isRealOnChainPosition } from '../src/lib/utils';
+import {
   SOLANA_TOKEN_MINTS,
-  executeRealPumpTrade,
   executeJupiterSwap
 } from '../src/services/pumpFunService';
-import { isRealOnChainPosition } from '../src/lib/utils';
 import type { Position } from '../src/types';
+import {
+  getExplorerAddressUrl,
+  getExplorerTokenUrl,
+  getExplorerTxUrl
+} from '../src/utils/explorerLinks';
 
 // ============================================================================
 // TEST HARNESS & REPORTING
@@ -80,17 +79,6 @@ class MockSolanaWalletRejection {
   }
 }
 
-class MockSolanaWalletTimeout {
-  publicKey = {
-    toBase58: () => '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    toString: () => '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'
-  };
-  isConnected = true;
-
-  async signTransaction(_tx: any): Promise<never> {
-    throw new Error('RPC Connection Timed Out (504 Gateway Timeout)');
-  }
-}
 
 // ============================================================================
 // MAIN CHALLENGE SUITE

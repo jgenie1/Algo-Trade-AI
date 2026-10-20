@@ -1,35 +1,34 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
 import { useAppState } from '@/context/AppContext';
-import { saveFullState, saveBotLearnings } from '@/lib/firebase';
-import { formatSmartPnl, getRealMarketBasePrice, getSolUsdRate, isRealOnChainPosition } from '@/lib/utils';
-import { fetchLiveMarketData, type Candle } from '@/services/yahooFinanceService';
+import { decryptSensitiveData,encryptSensitiveData } from '@/lib/cryptoStorage';
+import { saveBotLearnings } from '@/lib/firebase';
+import { resolveLivePrice } from '@/lib/symbolUtils';
+import { formatSmartPnl,getRealMarketBasePrice,isRealOnChainPosition } from '@/lib/utils';
+import { getLearningTelemetrySummary,recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
-import { calculateIndicators } from '@/services/technicalAnalysisService';
-import { 
-  fetchLatestPumpCoins, 
-  fetchRealPumpCoins,
-  fetchPumpCoin, 
-  getPumpFunWsUrl, 
-  executeRealPumpTrade, 
-  executeJupiterSwap,
-  SOLANA_TOKEN_MINTS,
-  getRealSolanaBalance,
-  fetchLiveWalletBalance,
-  checkSolanaNetworkHealth, 
-  getMultipleSolanaBalances, 
-  disperseSolToSubWallets,
-  sweepSubWalletProfitToMaster,
+import {
   analyzePumpCoinWithSniperPrompt,
-  calculatePumpCoinPriceInSol
+  calculatePumpCoinPriceInSol,
+  checkSolanaNetworkHealth,
+  disperseSolToSubWallets,
+  executeJupiterSwap,
+  executeRealPumpTrade,
+  fetchLatestPumpCoins,
+  fetchLiveWalletBalance,
+  fetchPumpCoin,
+  fetchRealPumpCoins,
+  getMultipleSolanaBalances,
+  getPumpFunWsUrl,
+  SOLANA_TOKEN_MINTS,
+  sweepSubWalletProfitToMaster
 } from '@/services/pumpFunService';
-import { recordTradeTelemetry, getLearningTelemetrySummary } from '@/services/aiClosedLoopLearningService';
-import { resolveLivePrice, canonicalizePair } from '@/lib/symbolUtils';
+import { calculateIndicators } from '@/services/technicalAnalysisService';
+import { fetchLiveMarketData } from '@/services/yahooFinanceService';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
-import { encryptSensitiveData, decryptSensitiveData } from '@/lib/cryptoStorage';
-import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import { useEffect,useRef,useState } from 'react';
 
 function getDerivedMasterPublicKey(): string {
   if (typeof window === 'undefined') return '';
@@ -101,16 +100,16 @@ export const timeframes = [
   { value: '240', label: '4 heures (Tendance Majeure)' },
 ];
 
-import type { 
-  Position, 
-  ClosedPosition, 
-  BotLearning, 
-  BotLog, 
-  BotInstance, 
-  SubWallet 
+import type {
+  BotInstance,
+  BotLearning,
+  BotLog,
+  ClosedPosition,
+  Position,
+  SubWallet
 } from '@/types';
 
-export type { Position, ClosedPosition, BotLearning, BotLog, BotInstance, SubWallet };
+export type { BotInstance,BotLearning,BotLog,ClosedPosition,Position,SubWallet };
 
 
 /**

@@ -1,25 +1,24 @@
 
 "use client";
+import { SidebarMenu,SidebarMenuButton,SidebarMenuItem } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Bot,
+  Building2,
+  Home,
+  LineChart,
+  LogOut,
+  Settings,
+  TrendingUp,
+  Trophy,
+  User,
+  Wallet,
+  Zap
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  Home,
-  Zap,
-  LayoutDashboard, 
-  ArrowDownLeft, 
-  ArrowUpRight, 
-  LineChart, 
-  Wallet, 
-  Bot, 
-  TrendingUp, 
-  Trophy, 
-  LogOut,
-  Building2,
-  User,
-  Settings
-} from 'lucide-react';
-import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { cn } from '@/lib/utils';
 
 export default function SidebarNav() {
   const pathname = usePathname();

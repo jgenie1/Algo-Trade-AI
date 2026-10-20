@@ -1,18 +1,17 @@
 "use client";
 
-import React from 'react';
-import { ArrowDownLeft, ArrowUpRight, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
-import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
+  TableCell,
   TableHead,
-  TableCell
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
+import { formatSolToUsdAndHtg,formatUsdToHtg } from '@/lib/utils';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import { ArrowDownLeft,ArrowUpRight,ExternalLink } from 'lucide-react';
 
 import type { Transaction } from '@/types';
 

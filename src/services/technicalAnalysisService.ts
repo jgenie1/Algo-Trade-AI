@@ -184,7 +184,6 @@ export function calculateIndicators(candles: Candle[], activeIndicators: string[
 
     let prevUpperBand = 0;
     let prevLowerBand = 0;
-    let prevSuperTrend = 0;
     let prevDir: 'UP' | 'DOWN' = 'UP';
 
     for (let i = 0; i < len; i++) {
@@ -232,7 +231,6 @@ export function calculateIndicators(candles: Candle[], activeIndicators: string[
 
       prevUpperBand = finalUpper;
       prevLowerBand = finalLower;
-      prevSuperTrend = currentST;
       prevDir = currentDir;
 
       superTrendArr.push(currentST);

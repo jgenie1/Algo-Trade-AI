@@ -1,43 +1,31 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { 
-  Zap, 
-  Bot, 
-  ShieldCheck, 
-  TrendingUp, 
-  LineChart, 
-  Wallet, 
-  Building2, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  CheckCircle2, 
-  Layers, 
-  Activity, 
-  Lock, 
-  Sparkles, 
-  Cpu, 
-  ArrowRight, 
-  BarChart3, 
-  Trophy, 
-  RefreshCw, 
-  Globe2, 
-  Flame,
-  HelpCircle,
-  ChevronRight
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import LogoIcon from '@/components/icons/LogoIcon';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
 import { useAppState } from '@/context/AppContext';
 import { useTradingEngine } from '@/hooks/useTradingEngine';
-import { cn, formatSmartPnl, getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
-import LogoIcon from '@/components/icons/LogoIcon';
+import { cn,isRealOnChainPosition } from '@/lib/utils';
+import {
+  Activity,
+  ArrowRight,
+  ArrowUpRight,
+  Bot,
+  Building2,
+  CheckCircle2,
+  HelpCircle,
+  LineChart,
+  Lock,
+  Trophy,
+  Zap
+} from 'lucide-react';
+import Link from 'next/link';
+import { useEffect,useState } from 'react';
 
 export default function HomePage() {
-  const { tradingMode, balance, reserveVault, reserveVaultSol, bots, activePositions, closedPositions } = useAppState();
-  const { livePrices, priceDirections, rpcLatency, solanaBalance } = useTradingEngine();
+  const { tradingMode, balance, reserveVault, reserveVaultSol, closedPositions } = useAppState();
+  const { livePrices, priceDirections, solanaBalance } = useTradingEngine();
   const [activePreviewTab, setActivePreviewTab] = useState<'terminal' | 'bots' | 'vault' | 'erp'>('terminal');
   const [mounted, setMounted] = useState(false);
 
@@ -46,8 +34,6 @@ export default function HomePage() {
   }, []);
 
   const isReal = tradingMode === 'REAL';
-  const runningBotsCount = (bots || []).filter(b => b.status === 'RUNNING' && (b.mode === 'REAL' ? 'REAL' : 'DEMO') === tradingMode).length;
-  const activePositionsCount = (activePositions || []).filter(p => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode).length;
 
   const popularTickers = [
     { pair: 'BTC-USD', name: 'Bitcoin', fallback: 95400, isSol: false },

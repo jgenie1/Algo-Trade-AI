@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { ExternalLink, ShieldCheck, Info } from 'lucide-react';
+import { Card,CardContent } from '@/components/ui/card';
+import { Info,ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
 
 const GUIDE_TABS = [
   { id: 'exchanges', label: 'Depuis un Exchange' },

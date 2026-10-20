@@ -1,47 +1,44 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { 
-  Wallet, 
-  Coins, 
-  ArrowRightLeft, 
-  Layers, 
-  RefreshCw, 
-  CheckCircle2, 
-  DollarSign, 
-  Sparkles, 
-  ShieldCheck, 
-  AlertTriangle 
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Table, 
-  TableHeader, 
-  TableBody, 
-  TableRow, 
-  TableCell, 
-  TableHead 
-} from '@/components/ui/table';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
-} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  fetchWalletTokenBalances, 
-  executeBulkSellToUSD, 
-  type WalletToken, 
-  type SwapToken 
-} from '@/services/dexSwapService';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
 import { useAppState } from '@/context/AppContext';
-import { cn, formatUsdToHtg, formatSmartPrice, formatSmartCrypto } from '@/lib/utils';
+import { cn,formatSmartPrice,formatUsdToHtg } from '@/lib/utils';
+import {
+  executeBulkSellToUSD,
+  fetchWalletTokenBalances,
+  type SwapToken,
+  type WalletToken
+} from '@/services/dexSwapService';
+import {
+  ArrowRightLeft,
+  CheckCircle2,
+  Coins,
+  Layers,
+  RefreshCw,
+  ShieldCheck,
+  Wallet
+} from 'lucide-react';
+import Image from 'next/image';
+import React,{ useEffect,useState } from 'react';
 
 interface WalletTokenPortfolioProps {
   solanaPubKey: string | null;

@@ -1,15 +1,13 @@
 
+import { decryptSensitiveData } from '@/lib/cryptoStorage';
+import { getRealMarketBasePrice } from '@/lib/utils';
 import {
   Connection,
   Keypair,
   PublicKey,
   SystemProgram,
-  Transaction,
-  clusterApiUrl,
+  Transaction
 } from '@solana/web3.js';
-import { recordTradeTelemetry } from '@/services/aiClosedLoopLearningService';
-import { getRealMarketBasePrice } from '@/lib/utils';
-import { decryptSensitiveData } from '@/lib/cryptoStorage';
 import bs58 from 'bs58';
 
 export interface PumpCoin {
@@ -74,20 +72,6 @@ export interface PumpCoinAnalysisReport {
   };
   alertsTriggered: string[];
   formattedReportText: string;
-}
-
-const PUMPFUN_API_URL = process.env.PUMPFUN_API_URL || 'https://frontend-api-v3.pump.fun';
-const PUMPFUN_JWT_TOKEN = process.env.PUMPFUN_JWT_TOKEN || '';
-
-function getHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Accept': 'application/json',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-  };
-  if (PUMPFUN_JWT_TOKEN) {
-    headers['Authorization'] = `Bearer ${PUMPFUN_JWT_TOKEN}`;
-  }
-  return headers;
 }
 
 
@@ -1589,7 +1573,7 @@ export async function transferSolOnChain(params: {
   priorityFeeSol?: number;
 }): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
-    const { fromPrivateKey, toPublicKey, amountSol, priorityFeeSol = 0.0005 } = params;
+    const { fromPrivateKey, toPublicKey, amountSol } = params;
 
     if (amountSol <= 0) {
       throw new Error("Le montant du virement doit être supérieur à 0 SOL.");

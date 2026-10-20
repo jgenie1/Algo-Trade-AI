@@ -1,40 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
-import { 
-  User, 
-  ShieldCheck, 
-  Key, 
-  Sparkles, 
-  BadgeCheck, 
-  Copy, 
-  Check, 
-  Wallet, 
-  TrendingUp, 
-  Activity, 
-  Mail, 
-  Globe, 
-  Lock, 
-  Camera,
-  Award,
-  Shield,
-  Upload
-} from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, isRealOnChainPosition } from '@/lib/utils';
-import { useAppState } from '@/context/AppContext';
-import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
-import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { useAppState } from '@/context/AppContext';
+import { cn,formatSolToUsdAndHtg,isRealOnChainPosition } from '@/lib/utils';
+import { fetchLiveWalletBalance,getRealSolanaBalance } from '@/services/pumpFunService';
+import {
+  Award,
+  BadgeCheck,
+  Camera,
+  Check,
+  Copy,
+  Globe,
+  Lock,
+  User,
+  Wallet
+} from 'lucide-react';
+import Image from 'next/image';
+import React,{ useEffect,useRef,useState } from 'react';
 
 export default function ProfilePage() {
-  const { tradingMode, setTradingMode, balance, activePositions, closedPositions, bots } = useAppState();
+  const { tradingMode, closedPositions } = useAppState();
   const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
   const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [isMounted, setIsMounted] = useState<boolean>(false);
 
   // Avatar File Upload Ref & State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,7 +40,6 @@ export default function ProfilePage() {
   const [isSaved, setIsSaved] = useState<boolean>(false);
 
   useEffect(() => {
-    setIsMounted(true);
     if (typeof window !== 'undefined') {
       const storedName = localStorage.getItem('profile_full_name');
       const storedEmail = localStorage.getItem('profile_email');

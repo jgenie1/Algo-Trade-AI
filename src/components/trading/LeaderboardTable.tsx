@@ -1,9 +1,8 @@
 "use client";
 
-import React from 'react';
-import { Trophy, Copy, Check, ShieldCheck, Flame, Users } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { LeaderboardEntry } from '@/data/leaderboardEntries';
+import { cn } from '@/lib/utils';
+import { Check,Copy,ShieldCheck,Trophy,Users } from 'lucide-react';
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];

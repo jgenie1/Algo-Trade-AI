@@ -1,44 +1,40 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription,
-  DialogTrigger 
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Bot, 
-  ShieldCheck, 
-  Zap, 
-  CheckCircle2, 
-  XCircle, 
-  RefreshCw, 
-  Lock, 
-  AlertTriangle, 
-  Eye, 
-  EyeOff, 
-  Activity,
-  Globe,
-  Sliders,
-  DollarSign,
-  Cpu
-} from 'lucide-react';
-import { 
-  getBinanceAgentConfig, 
-  saveBinanceAgentConfig, 
-  fetchBinanceAccountInfo, 
-  testBinanceAgentOsLatency,
-  triggerBinanceEmergencyStop,
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
   BinanceAccountInfo,
-  BinanceAgentConfig
+  BinanceAgentConfig,
+  fetchBinanceAccountInfo,
+  getBinanceAgentConfig,
+  saveBinanceAgentConfig,
+  testBinanceAgentOsLatency,
+  triggerBinanceEmergencyStop
 } from '@/services/binanceMcpService';
 import { dispatchAlert } from '@/services/notificationService';
+import {
+  AlertTriangle,
+  Bot,
+  CheckCircle2,
+  Cpu,
+  Eye,
+  EyeOff,
+  Globe,
+  RefreshCw,
+  ShieldCheck,
+  XCircle,
+  Zap
+} from 'lucide-react';
+import React,{ useEffect,useState } from 'react';
 
 interface BinanceAgentConnectModalProps {
   isOpen?: boolean;
@@ -67,7 +63,6 @@ export default function BinanceAgentConnectModal({ isOpen, onClose, triggerButto
 
   const [showSecret, setShowSecret] = useState(false);
   const [accountInfo, setAccountInfo] = useState<BinanceAccountInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isEmergencyStopping, setIsEmergencyStopping] = useState(false);
@@ -81,14 +76,12 @@ export default function BinanceAgentConnectModal({ isOpen, onClose, triggerButto
   }, []);
 
   const loadAccountData = async () => {
-    setIsLoading(true);
     try {
       const info = await fetchBinanceAccountInfo();
       setAccountInfo(info);
     } catch (e) {
       console.error(e);
     } finally {
-      setIsLoading(false);
     }
   };
 

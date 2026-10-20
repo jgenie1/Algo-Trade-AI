@@ -1,11 +1,11 @@
 "use client";
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { BrainCircuit, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { BrainCircuit,Minus,RefreshCw,TrendingDown,TrendingUp } from "lucide-react";
+import React from 'react';
 
 interface AIAnalysisConsoleCardProps {
   pair: string;

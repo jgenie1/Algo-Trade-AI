@@ -3,7 +3,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { GetForexAnalysisInputSchema, GetForexAnalysisOutputSchema, type GetForexAnalysisInput, type GetForexAnalysisOutput } from '@/ai/schemas';
+import { GetForexAnalysisInputSchema,GetForexAnalysisOutputSchema,type GetForexAnalysisInput,type GetForexAnalysisOutput } from '@/ai/schemas';
 
 // Le prompt pour l'analyse
 const analysisPrompt = ai.definePrompt(

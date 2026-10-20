@@ -20,13 +20,13 @@
  */
 
 import assert from 'node:assert/strict';
+import { SOLANA_TOKEN_MINTS } from '../src/services/pumpFunService';
 import {
-  getExplorerTxUrl,
   getExplorerAddressUrl,
   getExplorerTokenUrl,
+  getExplorerTxUrl,
   SupportedChain
 } from '../src/utils/explorerLinks';
-import { SOLANA_TOKEN_MINTS } from '../src/services/pumpFunService';
 
 interface ChallengeResult {
   name: string;
@@ -410,7 +410,6 @@ export async function runAdversarialHarness(): Promise<boolean> {
       dcaCount: 1,
       mode: 'REAL' as const
     };
-    const bot = { id: 'bot_alpha', strategy: 'MACD Divergence Bot', capital: 3.0 };
 
     const isBotPosReal = realPos.mode === 'REAL';
     assert.equal(isBotPosReal, true);

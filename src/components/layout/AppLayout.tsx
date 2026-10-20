@@ -1,14 +1,14 @@
 "use client";
 
-import type { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
-import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import Header from '@/components/layout/Header';
-import SidebarNav from '@/components/layout/SidebarNav';
 import LogoIcon from '@/components/icons/LogoIcon';
-import MobileBottomNav from '@/components/layout/MobileBottomNav';
+import Header from '@/components/layout/Header';
 import LandingNavbar from '@/components/layout/LandingNavbar';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
+import SidebarNav from '@/components/layout/SidebarNav';
+import { Sidebar,SidebarContent,SidebarHeader,SidebarInset,SidebarProvider,SidebarTrigger } from '@/components/ui/sidebar';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();

@@ -1,20 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Settings, Check, RefreshCw, RotateCcw, Radio, SlidersHorizontal, Globe, Key, Eye, EyeOff } from 'lucide-react';
-import { getUsdHtgRate, fetchLiveUsdHtgRate, cn, getSolUsdRate } from '@/lib/utils';
-import { useAppState } from '@/context/AppContext';
+import SettingsNotificationsCard from '@/components/layout/SettingsNotificationsCard';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import CEXKeyManager from '@/components/wallet/CEXKeyManager';
-import SettingsNotificationsCard from '@/components/layout/SettingsNotificationsCard';
-import { getNotificationSettings, saveNotificationSettings, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, dispatchAlert } from '@/services/notificationService';
+import { useAppState } from '@/context/AppContext';
+import { cn,fetchLiveUsdHtgRate,getUsdHtgRate } from '@/lib/utils';
+import { DEFAULT_NOTIFICATION_SETTINGS,dispatchAlert,getNotificationSettings,NotificationSettings,saveNotificationSettings } from '@/services/notificationService';
+import { Eye,EyeOff,Globe,Key,Radio,RotateCcw,Settings,SlidersHorizontal } from 'lucide-react';
+import React,{ useEffect,useState } from 'react';
 
 export default function SettingsPage() {
-  const { setBalance, resetDemoData } = useAppState();
-  const [isMounted, setIsMounted] = useState<boolean>(false);
+  const { resetDemoData } = useAppState();
 
   const [rpcUrl, setRpcUrl] = useState<string>('https://solana-rpc.publicnode.com');
   const [solanaPrivateKey, setSolanaPrivateKey] = useState<string>('');
@@ -38,7 +37,6 @@ export default function SettingsPage() {
   const [isTestingTv, setIsTestingTv] = useState<boolean>(false);
 
   useEffect(() => {
-    setIsMounted(true);
     setUsdHtgRate(getUsdHtgRate());
     setNotifSettings(getNotificationSettings());
     if (typeof window !== 'undefined') {

@@ -1,30 +1,26 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Trophy, Sparkles, RefreshCw, Search, ShieldCheck } from 'lucide-react';
-import { cn, isRealOnChainPosition } from '@/lib/utils';
-import { useAppState } from '@/context/AppContext';
 import LeaderboardTable from '@/components/trading/LeaderboardTable';
+import { useAppState } from '@/context/AppContext';
 import {
-  LeaderboardEntry,
   DEMO_LEADERBOARD_ENTRIES,
+  LeaderboardEntry,
   REAL_LEADERBOARD_ENTRIES
 } from '@/data/leaderboardEntries';
+import { cn,isRealOnChainPosition } from '@/lib/utils';
+import { Search,Sparkles,Trophy } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const { tradingMode, setTradingMode, balance, reserveVault, reserveVaultSol, bots, setBots, closedPositions } = useAppState();
+  const { tradingMode, balance, reserveVault, reserveVaultSol, bots, setBots, closedPositions } = useAppState();
 
-  const [isMounted, setIsMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
   const [copiedRank, setCopiedRank] = useState<number | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const userClosedTrades = (closedPositions || []).filter(
     (p) => (isRealOnChainPosition(p) ? 'REAL' : 'DEMO') === tradingMode

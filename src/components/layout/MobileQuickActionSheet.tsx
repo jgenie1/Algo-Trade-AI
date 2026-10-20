@@ -1,31 +1,26 @@
 "use client";
 
-import React, { useState } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription
+import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { 
-  Zap, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Lock, 
-  AlertOctagon, 
-  RefreshCw,
-  TrendingUp,
+import DEXSwapModal from '@/components/wallet/DEXSwapModal';
+import { useAppState } from '@/context/AppContext';
+import {
   Bot,
-  Trophy,
   Coins,
-  Layers
+  Layers,
+  Lock,
+  RefreshCw,
+  Trophy,
+  Zap
 } from 'lucide-react';
 import Link from 'next/link';
-import { useAppState } from '@/context/AppContext';
-import DEXSwapModal from '@/components/wallet/DEXSwapModal';
-import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
+import { useState } from 'react';
 
 export default function MobileQuickActionSheet() {
   const { reserveVault, reserveVaultSol, tradingMode, setBalance, setReserveVault, setReserveVaultSol, setTransactions } = useAppState();

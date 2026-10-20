@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, setLogLevel, doc, setDoc, getDoc } from 'firebase/firestore';
-import type { AppState, BotLearning } from '@/types';
+import type { AppState,BotLearning } from '@/types';
+import { getApp,getApps,initializeApp } from 'firebase/app';
+import { doc,getDoc,initializeFirestore,setDoc,setLogLevel } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDR7gRGxRFzRCXP0SB8Z0tPxVNOiJPDGP0",

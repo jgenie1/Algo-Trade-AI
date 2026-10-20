@@ -1,9 +1,8 @@
 "use client";
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import { cn,isRealOnChainPosition } from "@/lib/utils";
 import { History } from "lucide-react";
-import { cn, isRealOnChainPosition } from "@/lib/utils";
 
 interface PastTrade {
   date: string;

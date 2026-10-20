@@ -1,6 +1,6 @@
-import { ethers } from "ethers";
 import uniswapV2RouterAbi from '@/abi/uniswap-v2-router-abi.json';
 import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import { ethers } from "ethers";
 
 // --- Configuration ---
 const BSC_RPC_URL = process.env.BSC_RPC_URL || 'https://bsc-dataseed.binance.org/';

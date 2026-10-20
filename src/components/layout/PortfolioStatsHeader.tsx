@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { RotateCcw, ShieldCheck, Zap, Lock, Activity, Wallet } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto, formatSmartNumber, getSolUsdRate, isRealOnChainPosition } from '@/lib/utils';
-import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 import { Button } from '@/components/ui/button';
 import { useAppState } from '@/context/AppContext';
+import { cn,formatSmartCrypto,formatSolToUsdAndHtg,formatUsdToHtg,getSolUsdRate,isRealOnChainPosition } from '@/lib/utils';
+import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
+import { Activity,Lock,RotateCcw,ShieldCheck,Wallet,Zap } from 'lucide-react';
+import { useEffect,useState } from 'react';
 
 interface PortfolioStatsHeaderProps {
   tradingMode: 'DEMO' | 'REAL';
@@ -36,7 +36,7 @@ export default function PortfolioStatsHeader({
   handleResetDemo,
   onSelectTab
 }: PortfolioStatsHeaderProps) {
-  const { reserveVaultSol, bots } = useAppState();
+  const { reserveVaultSol } = useAppState();
   const isDemo = tradingMode === 'DEMO';
 
   // Live CoinMarketCap Price state
@@ -74,7 +74,6 @@ export default function PortfolioStatsHeader({
   const liveBnbPrice = liveCmcPrices.BNB || 0;
 
   const safeActivePositions = Array.isArray(activePositions) ? activePositions : [];
-  const safeBots = Array.isArray(bots) ? bots : [];
 
   const demoPositionsCount = safeActivePositions.filter(
     (p) => !isRealOnChainPosition(p)
@@ -87,15 +86,6 @@ export default function PortfolioStatsHeader({
   const realAllocatedSol = realPositions.reduce(
     (sum, p) => sum + (p?.amount || 0), 0
   );
-
-  const realBots = safeBots.filter(
-    (b) => b && b.mode === 'REAL' && b.status === 'RUNNING'
-  );
-
-  const realBotsPnL = realBots.reduce((sum, b) => {
-    const pnl = typeof b.netProfit === 'number' && !isNaN(b.netProfit) ? b.netProfit : (typeof b.pnl === 'number' && !isNaN(b.pnl) ? b.pnl : 0);
-    return sum + pnl;
-  }, 0);
 
   const realUnrealizedPnL = realPositions.reduce((sum, p) => {
     const profitVal = typeof p.profit === 'number' && !isNaN(p.profit) ? p.profit : (typeof p.pnl === 'number' && !isNaN(p.pnl) ? p.pnl : 0);

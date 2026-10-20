@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Play, TrendingUp, TrendingDown, BarChart2, ShieldAlert, Zap, Layers, RefreshCw } from 'lucide-react';
-import { runBacktest, type BacktestResult } from '@/services/backtestService';
-import { currencyPairs, timeframes } from '@/hooks/useTradingEngine';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
+import { currencyPairs,timeframes } from '@/hooks/useTradingEngine';
+import { runBacktest,type BacktestResult } from '@/services/backtestService';
+import { BarChart2,Play,RefreshCw } from 'lucide-react';
+import React,{ useState } from 'react';
 
 export default function BacktestSimulator() {
   const [pair, setPair] = useState<string>('FX:EURUSD');
   const [strategy, setStrategy] = useState<string>('AI Autopilot (Machine à Cash)');
   const [timeframe, setTimeframe] = useState<string>('15');
   const [initialBalance, setInitialBalance] = useState<number>(10000);
-  const [capitalPerTrade, setCapitalPerTrade] = useState<number>(1000);
+  const [capitalPerTrade] = useState<number>(1000);
   const [leverage, setLeverage] = useState<number>(5);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);

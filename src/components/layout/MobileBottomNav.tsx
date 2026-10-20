@@ -1,19 +1,17 @@
 "use client";
 
-import React from 'react';
+import { useAppState } from '@/context/AppContext';
+import { cn } from '@/lib/utils';
+import {
+  Bot,
+  Home,
+  Wallet,
+  Zap
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  Home, 
-  Zap,
-  Bot, 
-  Coins, 
-  Wallet, 
-  BarChart2 
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React from 'react';
 import MobileQuickActionSheet from './MobileQuickActionSheet';
-import { useAppState } from '@/context/AppContext';
 
 export default function MobileBottomNav() {
   const pathname = usePathname();

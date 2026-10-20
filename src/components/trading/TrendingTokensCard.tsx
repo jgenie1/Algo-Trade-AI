@@ -1,11 +1,10 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowUpRight, ArrowDownRight, RefreshCw, Flame } from 'lucide-react';
-import { getBnbPrice } from '@/services/pancakeSwapService';
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
 import { tokenList } from '@/config/tokens';
-import { cn, getRealMarketBasePrice } from '@/lib/utils';
+import { cn,getRealMarketBasePrice } from '@/lib/utils';
+import { ArrowDownRight,ArrowUpRight,Flame,RefreshCw } from 'lucide-react';
+import Image from 'next/image';
+import { useEffect,useState } from 'react';
 
 import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
 

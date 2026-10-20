@@ -1,19 +1,18 @@
 "use client";
 
-import React from 'react';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  CartesianGrid 
-} from 'recharts';
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
 import { useAppState } from '@/context/AppContext';
 import { getRealMarketBasePrice } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { TrendingUp, Lock } from 'lucide-react';
+import { Lock,TrendingUp } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from 'recharts';
 
 export default function VaultGrowthChart() {
   const { balance, reserveVault, reserveVaultSol, tradingMode } = useAppState();

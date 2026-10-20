@@ -1,28 +1,23 @@
 "use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { 
-  BrainCircuit, 
-  TrendingUp, 
-  ShieldCheck, 
-  Zap, 
-  Copy, 
-  CheckCircle2, 
-  Search, 
-  Filter, 
-  Star, 
-  Users, 
-  BarChart3, 
-  ArrowUpRight,
-  Flame
-} from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
-import { useRouter } from 'next/navigation';
+import {
+  ArrowUpRight,
+  BrainCircuit,
+  CheckCircle2,
+  Copy,
+  Filter,
+  Flame,
+  Search,
+  Users,
+  Zap
+} from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export interface StrategyItem {
   id: string;
@@ -141,7 +136,7 @@ export const COMMUNITY_STRATEGIES: StrategyItem[] = [
 ];
 
 export default function StrategyMarketplace() {
-  const { bots, setBots, balance, reserveVault, reserveVaultSol, tradingMode, setTradingMode } = useAppState();
+  const { bots, setBots, balance, reserveVault, reserveVaultSol, tradingMode } = useAppState();
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);

@@ -1,22 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, RefreshCw } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
-import { getRealSolanaBalance, withdrawSolana, fetchLiveWalletBalance } from '@/services/pumpFunService';
-import { useAppState } from '@/context/AppContext';
+import TransactionHistoryTable from '@/components/trading/TransactionHistoryTable';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import TransactionHistoryTable from '@/components/trading/TransactionHistoryTable';
-import WithdrawFormCard from '@/components/wallet/WithdrawFormCard';
 import ReserveVaultCard from '@/components/wallet/ReserveVaultCard';
+import WithdrawFormCard from '@/components/wallet/WithdrawFormCard';
+import { useAppState } from '@/context/AppContext';
+import { cn,formatSolToUsdAndHtg,formatUsdToHtg } from '@/lib/utils';
+import { fetchLiveWalletBalance,withdrawSolana } from '@/services/pumpFunService';
+import { ArrowUpRight,RefreshCw } from 'lucide-react';
+import React,{ useEffect,useState } from 'react';
 
 const SOLANA_NETWORK_FEE = 0.00005;
 const PRIORITY_FEE_ESTIMATE = 0.001;
 
 export default function WithdrawPage() {
   const { tradingMode, setTradingMode, balance, setBalance, reserveVault, reserveVaultSol, transactions, setTransactions } = useAppState();
-  const [solanaPubKey, setSolanaPubKey] = useState<string>('');
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
 
   const [recipientAddress, setRecipientAddress] = useState('');
@@ -32,7 +31,6 @@ export default function WithdrawPage() {
       fetchLiveWalletBalance().then(res => {
         if (res && res.success) {
           if (res.solanaBalance !== null) setSolanaBalance(res.solanaBalance);
-          if (res.solanaPubKey) setSolanaPubKey(prev => prev || res.solanaPubKey);
         }
       });
     }

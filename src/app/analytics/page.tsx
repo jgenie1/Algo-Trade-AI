@@ -1,16 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import {
-  TrendingUp, TrendingDown, Percent, BarChart2, Zap,
-  Clock, ShieldCheck, Activity, Trophy, Target,
-  ArrowUpRight, ArrowDownRight, Download
-} from "lucide-react";
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, isRealOnChainPosition } from "@/lib/utils";
-import { useAppState } from "@/context/AppContext";
-import dynamic from "next/dynamic";
 import VaultGrowthChart from "@/components/wallet/VaultGrowthChart";
-import { exportTransactionsToCSV, exportBotsPerformanceToCSV } from "@/services/exportService";
+import { useAppState } from "@/context/AppContext";
+import { cn,formatSolToUsdAndHtg,formatUsdToHtg,isRealOnChainPosition } from "@/lib/utils";
+import { exportBotsPerformanceToCSV,exportTransactionsToCSV } from "@/services/exportService";
+import {
+  Activity,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart2,
+  Clock,
+  Download,
+  Percent,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  Zap
+} from "lucide-react";
+import { useEffect,useRef,useState } from "react";
 
 function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", className = "" }: {
   value: number; decimals?: number; prefix?: string; suffix?: string; className?: string;
@@ -34,8 +41,7 @@ function AnimatedNumber({ value, decimals = 2, prefix = "", suffix = "", classNa
 }
 
 export default function AnalyticsPage() {
-  const { tradingMode, setTradingMode, activePositions, closedPositions, bots, transactions, balance } = useAppState();
-  const [isMounted, setIsMounted] = useState(false);
+  const { tradingMode, activePositions, closedPositions, bots, transactions } = useAppState();
   const isReal = tradingMode === "REAL";
   const safeActivePositions = Array.isArray(activePositions) ? activePositions : [];
   const safeClosedPositions = Array.isArray(closedPositions) ? closedPositions : [];

@@ -1,18 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, Bot, ShieldCheck, Target, Flame, RefreshCw } from 'lucide-react';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, isRealOnChainPosition } from '@/lib/utils';
-import { useAppState } from '@/context/AppContext';
 import PerformanceStrategyCard from '@/components/layout/PerformanceStrategyCard';
+import { useAppState } from '@/context/AppContext';
+import { cn,formatSmartPnl,formatSolToUsdAndHtg,formatUsdToHtg,isRealOnChainPosition } from '@/lib/utils';
+import { Bot,Flame,ShieldCheck,Target,TrendingUp } from 'lucide-react';
 
 export default function PerformancePage() {
   const { tradingMode, setTradingMode, bots, closedPositions } = useAppState();
-  const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const getBotStats = (strategyName: string, pumpMode?: string) => {
     const matchingBots = bots.filter(b => {

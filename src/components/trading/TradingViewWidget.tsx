@@ -1,7 +1,7 @@
 "use client";
-import React, { useEffect, useRef, memo } from 'react';
-import { fetchLiveMarketData } from '@/services/yahooFinanceService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
+import { fetchLiveMarketData } from '@/services/yahooFinanceService';
+import React,{ memo,useEffect,useRef } from 'react';
 
 interface TradingViewWidgetProps {
   symbol?: string;

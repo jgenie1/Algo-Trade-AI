@@ -1,31 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowDownUp, 
-  RefreshCw, 
-  Settings2, 
-  Zap, 
-  ExternalLink, 
-  CheckCircle2, 
-  ShieldCheck 
-} from 'lucide-react';
-import { POPULAR_TOKENS, SwapToken, fetchSwapQuote, SwapQuote, executeDEXSwap, DEXSwapResult, WalletToken, fetchWalletTokenBalances } from '@/services/dexSwapService';
-import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
-import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useAppState } from '@/context/AppContext';
-import { getRealMarketBasePrice } from '@/lib/utils';
-import { cn, formatUsdToHtg, formatSmartNumber } from '@/lib/utils';
+import { cn,formatSmartNumber,formatUsdToHtg,getRealMarketBasePrice } from '@/lib/utils';
+import { DEXSwapResult,POPULAR_TOKENS,SwapQuote,SwapToken,WalletToken,executeDEXSwap,fetchSwapQuote,fetchWalletTokenBalances } from '@/services/dexSwapService';
+import { fetchLiveWalletBalance,getRealSolanaBalance } from '@/services/pumpFunService';
+import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import {
+  ArrowDownUp,
+  CheckCircle2,
+  ExternalLink,
+  RefreshCw,
+  Zap
+} from 'lucide-react';
+import { useEffect,useState } from 'react';
 
 interface DEXSwapModalProps {
   isOpen: boolean;
@@ -91,7 +88,6 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     return () => clearInterval(interval);
   }, [isOpen, propSolanaBalance, tradingMode, balance, activePositions]);
 
-  const solanaBalance = solanaBalanceState;
   
   const [activeChain, setActiveChain] = useState<'SOL' | 'EVM'>('SOL');
   
@@ -102,7 +98,7 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
   const [fromToken, setFromToken] = useState<SwapToken>(initialFromToken || availableTokens[0] || POPULAR_TOKENS[0]);
   const [toToken, setToToken] = useState<SwapToken>(initialToToken || availableTokens[1] || POPULAR_TOKENS[1]);
   const [amount, setAmount] = useState<string>('0.5');
-  const [slippage, setSlippage] = useState<number>(() => {
+  const [slippage] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('settings_slippage');
       if (stored) {
@@ -220,11 +216,6 @@ export default function DEXSwapModal({ isOpen, onClose, initialFromToken, initia
     setToToken(fromToken);
   };
 
-  const getTokenUsdPrice = (token: SwapToken): number => {
-    if (token.symbol === 'USDC' || token.symbol === 'USDT') return 1.0;
-    const price = getRealMarketBasePrice(token.symbol);
-    return price > 0 ? price : 1.0;
-  };
 
   const handleExecuteSwap = async () => {
     const numAmount = parseFloat(amount);

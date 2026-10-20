@@ -1,29 +1,29 @@
 "use client";
 
-import React, { useState } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Zap, 
-  Eye, 
-  BarChart2, 
-  Globe 
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Select, 
-  SelectTrigger, 
-  SelectValue, 
-  SelectContent, 
-  SelectItem 
-} from '@/components/ui/select';
-import { currencyPairs, timeframes } from '@/hooks/useTradingEngine';
 import TradingViewWidget from '@/components/trading/TradingViewWidget';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { currencyPairs,timeframes } from '@/hooks/useTradingEngine';
+import { cn } from '@/lib/utils';
+import {
+  BarChart2,
+  Eye,
+  Globe,
+  TrendingDown,
+  TrendingUp,
+  Zap
+} from 'lucide-react';
+import { useState } from 'react';
 
-import type { BotLog, BotInstance } from '@/types';
+import type { BotInstance,BotLog } from '@/types';
 
 interface MarketRadarAndChartProps {
   selectedPair: string;

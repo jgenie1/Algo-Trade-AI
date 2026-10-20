@@ -1,12 +1,12 @@
 "use client";
 
-import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Send, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { NotificationSettings } from '@/services/notificationService';
+import { Bell,MessageSquare,Send } from 'lucide-react';
+import React from 'react';
 
 interface SettingsNotificationsCardProps {
   notifSettings: NotificationSettings;

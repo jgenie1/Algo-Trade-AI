@@ -1,23 +1,20 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { 
-  ShieldAlert, 
-  AlertTriangle, 
-  Zap, 
-  ShieldCheck, 
-  Activity, 
-  Flame, 
-  Lock, 
-  SlidersHorizontal,
-  CheckCircle2
-} from 'lucide-react';
-import { cn, formatUsdToHtg, getRealMarketBasePrice } from '@/lib/utils';
 import PanicKillSwitch from '@/components/layout/PanicKillSwitch';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { cn,getRealMarketBasePrice } from '@/lib/utils';
+import {
+  Activity,
+  CheckCircle2,
+  Lock,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  Zap
+} from 'lucide-react';
+import { useState } from 'react';
 
 interface ERPRiskTabProps {
   totalAumUsd: number;
@@ -35,11 +32,9 @@ export default function ERPRiskTab({
   const [autoStopLoss, setAutoStopLoss] = useState(true);
   const [leverageCap, setLeverageCap] = useState(20);
   const [maxPositionSize, setMaxPositionSize] = useState(15); // % of AUM
-  const [killSwitchTriggered, setKillSwitchTriggered] = useState(false);
 
   // Compute metrics
   const solPriceUsd = getRealMarketBasePrice('SOL') || 145.0;
-  const activeBotsCount = bots.filter(b => b.status === 'RUNNING' || b.active).length;
   const openPositionsCount = openPositions.length;
   
   const rawMarginExposed = openPositions.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -48,7 +43,6 @@ export default function ERPRiskTab({
 
   const riskLevel = riskRatio > 50 ? 'ÉLEVÉ' : riskRatio > 25 ? 'MODÉRÉ' : 'CONTRÔLÉ';
   const riskColor = riskRatio > 50 ? 'text-rose-400' : riskRatio > 25 ? 'text-amber-400' : 'text-emerald-400';
-  const riskBg = riskRatio > 50 ? 'bg-rose-500/10 border-rose-500/20' : riskRatio > 25 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20';
 
   return (
     <div className="space-y-6">

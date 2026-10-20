@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { rateLimiter, getClientIp } from '@/lib/rateLimiter';
+import { getClientIp,rateLimiter } from '@/lib/rateLimiter';
+import { NextRequest,NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 

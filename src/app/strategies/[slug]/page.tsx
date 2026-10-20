@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { BrainCircuit, Zap, ShieldCheck, ArrowLeft, CheckCircle2, Flame } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useAppState } from "@/context/AppContext";
+import { ArrowLeft,BrainCircuit,CheckCircle2,Zap } from "lucide-react";
+import Link from "next/link";
+import { useParams,useRouter } from "next/navigation";
+import React,{ useState } from "react";
 
 export default function StrategyDetailPage() {
   const params = useParams();

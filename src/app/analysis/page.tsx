@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
-import { TrendingUp, Wallet, Coins, Bot } from "lucide-react";
-import dynamic from 'next/dynamic';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { GetForexAnalysisInput, GetForexAnalysisOutput } from '@/ai/schemas';
-import TrendingTokensCard from '@/components/trading/TrendingTokensCard';
-import BacktestSimulator from '@/components/trading/BacktestSimulator';
+import type { GetForexAnalysisInput,GetForexAnalysisOutput } from '@/ai/schemas';
 import AIAnalysisConsoleCard from '@/components/ai/AIAnalysisConsoleCard';
 import AIAnalysisHistoryTable from '@/components/ai/AIAnalysisHistoryTable';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, isRealOnChainPosition } from '@/lib/utils';
+import BacktestSimulator from '@/components/trading/BacktestSimulator';
+import TrendingTokensCard from '@/components/trading/TrendingTokensCard';
+import { Card,CardContent,CardDescription,CardHeader,CardTitle } from "@/components/ui/card";
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAppState } from '@/context/AppContext';
-import { getRealSolanaBalance, fetchLiveWalletBalance } from '@/services/pumpFunService';
-import { currencyPairs as allCurrencyPairs, timeframes as allTimeframes } from '@/hooks/useTradingEngine';
+import { currencyPairs as allCurrencyPairs,timeframes as allTimeframes } from '@/hooks/useTradingEngine';
+import { isRealOnChainPosition } from '@/lib/utils';
+import { fetchLiveWalletBalance,getRealSolanaBalance } from '@/services/pumpFunService';
+import { Bot,TrendingUp } from "lucide-react";
+import dynamic from 'next/dynamic';
+import { useEffect,useRef,useState } from 'react';
 
 const TVWidget = dynamic(
   () => import('@/components/trading/TradingViewWidget').then((mod) => mod.default),
@@ -34,7 +33,7 @@ const solanaRealPairs = [
 ];
 
 export default function ForexAnalysisPage() {
-  const { tradingMode, balance, closedPositions, bots } = useAppState();
+  const { tradingMode, balance, closedPositions } = useAppState();
   const currencyPairs = tradingMode === 'REAL' ? solanaRealPairs : defaultCurrencyPairs;
   const [pair, setPair] = useState(currencyPairs[0].value);
   const [timeframe, setTimeframe] = useState(allTimeframes[2].value);
@@ -47,9 +46,6 @@ export default function ForexAnalysisPage() {
   const [isChartReady, setIsChartReady] = useState(false);
   const [debateLogs, setDebateLogs] = useState<{ agent: string; msg: string; color: string }[]>([]);
 
-  const [walletAsset, setWalletAsset] = useState("SOL");
-  const [walletAction, setWalletAction] = useState("Exchange");
-  const [walletAmount, setWalletAmount] = useState(45);
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
 

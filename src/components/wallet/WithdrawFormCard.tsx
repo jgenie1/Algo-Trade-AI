@@ -1,11 +1,11 @@
 "use client";
 
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card,CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Wallet, DollarSign, Coins } from 'lucide-react';
-import { formatSolToUsdAndHtg, formatUsdToHtg, formatSmartCrypto } from '@/lib/utils';
+import { formatSmartCrypto,formatSolToUsdAndHtg,formatUsdToHtg } from '@/lib/utils';
+import { Wallet } from 'lucide-react';
+import React from 'react';
 
 interface WithdrawFormCardProps {
   tradingMode: 'DEMO' | 'REAL';

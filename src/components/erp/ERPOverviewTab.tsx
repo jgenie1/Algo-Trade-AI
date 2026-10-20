@@ -1,8 +1,7 @@
 "use client";
 
-import React from 'react';
 import { Card } from '@/components/ui/card';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg } from '@/lib/utils';
+import { cn,formatSolToUsdAndHtg,formatUsdToHtg } from '@/lib/utils';
 
 interface ERPOverviewTabProps {
   totalAumUsd: number;

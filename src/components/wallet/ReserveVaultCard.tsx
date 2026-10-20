@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Lock, Unlock, ArrowDownLeft, ShieldCheck, RefreshCw, Zap, CheckCircle2, AlertCircle, Sparkles, Layers, ArrowRightLeft, ExternalLink } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAppState } from '@/context/AppContext';
-import { formatSolToUsdAndHtg, formatUsdToHtg, cn, formatSmartCrypto, formatSmartNumber } from '@/lib/utils';
+import { cn,formatSmartCrypto,formatSolToUsdAndHtg,formatUsdToHtg } from '@/lib/utils';
+import { executeCrossChainTransfer,getCrossChainRoutes } from '@/services/crossChainRouterService';
+import { BscProfitVaultStatus,depositProfitToBscVault,getBscProfitVaultStatus,withdrawProfitFromBscVault } from '@/services/pancakeSwapService';
 import { getRealSolanaBalance } from '@/services/pumpFunService';
-import { getBscProfitVaultStatus, depositProfitToBscVault, withdrawProfitFromBscVault, BscProfitVaultStatus } from '@/services/pancakeSwapService';
-import { SupportedChain, SUPPORTED_CHAINS, getCrossChainRoutes, executeCrossChainTransfer } from '@/services/crossChainRouterService';
 import { getExplorerTxUrl } from '@/utils/explorerLinks';
+import { AlertCircle,ArrowDownLeft,ArrowRightLeft,CheckCircle2,ExternalLink,Lock,RefreshCw,ShieldCheck,Unlock,Zap } from 'lucide-react';
+import React,{ useEffect,useState } from 'react';
 
 interface ReserveVaultCardProps {
   solanaBalance?: number | null;

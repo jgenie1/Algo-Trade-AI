@@ -8,17 +8,16 @@
  * - Tier 4: Real-World Scenarios (Full trading session, slippage recovery, rejection recovery, PancakeSwap BEP-20, mock audit)
  */
 
-import assert from 'node:assert/strict';
 import {
-  Connection,
   PublicKey,
   TransactionMessage,
   VersionedTransaction
 } from '@solana/web3.js';
+import assert from 'node:assert/strict';
 
-import * as pumpFunService from '../pumpFunService';
-import * as pancakeSwapService from '../pancakeSwapService';
 import * as dexSwapService from '../dexSwapService';
+import * as pancakeSwapService from '../pancakeSwapService';
+import * as pumpFunService from '../pumpFunService';
 
 // --- Global Test Runner Harness ---
 interface TestCaseResult {

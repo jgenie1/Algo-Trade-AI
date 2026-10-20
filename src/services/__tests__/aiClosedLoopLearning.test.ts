@@ -1,8 +1,7 @@
-import { 
-  recordTradeTelemetry, 
-  getLearningTelemetrySummary, 
-  getRecordedTelemetryEvents,
-  clearTelemetryHistory 
+import {
+  clearTelemetryHistory,
+  getLearningTelemetrySummary,
+  recordTradeTelemetry
 } from '../aiClosedLoopLearningService';
 
 async function testAiClosedLoopLearning() {

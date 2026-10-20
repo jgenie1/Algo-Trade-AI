@@ -1,28 +1,26 @@
 "use client";
 
-import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
-import { AlertOctagon, ShieldAlert, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
+import { getRealMarketBasePrice,isRealOnChainPosition } from '@/lib/utils';
 import { dispatchAlert } from '@/services/notificationService';
-import { getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
+import { AlertOctagon,CheckCircle2,RefreshCw,ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
 
 export default function PanicKillSwitch() {
   const { 
     tradingMode,
-    balance,
     setBalance,
     activePositions, 
     setActivePositions, 
-    closedPositions, 
     setClosedPositions, 
     bots, 
     setBots 

@@ -1,23 +1,21 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { 
-  Cpu, 
-  Key, 
-  CheckCircle2, 
-  ShieldCheck, 
-  Zap, 
-  Server, 
-  Sparkles, 
-  Download, 
-  Copy, 
-  Check
+import {
+  Check,
+  CheckCircle2,
+  Copy,
+  Cpu,
+  Download,
+  Server,
+  ShieldCheck,
+  Sparkles,
+  Zap
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface ERPLicenseTabProps {
   selectedOrgName?: string;

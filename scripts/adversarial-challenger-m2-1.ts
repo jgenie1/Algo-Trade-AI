@@ -1,7 +1,7 @@
-import assert from 'node:assert/strict';
 import { ethers } from 'ethers';
-import * as pancakeSwapService from '../src/services/pancakeSwapService';
+import assert from 'node:assert/strict';
 import * as crossChainRouterService from '../src/services/crossChainRouterService';
+import * as pancakeSwapService from '../src/services/pancakeSwapService';
 
 // --- MOCK ETHEREUM PROVIDER ---
 class MockEthereumProvider {
@@ -79,7 +79,6 @@ async function runAdversarialSuite() {
 
   const WBNB = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
   const USDT = '0x55d398326f99059fF775485246999027B3197955';
-  const BUSD = '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56';
 
   // --------------------------------------------------------------------------
   // SECTION 1: DISCONNECTED WALLETS (T1.5.3, T1.5.4 & ADVERSARIAL VARIANTS)

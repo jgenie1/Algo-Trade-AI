@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Calculator, ShieldCheck, Percent, Zap } from 'lucide-react';
 import { useAppState } from '@/context/AppContext';
 import { getRealMarketBasePrice } from '@/lib/utils';
+import { Calculator } from 'lucide-react';
+import { useState } from 'react';
 
 interface PositionRiskCalculatorProps {
   solanaBalance?: number | null;
@@ -19,7 +18,6 @@ export default function PositionRiskCalculator({ solanaBalance }: PositionRiskCa
   const rawBal = isReal ? (solanaBalance || 0) : balance;
   const vaultVal = isReal ? (Number(reserveVaultSol) || 0) : (Number(reserveVault) || 0);
   const allocatableBalance = Math.max(0, rawBal - vaultVal);
-  const currencySymbol = isReal ? 'SOL' : '$';
 
   const [riskPercent, setRiskPercent] = useState<number>(1.0); // 1% par défaut
   const [stopLossPips, setStopLossPips] = useState<number>(20); // 20 pips/points par défaut

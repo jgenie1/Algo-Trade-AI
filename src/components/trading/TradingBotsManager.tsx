@@ -1,70 +1,65 @@
 "use client";
 
-import React, { useState } from 'react';
-import { 
-  Bot, 
-  Play, 
-  Square, 
-  Trash2, 
-  History,
-  RotateCcw,
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { useAppState } from '@/context/AppContext';
+import { decryptSensitiveData,encryptSensitiveData } from '@/lib/cryptoStorage';
+import { saveBotLearnings } from '@/lib/firebase';
+import { cn,formatSmartCrypto,formatSmartNumber,formatSmartPnl,formatSolToUsdAndHtg,isRealOnChainPosition } from '@/lib/utils';
+import {
+  closeEmptyTokenAccountsAndRefundRent,
+  disperseSolToSubWallets,
+  getMultipleSolanaBalances,
+  rebalanceFleetSubWallets,
+  reclaimAllSubWalletsToMaster
+} from '@/services/pumpFunService';
+import type { BotInstance,SubWallet } from '@/types';
+import { getExplorerAddressUrl,getExplorerTxUrl } from '@/utils/explorerLinks';
+import {
+  Activity,
   AlertTriangle,
-  Zap,
-  RefreshCw,
-  Wallet,
-  Copy,
-  CheckCircle2,
-  ExternalLink,
+  Bot,
   Check,
+  CheckCircle2,
+  Copy,
   Download,
+  ExternalLink,
   Eye,
   EyeOff,
-  Send,
-  Activity,
-  TrendingUp,
-  Layers,
-  Coins,
-  Scale,
-  Sparkles,
   FileSpreadsheet,
+  History,
+  Layers,
   Lock,
   PauseCircle,
-  PlayCircle
+  Play,
+  PlayCircle,
+  RefreshCw,
+  RotateCcw,
+  Scale,
+  Send,
+  Sparkles,
+  Square,
+  Trash2,
+  Wallet,
+  Zap
 } from 'lucide-react';
-import type { SubWallet, BotInstance } from '@/types';
-import { cn, formatSolToUsdAndHtg, formatUsdToHtg, formatSmartPnl, formatSmartCrypto, formatSmartNumber, isRealOnChainPosition } from '@/lib/utils';
-import { useAppState } from '@/context/AppContext';
-import { saveBotLearnings } from '@/lib/firebase';
-import { decryptSensitiveData, encryptSensitiveData } from '@/lib/cryptoStorage';
-import { getExplorerTxUrl, getExplorerAddressUrl } from '@/utils/explorerLinks';
-import { 
-  sweepSubWalletProfitToMaster, 
-  disperseSolToSubWallets, 
-  getMultipleSolanaBalances, 
-  reclaimAllSubWalletsToMaster,
-  rebalanceFleetSubWallets,
-  closeEmptyTokenAccountsAndRefundRent
-} from '@/services/pumpFunService';
-import { fetchCoinMarketCapQuotes } from '@/services/coinmarketcapService';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
-} from '@/components/ui/dialog';
-import { 
-  Select, 
-  SelectTrigger, 
-  SelectValue, 
-  SelectContent, 
-  SelectItem 
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import React,{ useState } from 'react';
 
 const currencyPairs = [
   { value: 'ALL', label: '🌐 Toutes les Paires (Scan Multi-Actifs Continu)' },
@@ -89,14 +84,6 @@ const currencyPairs = [
   { value: 'GOLD', label: 'GOLD/USD' },
   { value: 'SILVER', label: 'SILVER/USD' },
   { value: 'OIL', label: 'OIL/USD' },
-];
-
-const timeframes = [
-  { value: '1', label: '1 min (Scalping)' },
-  { value: '5', label: '5 min (Intraday Momentum)' },
-  { value: '15', label: '15 min (Intraday Standard)' },
-  { value: '60', label: '1 heure (Swing Trading)' },
-  { value: '240', label: '4 heures (Tendance Majeure)' },
 ];
 
 interface TradingBotsManagerProps {
@@ -127,7 +114,6 @@ export default function TradingBotsManager({
   const { 
     tradingMode, 
     balance, 
-    setBalance, 
     reserveVault,
     setReserveVault,
     reserveVaultSol,
@@ -139,7 +125,6 @@ export default function TradingBotsManager({
     setBotLearnings, 
     activePositions,
     closedPositions, 
-    setTransactions,
     resetDemoData,
     isLoading 
   } = useAppState();
@@ -539,7 +524,6 @@ export default function TradingBotsManager({
   };
 
   // Section 4: Export CSV & Sécurisation des Gains dans le Coffre-Fort
-  const [isSweepingProfits, setIsSweepingProfits] = useState<boolean>(false);
 
   const handleExportCsv = () => {
     const rows = [
@@ -660,17 +644,16 @@ export default function TradingBotsManager({
     | 'MT5 Triple Confluence Pro (Multi-Timeframe)'
     | 'MT5 London/NY Session Liquidity Breakout'
   >('AI Autopilot (Machine à Cash)');
-  const [botTimeframe, setBotTimeframe] = useState<string>('15');
+  const [botTimeframe] = useState<string>('15');
   const [botCapital, setBotCapital] = useState<number>(() => isReal ? 0.5 : 1000);
   const [botCapitalInput, setBotCapitalInput] = useState<string>(() => isReal ? '0.5' : '1000');
   const [editingBotId, setEditingBotId] = useState<string | null>(null);
   const [editingBotCapitalInput, setEditingBotCapitalInput] = useState<string>('');
   const prevTradingModeRef = React.useRef(tradingMode);
   const [botSubWallet, setBotSubWallet] = useState<number>(1);
-  const [botRiskProfile, setBotRiskProfile] = useState<'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'>('MODERATE');
-  const [pumpSniperMode, setPumpSniperMode] = useState<'PRECOCE' | 'MOMENTUM' | 'RAYDIUM'>('PRECOCE');
-  const [priorityFee, setPriorityFee] = useState<number>(0.005);
-  const [autoVolume, setAutoVolume] = useState<boolean>(false);
+  const [botRiskProfile] = useState<'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'>('MODERATE');
+  const [pumpSniperMode] = useState<'PRECOCE' | 'MOMENTUM' | 'RAYDIUM'>('PRECOCE');
+  const [priorityFee] = useState<number>(0.005);
   const [botCustomRules, setBotCustomRules] = useState<string>('');
 
   React.useEffect(() => {
@@ -1061,7 +1044,6 @@ export default function TradingBotsManager({
             const isKeyRevealed = revealedKeyIndex === (num - 1);
             const assignedBots = bots.filter(b => (b.subWallet || 1) === num);
             const walletPositions = activePositions.filter(p => p.botId && assignedBots.some(b => b.id === p.botId));
-            const walletClosed = closedPositions.filter(p => p.botId && assignedBots.some(b => b.id === p.botId));
             const currentFundInput = fundAmountInput[num] || 0.02;
 
             return (
