@@ -34,6 +34,8 @@ export interface Position {
   pnlPercent?: number;
   isAiPatternBoosted?: boolean;
   aiBoostReason?: string;
+  isCustomSl?: boolean;
+  isCustomTp?: boolean;
 }
 
 export interface ClosedPosition {

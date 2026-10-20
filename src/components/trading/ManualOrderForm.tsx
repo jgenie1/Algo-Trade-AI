@@ -281,6 +281,8 @@ export default function ManualOrderForm({
               replyCount: replyCount,
               isAiPatternBoosted: isBoostedOrder,
               aiBoostReason: isBoostedOrder ? aiMatch.boostedReason! : undefined,
+              isCustomSl: parsedSl !== undefined && !isNaN(parsedSl),
+              isCustomTp: parsedTp !== undefined && !isNaN(parsedTp),
               mode: 'REAL' as const
             };
 
@@ -334,6 +336,8 @@ export default function ManualOrderForm({
               txHash: res.txHash,
               isAiPatternBoosted: isBoostedOrder,
               aiBoostReason: isBoostedOrder ? aiMatch.boostedReason! : undefined,
+              isCustomSl: parsedSl !== undefined && !isNaN(parsedSl),
+              isCustomTp: parsedTp !== undefined && !isNaN(parsedTp),
               mode: 'REAL' as const
             };
 
@@ -388,6 +392,8 @@ export default function ManualOrderForm({
         replyCount: replyCount,
         isAiPatternBoosted: isBoostedOrder,
         aiBoostReason: isBoostedOrder ? aiMatch.boostedReason! : undefined,
+        isCustomSl: parsedSl !== undefined && !isNaN(parsedSl),
+        isCustomTp: parsedTp !== undefined && !isNaN(parsedTp),
         mode: 'DEMO'
       };
 

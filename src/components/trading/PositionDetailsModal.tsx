@@ -124,6 +124,8 @@ export default function PositionDetailsModal({
               ...item,
               sl: nextSl,
               tp: nextTp,
+              isCustomSl: nextSl !== undefined,
+              isCustomTp: nextTp !== undefined,
               isBreakEvenLocked: nextBe,
               highestPrice: current,
               lowestPrice: current,

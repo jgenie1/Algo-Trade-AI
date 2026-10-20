@@ -806,8 +806,11 @@ export function useTradingEngine() {
                   : Boolean(botPosition.sl && botPosition.sl <= botPosition.entryPrice))
               );
 
-              // Protection Anti-Retournement Précoce : si le trade a atteint +0.32% brut (+3.2% levier 10x) et amorce un repli tout en restant en gain, verrouiller immédiatement Break-Even+
-              if (!isAlreadyBreakEven && bot.strategy !== 'Pump.fun Sniper Bot' && botPosition.entryPrice > 0) {
+              // Gestion Institutionnelle du Break-Even : ne verrouille le Break-Even QUE si le trade a parcouru au moins +1.20% (Forex: +0.75%)
+              // pour laisser respirer le trade et éviter de couper les positions gagnantes sur le spread de marché.
+              // Ne s'applique JAMAIS si l'utilisateur a défini son propre Stop-Loss (isCustomSl).
+              const minBeGainThreshold = botPosition.pair.startsWith('FX:') ? 0.75 : 1.20;
+              if (!isAlreadyBreakEven && !botPosition.isCustomSl && bot.strategy !== 'Pump.fun Sniper Bot' && botPosition.entryPrice > 0) {
                 const peakPrice = isLongPos
                   ? Math.max(botPosition.highestPrice || botPosition.entryPrice, currentPrice)
                   : Math.min(botPosition.lowestPrice || botPosition.entryPrice, currentPrice);
@@ -818,13 +821,15 @@ export function useTradingEngine() {
                   ? ((currentPrice - botPosition.entryPrice) / botPosition.entryPrice) * 100
                   : ((botPosition.entryPrice - currentPrice) / botPosition.entryPrice) * 100;
 
-                if (peakMovePct >= 0.32 && currentMovePct >= 0.14 && currentMovePct <= peakMovePct * 0.72) {
+                // Seuil validé : progression réelle >= seuil ET cours toujours au-dessus de +0.40%
+                if (peakMovePct >= minBeGainThreshold && currentMovePct >= 0.40) {
+                  const buffer = botPosition.pair.startsWith('FX:') ? 0.0015 : 0.0025;
                   const earlyBeSl = isLongPos
-                    ? parseFloat((botPosition.entryPrice * 1.0008).toFixed(5))
-                    : parseFloat((botPosition.entryPrice * 0.9992).toFixed(5));
+                    ? parseFloat((botPosition.entryPrice * (1 + buffer)).toFixed(5))
+                    : parseFloat((botPosition.entryPrice * (1 - buffer)).toFixed(5));
                   const isSafeEarlyBe = isLongPos
-                    ? earlyBeSl < currentPrice * 0.9992
-                    : earlyBeSl > currentPrice * 1.0008;
+                    ? earlyBeSl < currentPrice * 0.998
+                    : earlyBeSl > currentPrice * 1.002;
 
                   if (isSafeEarlyBe) {
                     const applyEarlyBe = (p: Position): Position => {
@@ -842,7 +847,7 @@ export function useTradingEngine() {
                     activePositionsRef.current = activePositionsRef.current.map(applyEarlyBe);
                     setActivePositions(prev => prev.map(applyEarlyBe));
                     const cleanPair = botPosition.pair.replace('FX:', '').replace('-USD', '').replace('=', '').replace('SOL:', '');
-                    addBotLogRef.current(bot.id, bot.strategy, `[Bouclier Anti-Retournement] Repli détecté après pic (+${peakMovePct.toFixed(2)}%) sur ${cleanPair} : Stop-Loss verrouillé en Break-Even+ (${earlyBeSl.toFixed(5)})`, 'info');
+                    addBotLogRef.current(bot.id, bot.strategy, `[🛡️ Break-Even Sécurisé] Gain substantiel validé (+${peakMovePct.toFixed(2)}%) sur ${cleanPair} : Stop-Loss remonté au point d'entrée sécurisé (${earlyBeSl.toFixed(5)})`, 'trade');
                     continue;
                   }
                 }
@@ -857,22 +862,24 @@ export function useTradingEngine() {
                 bot.strategy !== 'Pump.fun Sniper Bot' &&
                 !isAlreadyBreakEven &&
                 !hasLearningLossBlock &&
+                !botPosition.isCustomSl &&
+                bot.riskProfile !== 'CONSERVATIVE' &&
                 currentEntries < maxDcaEntries &&
                 botPosition.amount < targetAllocated
               ) {
                 const isCrypto = !botPosition.pair.startsWith('FX:');
+                const isCrash = isLongPos ? currentPrice < botPosition.entryPrice * 0.93 : currentPrice > botPosition.entryPrice * 1.07;
                 // Seuil DCA adapté à la volatilité d'actif : ±2.5% sur Crypto, ±1.2% sur Forex
                 const dcaThreshold = isCrypto ? 0.975 : 0.988;
                 const priceReachedDca = isLongPos
                   ? currentPrice <= botPosition.entryPrice * dcaThreshold
                   : currentPrice >= botPosition.entryPrice * (2 - dcaThreshold);
                 // Sécurité Anti-Couteau qui Tombe (Institutional Bounce Rule) :
-                // Le DCA ne se déclenche que si le cours reste au-dessus du Stop-Loss de sécurité (+0.2% de marge)
-                // pour ne jamais réinjecter de marge dans une position en cours d'arrêt d'urgence.
+                // Le DCA ne se déclenche que si le cours reste au-dessus du Stop-Loss de sécurité (+0.2% de marge) et n'est pas en chute libre
                 const isAboveSafeStop = isLongPos
                   ? (!botPosition.sl || currentPrice > botPosition.sl * 1.002)
                   : (!botPosition.sl || currentPrice < botPosition.sl * 0.998);
-                const shouldTriggerDca = priceReachedDca && isAboveSafeStop;
+                const shouldTriggerDca = priceReachedDca && isAboveSafeStop && !isCrash;
                 
                 if (shouldTriggerDca) {
                   const newEntryCount = currentEntries + 1;
@@ -1896,16 +1903,16 @@ export function useTradingEngine() {
                 const atrPct = (lastAtr > 0 && executionPrice > 0) ? (lastAtr / executionPrice) : (volatilityPct * 1.3);
 
                 // Stop-Loss calibré sur 1.8x ATR (avec plancher anti-bruit de 1.2% sur Crypto et 0.6% sur Forex)
-                // Take-Profit haute probabilité à 1.65x SL (tandis que le Trailing Stop 4-paliers capture les grands mouvements)
+                // Take-Profit avec Ratio institutionnel Minimum 1:2.0 pour une espérance mathématique positive
                 const minSl = isForexOrMetal ? 0.006 : 0.012;
                 const maxSl = isForexOrMetal ? 0.015 : 0.025;
                 let slDistance = Math.min(maxSl, Math.max(minSl, atrPct * 1.8));
-                let tpDistance = Math.min(isForexOrMetal ? 0.028 : 0.045, Math.max(isForexOrMetal ? 0.010 : 0.019, slDistance * 1.65));
+                let tpDistance = Math.max(isForexOrMetal ? 0.015 : 0.026, slDistance * 2.0);
 
-                // Optimisation Risk/Reward par Apprentissage IA sur motif gagnant
+                // Optimisation Risk/Reward par Apprentissage IA sur motif gagnant (Ratio 1:2.5)
                 if (isWinningPatternMatch) {
-                  slDistance = Math.max(minSl * 0.9, slDistance * 0.92);
-                  tpDistance = parseFloat((tpDistance * 1.20).toFixed(4));
+                  slDistance = Math.max(minSl * 0.9, slDistance * 0.90);
+                  tpDistance = parseFloat((slDistance * 2.5).toFixed(4));
                 }
 
                 const slPrice = signal === 'BUY' ? executionPrice * (1 - slDistance) : executionPrice * (1 + slDistance);
@@ -1932,6 +1939,8 @@ export function useTradingEngine() {
                   entryEmaTrend: currentEmaTrend,
                   isAiPatternBoosted: isWinningPatternMatch,
                   aiBoostReason: isWinningPatternMatch ? winningPatternReason : undefined,
+                  isCustomSl: false,
+                  isCustomTp: false,
                   mode: (isRealMode ? 'REAL' : 'DEMO') as 'DEMO' | 'REAL'
                 };
 
@@ -2065,27 +2074,26 @@ export function useTradingEngine() {
         const entry = typeof p.entryPrice === 'number' && p.entryPrice > 0 ? p.entryPrice : current;
 
         // Anti-Erreur d'Échelle (Sanity Check) :
-        // Si l'écart de prix dépasse un facteur 8 (écart d'unité API externe), ne pas couper sauvagement !
-        if (entry > 0 && (current / entry > 8 || current / entry < 0.125)) {
-          p.entryPrice = current;
+        // Uniquement pour les paires Forex si l'écart de prix dépasse un facteur 8 (écart d'unité API externe)
+        if (p.pair.startsWith('FX:') && entry > 0 && (current / entry > 8 || current / entry < 0.125)) {
           return;
         }
 
         const isMemeToken = p.pair.startsWith('SOL:');
 
-        // Initialisation automatique et sécurisée du Stop-Loss et Take-Profit
+        // Initialisation automatique et sécurisée du Stop-Loss et Take-Profit UNIQUEMENT si non définis
         let slUpdated = false;
         let calculatedSl = p.sl;
         let calculatedTp = p.tp;
 
-        if (!p.sl || isNaN(p.sl)) {
+        if ((!p.sl || isNaN(p.sl)) && !p.isCustomSl) {
           const slRatio = isMemeToken ? 0.075 : 0.018;
           calculatedSl = isLong ? (entry * (1 - slRatio)) : (entry * (1 + slRatio));
           p.sl = calculatedSl;
           slUpdated = true;
         }
-        if (!p.tp || isNaN(p.tp)) {
-          const tpRatio = isMemeToken ? 0.18 : 0.030;
+        if ((!p.tp || isNaN(p.tp)) && !p.isCustomTp) {
+          const tpRatio = isMemeToken ? 0.18 : 0.036;
           calculatedTp = isLong ? (entry * (1 + tpRatio)) : (entry * (1 - tpRatio));
           p.tp = calculatedTp;
           slUpdated = true;
@@ -2095,7 +2103,8 @@ export function useTradingEngine() {
           setActivePositions(prev => prev.map(item => item.id === p.id ? { ...item, sl: calculatedSl, tp: calculatedTp } : item));
         }
 
-        // VERROUILLAGE DES PROFITS EN MULTI-PALIERS DYNAMIQUES & TRAILING STOP INTELLIGENT (ULTRA-RÉACTIF)
+        // VERROUILLAGE DES PROFITS EN MULTI-PALIERS DYNAMIQUES & TRAILING STOP INTELLIGENT
+        // S'applique UNIQUEMENT si l'utilisateur n'a pas fixé son propre Stop-Loss personnalisé (isCustomSl)
         const lev = p.leverage || 1;
         const priceDiff = current - entry;
         const pctDiff = entry > 0 ? (priceDiff / entry) : 0;
@@ -2104,6 +2113,7 @@ export function useTradingEngine() {
         const prevTier = p.trailingTier || 0;
         let nextTier = prevTier;
 
+        if (!p.isCustomSl) {
         if (isLong) {
           // Si highestPrice est absent ou incohérent (ex: inférieur au P.R.U), l'ancrer sur entry
           const currentHighest = (p.highestPrice && p.highestPrice >= entry) ? p.highestPrice : entry;
@@ -2151,26 +2161,26 @@ export function useTradingEngine() {
               ratchetLongSl(peakPrice * (isBoosted ? 0.978 : 0.972), 4);
             }
           } else {
-            // Configuration pour Crypto / Forex standard (Verrouillage précoce dès +0.45% / +0.55% = +5.5% en levier 10x)
-            // Palier 1 : Breakeven sécurisé (+0.22% garanti pour couvrir frais/spread — zéro perte possible après +0.55%)
-            const beThreshold = isBoosted ? 0.0045 : 0.0055;
+            // Configuration pour Crypto / Forex standard (seuils institutionnels sains laissant respirer les tendances)
+            // Palier 1 : Breakeven sécurisé (+0.35% garanti) dès +1.20% / +1.50%
+            const beThreshold = isBoosted ? 0.012 : 0.015;
             if (peakGainPct >= beThreshold) {
-              ratchetLongSl(entry * 1.0022, 1);
+              ratchetLongSl(entry * 1.0035, 1);
             }
-            // Palier 2 : Verrouillage de profit garanti dès +1.0% / +1.2% (+10% à +12% en levier 10x)
-            const p2Threshold = isBoosted ? 0.010 : 0.012;
+            // Palier 2 : Verrouillage de profit garanti (+1.0% à +1.2%) dès +2.2% / +2.8%
+            const p2Threshold = isBoosted ? 0.022 : 0.028;
             if (peakGainPct >= p2Threshold) {
-              ratchetLongSl(entry * (isBoosted ? 1.0065 : 1.0055), 2);
+              ratchetLongSl(entry * (isBoosted ? 1.012 : 1.010), 2);
             }
-            // Palier 3 : Verrouillage de profit garanti étendu dès +1.7% / +2.0%
-            const p3Threshold = isBoosted ? 0.017 : 0.020;
+            // Palier 3 : Verrouillage de profit garanti étendu (+1.8% à +2.2%) dès +3.5% / +4.5%
+            const p3Threshold = isBoosted ? 0.035 : 0.045;
             if (peakGainPct >= p3Threshold) {
-              ratchetLongSl(entry * (isBoosted ? 1.0125 : 1.0110), 3);
+              ratchetLongSl(entry * (isBoosted ? 1.022 : 1.018), 3);
             }
-            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice) dès +2.5% / +3.0%
-            const p4Threshold = isBoosted ? 0.025 : 0.030;
+            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice) dès +5.0% / +6.5%
+            const p4Threshold = isBoosted ? 0.050 : 0.065;
             if (peakGainPct >= p4Threshold) {
-              ratchetLongSl(peakPrice * (isBoosted ? 0.992 : 0.990), 4);
+              ratchetLongSl(peakPrice * (isBoosted ? 0.985 : 0.980), 4);
             }
           }
 
@@ -2252,21 +2262,21 @@ export function useTradingEngine() {
               ratchetShortSl(troughPrice * (isBoosted ? 1.022 : 1.028), 4);
             }
           } else {
-            const beThreshold = isBoosted ? 0.0045 : 0.0055;
+            const beThreshold = isBoosted ? 0.012 : 0.015;
             if (peakGainPct >= beThreshold) {
-              ratchetShortSl(entry * 0.9978, 1);
+              ratchetShortSl(entry * 0.9965, 1);
             }
-            const p2Threshold = isBoosted ? 0.010 : 0.012;
+            const p2Threshold = isBoosted ? 0.022 : 0.028;
             if (peakGainPct >= p2Threshold) {
-              ratchetShortSl(entry * (isBoosted ? 0.9935 : 0.9945), 2);
+              ratchetShortSl(entry * (isBoosted ? 0.988 : 0.990), 2);
             }
-            const p3Threshold = isBoosted ? 0.017 : 0.020;
+            const p3Threshold = isBoosted ? 0.035 : 0.045;
             if (peakGainPct >= p3Threshold) {
-              ratchetShortSl(entry * (isBoosted ? 0.9875 : 0.9890), 3);
+              ratchetShortSl(entry * (isBoosted ? 0.978 : 0.982), 3);
             }
-            const p4Threshold = isBoosted ? 0.025 : 0.030;
+            const p4Threshold = isBoosted ? 0.050 : 0.065;
             if (peakGainPct >= p4Threshold) {
-              ratchetShortSl(troughPrice * (isBoosted ? 1.008 : 1.010), 4);
+              ratchetShortSl(troughPrice * (isBoosted ? 1.015 : 1.020), 4);
             }
           }
 
@@ -2307,6 +2317,8 @@ export function useTradingEngine() {
             } : item));
           }
         }
+
+        } // Fin du bloc Trailing Stop protégé (!p.isCustomSl)
 
         // ENCAISSEMENT PARTIEL AUTOMATIQUE (AUTO SCALE-OUT 50%) AU PALIER 2 :
         // Dès que la position atteint le Palier 2 de profit, 50% de la position est encaissée immédiatement en cash
@@ -2566,9 +2578,7 @@ export function useTradingEngine() {
       // Sell via Jupiter for crypto positions bought on-chain
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
       const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
-      const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
-        ? subWalletsRef.current[botSubIndex]?.privateKey
-        : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
+      const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey || masterKey || '';
 
       addBotLog(sourceLabel, botOrManualName, `[JUPITER VENTE RÉELLE] Vente on-chain ${pairSymbolForSell} via Jupiter...`, 'info');
 
@@ -2600,9 +2610,7 @@ export function useTradingEngine() {
 
       const botSubIndex = (botConfig?.subWallet || 1) - 1;
       const masterKey = (typeof window !== 'undefined' ? localStorage.getItem('settings_solana_private_key') : '') || '';
-      const botSubWalletKey = (subWalletsRef.current[botSubIndex]?.balance && subWalletsRef.current[botSubIndex]?.balance > 0.001)
-        ? subWalletsRef.current[botSubIndex]?.privateKey
-        : (masterKey || subWalletsRef.current[botSubIndex]?.privateKey);
+      const botSubWalletKey = subWalletsRef.current[botSubIndex]?.privateKey || masterKey || '';
 
       addBotLog(sourceLabel, botOrManualName, `[VENTE RÉELLE SOL] Clôture de position pour $${cleanSymbol}...`, 'info');
 
