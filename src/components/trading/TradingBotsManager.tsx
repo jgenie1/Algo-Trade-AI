@@ -648,7 +648,18 @@ export default function TradingBotsManager({
 
   // New Bot Form State
   const [botPair, setBotPair] = useState<string>('ALL');
-  const [botStrategy, setBotStrategy] = useState<'RSI Pullback' | 'EMA Cross' | 'BB Mean Reversion' | 'SuperTrend Momentum' | 'VWAP Breakout' | 'AI Autopilot (Machine à Cash)' | 'Pump.fun Sniper Bot'>('AI Autopilot (Machine à Cash)');
+  const [botStrategy, setBotStrategy] = useState<
+    | 'RSI Pullback'
+    | 'EMA Cross'
+    | 'BB Mean Reversion'
+    | 'SuperTrend Momentum'
+    | 'VWAP Breakout'
+    | 'AI Autopilot (Machine à Cash)'
+    | 'Pump.fun Sniper Bot'
+    | 'MT5 Smart Money (SMC) & Order Block Sniper'
+    | 'MT5 Triple Confluence Pro (Multi-Timeframe)'
+    | 'MT5 London/NY Session Liquidity Breakout'
+  >('AI Autopilot (Machine à Cash)');
   const [botTimeframe, setBotTimeframe] = useState<string>('15');
   const [botCapital, setBotCapital] = useState<number>(() => isReal ? 0.5 : 1000);
   const [botCapitalInput, setBotCapitalInput] = useState<string>(() => isReal ? '0.5' : '1000');
@@ -1482,6 +1493,33 @@ export default function TradingBotsManager({
                 </CardTitle>
                 <p className="text-xs text-slate-300 font-medium font-body leading-relaxed">
                   Scanne le Launchpad Solana en temps réel. Achète les nouveaux jetons de bonding curve ayant un momentum social exceptionnel et encaisse les profits rapidement.
+                </p>
+              </div>
+            ) : botStrategy === 'MT5 Smart Money (SMC) & Order Block Sniper' ? (
+              <div className="space-y-1 bg-amber-950/25 border border-amber-500/30 p-3.5 rounded-xl">
+                <CardTitle className="text-sm font-extrabold uppercase tracking-wider text-amber-300 font-headline flex items-center gap-2">
+                  <span>🏛️</span> MT5 Institutional Smart Money (SMC) & FVG
+                </CardTitle>
+                <p className="text-xs text-slate-300 font-medium font-body leading-relaxed">
+                  Identifie les déséquilibres Fair Value Gap (FVG), les zones d&apos;Order Blocks institutionnels et les balayages de liquidité (Stop-Hunt) pour des entrées ultra-précises avec un Risk/Reward élevé (1:2.5+).
+                </p>
+              </div>
+            ) : botStrategy === 'MT5 Triple Confluence Pro (Multi-Timeframe)' ? (
+              <div className="space-y-1 bg-cyan-950/25 border border-cyan-500/30 p-3.5 rounded-xl">
+                <CardTitle className="text-sm font-extrabold uppercase tracking-wider text-cyan-300 font-headline flex items-center gap-2">
+                  <span>🏛️</span> MT5 Triple Confluence Pro Multi-Timeframe EA
+                </CardTitle>
+                <p className="text-xs text-slate-300 font-medium font-body leading-relaxed">
+                  Portage direct des Expert Advisors phares de MetaTrader 5 : aligne la tendance macro (EMA 50 / 200), l&apos;enveloppe de volatilité Keltner Channels et le timing de retournement Stoch-RSI.
+                </p>
+              </div>
+            ) : botStrategy === 'MT5 London/NY Session Liquidity Breakout' ? (
+              <div className="space-y-1 bg-emerald-950/25 border border-emerald-500/30 p-3.5 rounded-xl">
+                <CardTitle className="text-sm font-extrabold uppercase tracking-wider text-emerald-300 font-headline flex items-center gap-2">
+                  <span>🏛️</span> MT5 London / New York Session Breakout EA
+                </CardTitle>
+                <p className="text-xs text-slate-300 font-medium font-body leading-relaxed">
+                  Capture l&apos;expansion impulsive des ouvertures de session de Londres et New York en exploitant la cassure du box de consolidation précédent avec confirmation de volume institutionnel.
                 </p>
               </div>
             ) : (

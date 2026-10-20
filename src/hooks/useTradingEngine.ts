@@ -1326,7 +1326,7 @@ export function useTradingEngine() {
               const fetchedCandles = await fetchLiveMarketData(currentPair, bot.timeframe || '15');
               if (!fetchedCandles || fetchedCandles.length < 15) continue;
               
-              const indicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA', 'MACD', 'Bollinger Bands', 'Candlestick Patterns', 'SuperTrend', 'VWAP', 'ATR', 'ADX']) || {};
+              const indicators = calculateIndicators(fetchedCandles, ['RSI', 'EMA', 'MACD', 'Bollinger Bands', 'Candlestick Patterns', 'SuperTrend', 'VWAP', 'ATR', 'ADX', 'MT5']) || {};
               const rsiValues = indicators.rsi || [];
               if (!rsiValues || rsiValues.length === 0) continue;
 
@@ -1506,6 +1506,82 @@ export function useTradingEngine() {
                     signal = 'SELL';
                     reason = `Cassure baissière du VWAP (${lastClose.toFixed(5)} < ${lastVwap.toFixed(5)}) validée par EMA 20, MACD et volume`;
                   }
+                }
+              } else if (bot.strategy === 'MT5 Smart Money (SMC) & Order Block Sniper' && closes.length >= 10) {
+                const fvgs = indicators.fairValueGaps || [];
+                const obs = indicators.orderBlocks || [];
+                const highs = fetchedCandles.map(c => c.high);
+                const lows = fetchedCandles.map(c => c.low);
+
+                // Liquidity sweep: previous candle took out a 10-period high/low then current closed inside
+                const lookbackWindow = Math.min(10, closes.length - 2);
+                const recentMinLow = Math.min(...lows.slice(-lookbackWindow - 1, -1));
+                const recentMaxHigh = Math.max(...highs.slice(-lookbackWindow - 1, -1));
+
+                const isBullishSweep = prevCandle.low <= recentMinLow && lastClose > prevCandle.open && isGreenCandle;
+                const isBearishSweep = prevCandle.high >= recentMaxHigh && lastClose < prevCandle.open && isRedCandle;
+
+                // FVG & Order Block mitigation zones (within last 4 candles)
+                const recentBullishFvg = fvgs.slice(-4).find(f => f.type === 'BULLISH' && lastClose >= f.bottom * 0.998 && lastClose <= f.top * 1.015);
+                const recentBearishFvg = fvgs.slice(-4).find(f => f.type === 'BEARISH' && lastClose <= f.top * 1.002 && lastClose >= f.bottom * 0.985);
+                const recentBullishOb = obs.slice(-4).find(o => o.type === 'BULLISH' && lastClose >= o.low * 0.998 && lastClose <= o.high * 1.015);
+                const recentBearishOb = obs.slice(-4).find(o => o.type === 'BEARISH' && lastClose <= o.high * 1.002 && lastClose >= o.low * 0.985);
+
+                const isSafeSmcRsiBuy = lastRsi >= 34 && lastRsi <= 66;
+                const isSafeSmcRsiSell = lastRsi <= 66 && lastRsi >= 34;
+
+                if ((isBullishSweep || recentBullishFvg || recentBullishOb) && isGreenCandle && isSafeSmcRsiBuy) {
+                  signal = 'BUY';
+                  const setupName = recentBullishOb ? 'Order Block Acheteur' : recentBullishFvg ? 'Fair Value Gap (FVG)' : 'Balayage de Liquidité';
+                  reason = `[🏛️ MT5 Institutional SMC] Atténuation ${setupName} validée par bougie verte (RSI ${lastRsi.toFixed(1)} ↗ | ADX ${lastAdx.toFixed(0)})`;
+                } else if ((isBearishSweep || recentBearishFvg || recentBearishOb) && isRedCandle && isSafeSmcRsiSell) {
+                  signal = 'SELL';
+                  const setupName = recentBearishOb ? 'Order Block Vendeur' : recentBearishFvg ? 'Fair Value Gap (FVG)' : 'Balayage de Liquidité';
+                  reason = `[🏛️ MT5 Institutional SMC] Rejet ${setupName} validé par bougie rouge (RSI ${lastRsi.toFixed(1)} ↘ | ADX ${lastAdx.toFixed(0)})`;
+                }
+              } else if (bot.strategy === 'MT5 Triple Confluence Pro (Multi-Timeframe)' && closes.length >= 20) {
+                const keltner = indicators.keltnerChannels;
+                const stoch = indicators.stochRSI;
+                const stochK = stoch && stoch.k.length > 0 ? stoch.k[stoch.k.length - 1] : 50;
+                const stochD = stoch && stoch.d.length > 0 ? stoch.d[stoch.d.length - 1] : 50;
+                const prevStochK = stoch && stoch.k.length > 1 ? stoch.k[stoch.k.length - 2] : stochK;
+                const prevStochD = stoch && stoch.d.length > 1 ? stoch.d[stoch.d.length - 2] : stochD;
+
+                const isTrendAlignedBuy = lastClose >= lastEma50 * 0.992 && lastClose >= (keltner?.middle[keltner.middle.length - 1] || lastClose) * 0.99;
+                const isTrendAlignedSell = lastClose <= lastEma50 * 1.008 && lastClose <= (keltner?.middle[keltner.middle.length - 1] || lastClose) * 1.01;
+
+                const isStochOversoldCross = prevStochK <= prevStochD && stochK > stochD && stochK <= 45;
+                const isStochOverboughtCross = prevStochK >= prevStochD && stochK < stochD && stochK >= 55;
+
+                const lastVol = volumes[volumes.length - 1] || 0;
+                const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
+                const isVolumeHealthy = lastVol >= avgVol * 0.85;
+
+                if (isTrendAlignedBuy && isStochOversoldCross && isGreenCandle && lastAdx >= 16 && isVolumeHealthy) {
+                  signal = 'BUY';
+                  reason = `[🏛️ MT5 Triple Confluence Pro] Croisement Stoch-RSI (${stochK.toFixed(0)} > ${stochD.toFixed(0)}) aligné avec Keltner/EMA50 et ADX (${lastAdx.toFixed(0)})`;
+                } else if (isTrendAlignedSell && isStochOverboughtCross && isRedCandle && lastAdx >= 16 && isVolumeHealthy) {
+                  signal = 'SELL';
+                  reason = `[🏛️ MT5 Triple Confluence Pro] Croisement Stoch-RSI (${stochK.toFixed(0)} < ${stochD.toFixed(0)}) aligné avec Keltner/EMA50 et ADX (${lastAdx.toFixed(0)})`;
+                }
+              } else if (bot.strategy === 'MT5 London/NY Session Liquidity Breakout' && closes.length >= 15) {
+                const highs = fetchedCandles.map(c => c.high);
+                const lows = fetchedCandles.map(c => c.low);
+                const boxHigh = Math.max(...highs.slice(-11, -1));
+                const boxLow = Math.min(...lows.slice(-11, -1));
+                const boxRange = boxHigh - boxLow;
+
+                const lastVol = volumes[volumes.length - 1] || 0;
+                const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
+                const isVolumeSurging = lastVol >= avgVol * 1.15;
+                const isSufficientVolatility = boxRange >= lastAtr * 0.75;
+
+                if (lastClose > boxHigh && isGreenCandle && isVolumeSurging && isSufficientVolatility && lastRsi >= 50 && lastRsi <= 74) {
+                  signal = 'BUY';
+                  reason = `[🏛️ MT5 Session Breakout] Cassure haussière du box institutionnel (${boxLow.toFixed(4)} - ${boxHigh.toFixed(4)}) avec pic de volume (+ ${((lastVol / avgVol - 1) * 100).toFixed(0)}%)`;
+                } else if (lastClose < boxLow && isRedCandle && isVolumeSurging && isSufficientVolatility && lastRsi <= 50 && lastRsi >= 26) {
+                  signal = 'SELL';
+                  reason = `[🏛️ MT5 Session Breakout] Cassure baissière du box institutionnel (${boxLow.toFixed(4)} - ${boxHigh.toFixed(4)}) avec pic de volume (+ ${((lastVol / avgVol - 1) * 100).toFixed(0)}%)`;
                 }
               } else if (bot.strategy === 'AI Autopilot (Machine à Cash)' && closes.length >= 10) {
                 const ema9 = getEMA(closes, 9);

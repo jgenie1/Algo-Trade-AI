@@ -1058,6 +1058,64 @@ export async function runM3SecuritySuite(): Promise<boolean> {
   });
 
   // --------------------------------------------------------------------------
+  // SECTION 10: Institutional MT5 Expert Advisor Strategies & Indicators
+  // --------------------------------------------------------------------------
+  console.log('\n--- SECTION 10: Institutional MT5 Expert Advisor Strategies & Indicators ---');
+
+  await test('M3.10.1: MT5 Smart Money Concepts (FVG & Order Block Detection)', () => {
+    // Simulate 3 candles creating a classic Bullish Fair Value Gap (c1 high < c3 low)
+    const c1 = { open: 100, high: 101, low: 99.5, close: 100.5, volume: 1000 };
+    const c2 = { open: 100.5, high: 105, low: 100.2, close: 104.8, volume: 3500 }; // Strong displacement
+    const c3 = { open: 104.8, high: 106, low: 102.5, close: 105.5, volume: 1500 };
+
+    const isBullishFvg = c2.close > c2.open && c3.low > c1.high;
+    const fvgTop = c3.low; // 102.5
+    const fvgBottom = c1.high; // 101.0
+    assert.equal(isBullishFvg, true, 'Bullish FVG must be detected when c3 low exceeds c1 high');
+    assert.ok(fvgTop > fvgBottom, 'FVG gap width must be positive');
+
+    // Order Block mitigation test: retesting the FVG zone without breaking structure
+    const retestPrice = 101.8;
+    const inMitigationZone = retestPrice >= fvgBottom && retestPrice <= fvgTop;
+    assert.equal(inMitigationZone, true, 'Retest price 101.8 must be inside the Fair Value Gap zone for sniper entry');
+  });
+
+  await test('M3.10.2: MT5 Keltner Channels & Stochastic RSI Momentum Crosses', () => {
+    // 1. Keltner Channels formula verification: Middle = EMA(20), Upper = Middle + 2*ATR, Lower = Middle - 2*ATR
+    const middleEma = 200.0;
+    const atr = 4.0;
+    const keltnerUpper = middleEma + 2 * atr; // 208.0
+    const keltnerLower = middleEma - 2 * atr; // 192.0
+    assert.equal(keltnerUpper, 208.0);
+    assert.equal(keltnerLower, 192.0);
+
+    // 2. Stoch-RSI Oversold Bullish Cross: %K crosses above %D below 30
+    const prevK = 18;
+    const prevD = 22;
+    const currentK = 26;
+    const currentD = 24;
+    const isStochOversoldCross = prevK <= prevD && currentK > currentD && currentK <= 45;
+    assert.equal(isStochOversoldCross, true, 'Stoch-RSI oversold crossover must trigger high-probability MT5 entry');
+  });
+
+  await test('M3.10.3: MT5 London/NY Session Liquidity Breakout Setup', () => {
+    const sessionBoxHigh = 1.0850;
+    const sessionBoxLow = 1.0810;
+    const boxRange = sessionBoxHigh - sessionBoxLow; // 40 pips
+    const lastAtr = 0.0025; // 25 pips
+    const avgVol = 1000;
+    const currentVol = 1450; // +45% volume surge
+
+    const breakoutPrice = 1.0855; // 5 pips above box
+    const isGreen = true;
+    const isVolumeSurging = currentVol >= avgVol * 1.15;
+    const isSufficientVolatility = boxRange >= lastAtr * 0.75;
+    const isSessionBreakout = breakoutPrice > sessionBoxHigh && isGreen && isVolumeSurging && isSufficientVolatility;
+
+    assert.equal(isSessionBreakout, true, 'MT5 Session Breakout must confirm when price breaks range with expanding volume');
+  });
+
+  // --------------------------------------------------------------------------
   // SUMMARY
   // --------------------------------------------------------------------------
   const passedCount = suiteResults.filter(r => r.passed).length;

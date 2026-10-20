@@ -47,7 +47,7 @@ export async function runBacktest(
     throw new Error(`Données historiques insuffisantes pour ${pair} sur le timeframe ${timeframe}m.`);
   }
 
-  const indicators = calculateIndicators(candles, ['RSI', 'EMA', 'SuperTrend', 'VWAP', 'Bollinger Bands']);
+  const indicators = calculateIndicators(candles, ['RSI', 'EMA', 'SuperTrend', 'VWAP', 'Bollinger Bands', 'MT5']);
   const closes = candles.map(c => c.close);
   const rsiVals = indicators.rsi || [];
   const emaVals = indicators.ema || [];
@@ -163,6 +163,22 @@ export async function runBacktest(
         const rsi = rsiVals[i] || 50;
         if (rsi < 42 && price > prevC.close) signal = 'BUY';
         else if (rsi > 58 && price < prevC.close) signal = 'SELL';
+      } else if (strategy.includes('SMC') || strategy.includes('Smart Money')) {
+        const rsi = rsiVals[i] || 50;
+        const prevMin = Math.min(...candles.slice(Math.max(0, i - 10), i).map(x => x.low));
+        const prevMax = Math.max(...candles.slice(Math.max(0, i - 10), i).map(x => x.high));
+        if (prevC.low <= prevMin && price > prevC.open && rsi >= 34 && rsi <= 64) signal = 'BUY';
+        else if (prevC.high >= prevMax && price < prevC.open && rsi <= 66 && rsi >= 36) signal = 'SELL';
+      } else if (strategy.includes('Triple Confluence')) {
+        const rsi = rsiVals[i] || 50;
+        const emaFast = emaVals[i] || price;
+        if (price >= emaFast && rsi <= 45 && price > prevC.close) signal = 'BUY';
+        else if (price <= emaFast && rsi >= 55 && price < prevC.close) signal = 'SELL';
+      } else if (strategy.includes('Breakout') && strategy.includes('MT5')) {
+        const boxHigh = Math.max(...candles.slice(Math.max(0, i - 10), i).map(x => x.high));
+        const boxLow = Math.min(...candles.slice(Math.max(0, i - 10), i).map(x => x.low));
+        if (price > boxHigh && price > prevC.close) signal = 'BUY';
+        else if (price < boxLow && price < prevC.close) signal = 'SELL';
       }
 
       if (signal) {

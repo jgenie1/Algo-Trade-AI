@@ -30,6 +30,27 @@ export interface IndicatorResults {
     poc: number; // Point of Control price
   };
   patterns?: { index: number; name: string }[];
+  keltnerChannels?: {
+    upper: number[];
+    middle: number[];
+    lower: number[];
+  };
+  stochRSI?: {
+    k: number[];
+    d: number[];
+  };
+  fairValueGaps?: {
+    type: 'BULLISH' | 'BEARISH';
+    startIndex: number;
+    top: number;
+    bottom: number;
+  }[];
+  orderBlocks?: {
+    type: 'BULLISH' | 'BEARISH';
+    index: number;
+    high: number;
+    low: number;
+  }[];
 }
 
 export function calculateIndicators(candles: Candle[], activeIndicators: string[]): IndicatorResults {
@@ -329,7 +350,7 @@ export function calculateIndicators(candles: Candle[], activeIndicators: string[
   }
 
   // 8. ATR (14 periods, Wilder's RMA)
-  if (activeIndicators.includes('ATR') || activeIndicators.includes('ADX')) {
+  if (activeIndicators.includes('ATR') || activeIndicators.includes('ADX') || activeIndicators.includes('Keltner Channels') || activeIndicators.includes('MT5') || activeIndicators.includes('SMC')) {
     const period = 14;
     const trArr: number[] = [];
     const atrArr: number[] = [];
@@ -410,6 +431,104 @@ export function calculateIndicators(candles: Candle[], activeIndicators: string[
 
       result.adx = { adx: adxArr, plusDI, minusDI };
     }
+
+    // 10. Keltner Channels (MT5 Volatility Envelope)
+    if (activeIndicators.includes('Keltner Channels') || activeIndicators.includes('MT5')) {
+      const middle = calculateEMAValues(closes, 20);
+      const upper = [];
+      const lower = [];
+      for (let i = 0; i < len; i++) {
+        const a = (atrArr && atrArr[i]) ? atrArr[i] : (trArr && trArr[i] ? trArr[i] : closes[i] * 0.015);
+        upper.push(middle[i] + 2 * a);
+        lower.push(middle[i] - 2 * a);
+      }
+      result.keltnerChannels = { upper, middle, lower };
+    }
+
+    // 11. Smart Money Concepts: Fair Value Gaps (FVG) & Order Blocks (OB)
+    if (activeIndicators.includes('FVG') || activeIndicators.includes('Order Blocks') || activeIndicators.includes('SMC') || activeIndicators.includes('MT5')) {
+      const fvgs: { type: 'BULLISH' | 'BEARISH'; startIndex: number; top: number; bottom: number }[] = [];
+      const obs: { type: 'BULLISH' | 'BEARISH'; index: number; high: number; low: number }[] = [];
+
+      for (let i = 2; i < len; i++) {
+        const c1 = candles[i - 2];
+        const c2 = candles[i - 1];
+        const c3 = candles[i];
+
+        if (c2.close > c2.open && c3.low > c1.high) {
+          fvgs.push({
+            type: 'BULLISH',
+            startIndex: i - 1,
+            top: c3.low,
+            bottom: c1.high
+          });
+        } else if (c2.close < c2.open && c3.high < c1.low) {
+          fvgs.push({
+            type: 'BEARISH',
+            startIndex: i - 1,
+            top: c1.low,
+            bottom: c3.high
+          });
+        }
+      }
+
+      for (let i = 2; i < len; i++) {
+        const currentC = candles[i];
+        const prevC = candles[i - 1];
+        const candleRange = Math.abs(currentC.close - currentC.open);
+        const avgAtr = atrArr[i] || closes[i] * 0.01;
+
+        if (prevC.close < prevC.open && currentC.close > currentC.open && candleRange > avgAtr * 1.2 && currentC.close > prevC.high) {
+          obs.push({
+            type: 'BULLISH',
+            index: i - 1,
+            high: prevC.high,
+            low: prevC.low
+          });
+        } else if (prevC.close > prevC.open && currentC.close < currentC.open && candleRange > avgAtr * 1.2 && currentC.close < prevC.low) {
+          obs.push({
+            type: 'BEARISH',
+            index: i - 1,
+            high: prevC.high,
+            low: prevC.low
+          });
+        }
+      }
+
+      result.fairValueGaps = fvgs;
+      result.orderBlocks = obs;
+    }
+  }
+
+  // 12. Stochastic RSI (MT5 Sniper Timing Oscillator)
+  if (activeIndicators.includes('StochRSI') || activeIndicators.includes('Stochastic RSI') || activeIndicators.includes('MT5')) {
+    const period = 14;
+    const rsiSeries = result.rsi || [];
+    const rawStoch = [];
+
+    for (let i = 0; i < len; i++) {
+      if (i < period || rsiSeries.length <= i) {
+        rawStoch.push(50);
+      } else {
+        const slice = rsiSeries.slice(i - period + 1, i + 1);
+        const minRsi = Math.min(...slice);
+        const maxRsi = Math.max(...slice);
+        const diff = maxRsi - minRsi;
+        rawStoch.push(diff > 0 ? ((rsiSeries[i] - minRsi) / diff) * 100 : 50);
+      }
+    }
+
+    const smoothedK = [];
+    for (let i = 0; i < len; i++) {
+      if (i < 2) smoothedK.push(rawStoch[i]);
+      else smoothedK.push((rawStoch[i] + rawStoch[i - 1] + rawStoch[i - 2]) / 3);
+    }
+    const smoothedD = [];
+    for (let i = 0; i < len; i++) {
+      if (i < 2) smoothedD.push(smoothedK[i]);
+      else smoothedD.push((smoothedK[i] + smoothedK[i - 1] + smoothedK[i - 2]) / 3);
+    }
+    result.stochRSI = { k: smoothedK, d: smoothedD };
   }
 
   return result;

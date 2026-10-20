@@ -28,7 +28,7 @@ export interface StrategyItem {
   id: string;
   name: string;
   creator: string;
-  category: 'Grid' | 'DCA' | 'Arbitrage' | 'AI Multi-Indicator' | 'Sniper';
+  category: 'Grid' | 'DCA' | 'Arbitrage' | 'AI Multi-Indicator' | 'Sniper' | 'MT5 EA';
   description: string;
   winRate: number;
   monthlyReturn: number;
@@ -105,6 +105,38 @@ export const COMMUNITY_STRATEGIES: StrategyItem[] = [
     pairs: ['SOL/USDC', 'ETH/USDC'],
     aiEngine: 'Gemini 2.5 Pro',
     isPopular: false
+  },
+  {
+    id: 'strat-mt5-smc',
+    name: 'MT5 Smart Money (SMC) & FVG Sniper EA',
+    creator: 'MQL5 Quant Core',
+    category: 'MT5 EA',
+    description: 'Directement inspiré des EAs institutionnels MT5 de GitHub : détecte les Fair Value Gaps (FVG), les Order Blocks non atténués et les balayages de liquidité (Stop-Hunts) pour un R:R 1:2.5+.',
+    winRate: 88.4,
+    monthlyReturn: 36.2,
+    maxDrawdown: 3.8,
+    riskLevel: 'MODÉRÉ',
+    rating: 5.0,
+    activeUsers: 3410,
+    pairs: ['EUR/USD', 'GBP/USD', 'XAU/USD', 'SOL/USDC'],
+    aiEngine: 'MT5 MQL5 Algorithmic Core',
+    isPopular: true
+  },
+  {
+    id: 'strat-mt5-confluence',
+    name: 'MT5 Triple Confluence Pro Multi-Timeframe EA',
+    creator: 'MetaTrader Quant Labs',
+    category: 'MT5 EA',
+    description: 'Portage open-source de l\'architecture EA31337 MetaTrader 5 : aligne la tendance macro EMA 50/200, l\'enveloppe de volatilité Keltner et le timing Stoch-RSI.',
+    winRate: 91.2,
+    monthlyReturn: 29.5,
+    maxDrawdown: 2.9,
+    riskLevel: 'FAIBLE',
+    rating: 4.9,
+    activeUsers: 2890,
+    pairs: ['BTC/USDT', 'ETH/USDT', 'EUR/USD', 'XAU/USD'],
+    aiEngine: 'MT5 Multi-Timeframe Core',
+    isPopular: true
   }
 ];
 
