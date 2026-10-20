@@ -6,6 +6,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { 
   getExplorerTxUrl, 
   getExplorerAddressUrl, 
@@ -257,7 +258,7 @@ export async function runAllMilestone3Challenges(): Promise<boolean> {
         currentPrice: 0.00005,
         type: 'BUY',
         timestamp: Date.now(),
-        txHash: 'initial_valid_hash_123'
+        txHash: 'initial_valid_hash_123_4567890abcdef'
       };
 
       let threw = false;
@@ -658,19 +659,53 @@ export async function runAllMilestone3Challenges(): Promise<boolean> {
     'Service Rejection',
     'executeJupiterSwap returns USER_REJECTED when mock wallet throws UserRejectedRequestError',
     async () => {
-      const mockRejectionWallet = new MockSolanaWalletRejection();
+      const oldFetch = globalThis.fetch;
+      try {
+        globalThis.fetch = async (input, init) => {
+          const urlStr = String(input);
+          if (urlStr.includes('quote-api.jup.ag') && urlStr.includes('/quote')) {
+            return new Response(JSON.stringify({
+              inputMint: 'So11111111111111111111111111111111111111112',
+              outputMint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+              inAmount: '100000000',
+              outAmount: '5000000000',
+              priceImpactPct: '0.01',
+              routePlan: []
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+          if (urlStr.includes('quote-api.jup.ag') && urlStr.includes('/swap')) {
+            const payer = new PublicKey('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU');
+            const messageV0 = new TransactionMessage({
+              payerKey: payer,
+              recentBlockhash: '11111111111111111111111111111111',
+              instructions: []
+            }).compileToV0Message();
+            const tx = new VersionedTransaction(messageV0);
+            const serialized = tx.serialize();
+            const base64Tx = Buffer.from(serialized).toString('base64');
+            return new Response(JSON.stringify({
+              swapTransaction: base64Tx
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+          return typeof oldFetch === 'function' ? oldFetch(input, init) : new Response('{}', { status: 200 });
+        };
 
-      const res = await executeJupiterSwap({
-        action: 'buy',
-        symbol: 'BONK',
-        amountSol: 0.1,
-        walletProvider: mockRejectionWallet
-      });
+        const mockRejectionWallet = new MockSolanaWalletRejection();
 
-      assert.equal(res.success, false);
-      assert.equal(res.errorCode, 'USER_REJECTED');
-      assert.equal(res.txHash, undefined);
-      assert.ok(res.error?.includes('refusé'));
+        const res = await executeJupiterSwap({
+          action: 'buy',
+          symbol: 'BONK',
+          amountSol: 0.1,
+          walletProvider: mockRejectionWallet
+        });
+
+        assert.equal(res.success, false);
+        assert.equal(res.errorCode, 'USER_REJECTED');
+        assert.equal(res.txHash, undefined);
+        assert.ok(res.error?.includes('refusé'));
+      } finally {
+        globalThis.fetch = oldFetch;
+      }
     }
   );
 
