@@ -808,7 +808,11 @@ export function useTradingEngine() {
               // Gestion Institutionnelle du Break-Even : ne verrouille le Break-Even QUE si le trade a parcouru au moins +1.20% (Forex: +0.75%)
               // pour laisser respirer le trade et éviter de couper les positions gagnantes sur le spread de marché.
               // Ne s'applique JAMAIS si l'utilisateur a défini son propre Stop-Loss (isCustomSl).
-              const minBeGainThreshold = botPosition.pair.startsWith('FX:') ? 0.75 : 1.20;
+              // Gestion Institutionnelle du Break-Even (Ratio 1:1+ atteint) :
+              // Ne verrouille le Break-Even QUE si le trade a parcouru au moins +2.20% (Forex: +1.40%, Meme: +4.50%)
+              // pour laisser respirer le trade et éviter de couper les positions gagnantes sur les replis normaux (pullbacks).
+              const isMeme = botPosition.pair.startsWith('SOL:');
+              const minBeGainThreshold = isMeme ? 4.50 : (botPosition.pair.startsWith('FX:') ? 1.40 : 2.20);
               if (!isAlreadyBreakEven && !botPosition.isCustomSl && bot.strategy !== 'Pump.fun Sniper Bot' && botPosition.entryPrice > 0) {
                 const peakPrice = isLongPos
                   ? Math.max(botPosition.highestPrice || botPosition.entryPrice, currentPrice)
@@ -820,9 +824,10 @@ export function useTradingEngine() {
                   ? ((currentPrice - botPosition.entryPrice) / botPosition.entryPrice) * 100
                   : ((botPosition.entryPrice - currentPrice) / botPosition.entryPrice) * 100;
 
-                // Seuil validé : progression réelle >= seuil ET cours toujours au-dessus de +0.40%
-                if (peakMovePct >= minBeGainThreshold && currentMovePct >= 0.40) {
-                  const buffer = botPosition.pair.startsWith('FX:') ? 0.0015 : 0.0025;
+                // Seuil validé : progression réelle >= seuil ET cours toujours au-dessus de +0.70% (Forex: +0.40%)
+                const minCurrentMove = botPosition.pair.startsWith('FX:') ? 0.40 : 0.70;
+                if (peakMovePct >= minBeGainThreshold && currentMovePct >= minCurrentMove) {
+                  const buffer = isMeme ? 0.0150 : (botPosition.pair.startsWith('FX:') ? 0.0040 : 0.0060);
                   const earlyBeSl = isLongPos
                     ? parseFloat((botPosition.entryPrice * (1 + buffer)).toFixed(5))
                     : parseFloat((botPosition.entryPrice * (1 - buffer)).toFixed(5));
@@ -1384,6 +1389,10 @@ export function useTradingEngine() {
 
               const ema50Series = getEMA(closes, Math.min(50, closes.length));
               const lastEma50 = ema50Series[ema50Series.length - 1] || lastClose;
+              const ema200Series = getEMA(closes, Math.min(200, closes.length));
+              const lastEma200 = ema200Series[ema200Series.length - 1] || lastEma50;
+              const isMacroBullish = lastClose >= lastEma200 && lastEma50 >= lastEma200 * 0.995;
+              const isMacroBearish = lastClose <= lastEma200 && lastEma50 <= lastEma200 * 1.005;
               const telemetrySummary = getLearningTelemetrySummary();
               const telemetryRsiOffset = telemetrySummary.totalTradesRecorded >= 3 ? telemetrySummary.suggestedRsiAdjustment : 0;
 
@@ -1393,9 +1402,9 @@ export function useTradingEngine() {
                 const isBullishReversal = closes[closes.length - 1] > closes[closes.length - 2] && isGreenCandle && lastRsi > prevRsi;
                 const isBearishReversal = closes[closes.length - 1] < closes[closes.length - 2] && isRedCandle && lastRsi < prevRsi;
 
-                // Filtre de tendance EMA 50 : évite d'acheter en pleine capitulation ou de shorter un breakout
-                const isTrendFavorableBuy = lastClose >= lastEma50 * 0.985;
-                const isTrendFavorableSell = lastClose <= lastEma50 * 1.015;
+                // Filtre de tendance EMA 50 & 200 : évite d'acheter en pleine capitulation ou de shorter un breakout haussier
+                const isTrendFavorableBuy = lastClose >= lastEma50 * 0.985 && (closes.length < 35 || isMacroBullish || lastClose >= lastEma200 * 0.99);
+                const isTrendFavorableSell = lastClose <= lastEma50 * 1.015 && (closes.length < 35 || isMacroBearish || lastClose <= lastEma200 * 1.01);
 
                 // Confirmation de volume : évite les mèches creuses
                 const lastVol = volumes[volumes.length - 1] || 0;
@@ -1407,10 +1416,10 @@ export function useTradingEngine() {
 
                 if (lastRsi <= buyThreshold && isBullishReversal && isTrendFavorableBuy && hasReversalVolume && isSafeRsiBounds) {
                   signal = 'BUY';
-                  reason = `RSI Pullback Haussier (${lastRsi.toFixed(1)} ↗) confirmé par bougie verte, volume et support EMA 50`;
+                  reason = `RSI Pullback Haussier (${lastRsi.toFixed(1)} ↗) confirmé par bougie verte, volume et tendance Macro 200 EMA`;
                 } else if (lastRsi >= sellThreshold && isBearishReversal && isTrendFavorableSell && hasReversalVolume && isSafeRsiBounds) {
                   signal = 'SELL';
-                  reason = `RSI Pullback Baissier (${lastRsi.toFixed(1)} ↘) confirmé par bougie rouge, volume et résistance EMA 50`;
+                  reason = `RSI Pullback Baissier (${lastRsi.toFixed(1)} ↘) confirmé par bougie rouge, volume et tendance Macro 200 EMA`;
                 }
               } else if (bot.strategy === 'EMA Cross' && closes.length >= 20) {
                 const fastEma = getEMA(closes, 9);
@@ -1435,16 +1444,16 @@ export function useTradingEngine() {
                 const emaSlope = (slowLast - slowPrev) / (slowPrev || 1);
                 const hasTrendMomentum = Math.abs(emaSlope) > 0.00012 && lastAdx >= 16;
 
-                // Filtre de tendance Macro EMA 50 + RSI non-épuisé
-                const isMacroAlignedBuy = lastClose >= lastEma50 * 0.99 && isGreenCandle && lastRsi >= 46 && lastRsi <= 70 && lastHist >= prevHist;
-                const isMacroAlignedSell = lastClose <= lastEma50 * 1.01 && isRedCandle && lastRsi <= 54 && lastRsi >= 30 && lastHist <= prevHist;
+                // Filtre de tendance Macro EMA 50 & 200 + RSI non-épuisé
+                const isMacroAlignedBuy = lastClose >= lastEma50 * 0.99 && isGreenCandle && lastRsi >= 46 && lastRsi <= 70 && lastHist >= prevHist && (closes.length < 35 || isMacroBullish || lastClose >= lastEma200 * 0.995);
+                const isMacroAlignedSell = lastClose <= lastEma50 * 1.01 && isRedCandle && lastRsi <= 54 && lastRsi >= 30 && lastHist <= prevHist && (closes.length < 35 || isMacroBearish || lastClose <= lastEma200 * 1.005);
 
                 if (goldenCross && volumeConfirm && hasTrendMomentum && isMacroAlignedBuy) {
                   signal = 'BUY';
-                  reason = `Crossover haussier EMA 9/20 confirmé par ADX (${lastAdx.toFixed(0)}), MACD et bougie directionnelle`;
+                  reason = `Crossover haussier EMA 9/20 confirmé par tendance Macro 200 EMA, ADX (${lastAdx.toFixed(0)}) et MACD`;
                 } else if (deathCross && volumeConfirm && hasTrendMomentum && isMacroAlignedSell) {
                   signal = 'SELL';
-                  reason = `Crossover baissier EMA 9/20 confirmé par ADX (${lastAdx.toFixed(0)}), MACD et bougie directionnelle`;
+                  reason = `Crossover baissier EMA 9/20 confirmé par tendance Macro 200 EMA, ADX (${lastAdx.toFixed(0)}) et MACD`;
                 }
               } else if (bot.strategy === 'BB Mean Reversion') {
                 const bbInds = indicators.bollingerBands ? indicators : (calculateIndicators(fetchedCandles, ['Bollinger Bands']) || {});
@@ -1461,9 +1470,9 @@ export function useTradingEngine() {
                   const isBullishRebound = closes[closes.length - 1] > closes[closes.length - 2] && isGreenCandle && lastRsi > prevRsi;
                   const isBearishRebound = closes[closes.length - 1] < closes[closes.length - 2] && isRedCandle && lastRsi < prevRsi;
 
-                  // Protection anti-chute libre & anti-breakout : ne jamais contre-trader si ADX > 36 (forte cassure directionnelle)
-                  const isSafeRsiBuy = lastRsi >= 22 && lastRsi <= 45 && lastAdx < 36;
-                  const isSafeRsiSell = lastRsi <= 78 && lastRsi >= 55 && lastAdx < 36;
+                  // Protection anti-chute libre & anti-breakout : ne jamais contre-trader si ADX > 32 (forte cassure directionnelle)
+                  const isSafeRsiBuy = lastRsi >= 25 && lastRsi <= 45 && lastAdx < 32 && (closes.length < 35 || lastClose >= lastEma200 * 0.98);
+                  const isSafeRsiSell = lastRsi <= 75 && lastRsi >= 55 && lastAdx < 32 && (closes.length < 35 || lastClose <= lastEma200 * 1.02);
 
                   // Filtre de compression (Squeeze) : ne pas trader si les bandes sont ultra-serrées (explosion imminente)
                   const bbBandwidth = (upper - lower) / (mean || 1);
@@ -1471,10 +1480,10 @@ export function useTradingEngine() {
 
                   if ((lastClose <= lower || prevCandle.low <= lower) && isBullishRebound && isSafeRsiBuy && isNormalVolatility) {
                     signal = 'BUY';
-                    reason = `Rebond BB basse confirmé par bougie verte (Prix: ${lastClose.toFixed(5)} | RSI: ${lastRsi.toFixed(1)} ↗)`;
+                    reason = `Rebond BB basse validé par bougie verte (Prix: ${lastClose.toFixed(5)} | RSI: ${lastRsi.toFixed(1)} ↗)`;
                   } else if ((lastClose >= upper || prevCandle.high >= upper) && isBearishRebound && isSafeRsiSell && isNormalVolatility) {
                     signal = 'SELL';
-                    reason = `Rejet BB haute confirmé par bougie rouge (Prix: ${lastClose.toFixed(5)} | RSI: ${lastRsi.toFixed(1)} ↘)`;
+                    reason = `Rejet BB haute validé par bougie rouge (Prix: ${lastClose.toFixed(5)} | RSI: ${lastRsi.toFixed(1)} ↘)`;
                   }
                 }
               } else if (bot.strategy === 'SuperTrend Momentum') {
@@ -1483,15 +1492,15 @@ export function useTradingEngine() {
                   const dirs = stInds.superTrend.direction;
                   const lastDir = dirs[dirs.length - 1];
                   const prevDir = dirs[dirs.length - 2];
-                  const isBullishConfirm = isGreenCandle && lastClose >= lastEma50 * 0.995 && lastHist >= prevHist && lastRsi >= 48 && lastRsi <= 70 && lastAdx >= 16;
-                  const isBearishConfirm = isRedCandle && lastClose <= lastEma50 * 1.005 && lastHist <= prevHist && lastRsi <= 52 && lastRsi >= 30 && lastAdx >= 16;
+                  const isBullishConfirm = isGreenCandle && lastClose >= lastEma50 * 0.995 && lastHist >= prevHist && lastRsi >= 48 && lastRsi <= 70 && lastAdx >= 16 && (closes.length < 35 || isMacroBullish || lastClose >= lastEma200 * 0.995);
+                  const isBearishConfirm = isRedCandle && lastClose <= lastEma50 * 1.005 && lastHist <= prevHist && lastRsi <= 52 && lastRsi >= 30 && lastAdx >= 16 && (closes.length < 35 || isMacroBearish || lastClose <= lastEma200 * 1.005);
 
                   if (prevDir === 'DOWN' && lastDir === 'UP' && isBullishConfirm) {
                     signal = 'BUY';
-                    reason = `Retournement SuperTrend Haussier confirmé par EMA 50, MACD et ADX (${lastAdx.toFixed(0)})`;
+                    reason = `Retournement SuperTrend Haussier confirmé par EMA 50/200, MACD et ADX (${lastAdx.toFixed(0)})`;
                   } else if (prevDir === 'UP' && lastDir === 'DOWN' && isBearishConfirm) {
                     signal = 'SELL';
-                    reason = `Retournement SuperTrend Baissier confirmé par EMA 50, MACD et ADX (${lastAdx.toFixed(0)})`;
+                    reason = `Retournement SuperTrend Baissier confirmé par EMA 50/200, MACD et ADX (${lastAdx.toFixed(0)})`;
                   }
                 }
               } else if (bot.strategy === 'VWAP Breakout') {
@@ -1505,12 +1514,12 @@ export function useTradingEngine() {
                   const avgVol = volumes.slice(-5).reduce((s, v) => s + v, 0) / 5 || 1;
                   const hasBreakoutVol = lastVol >= avgVol * 0.95;
 
-                  if (prevClose < lastVwap && lastClose > lastVwap && isGreenCandle && lastClose >= lastEma20 && lastHist >= 0 && lastRsi >= 48 && lastRsi <= 70 && hasBreakoutVol) {
+                  if (prevClose < lastVwap && lastClose > lastVwap && isGreenCandle && lastClose >= lastEma20 && lastHist >= 0 && lastRsi >= 48 && lastRsi <= 70 && hasBreakoutVol && (closes.length < 35 || isMacroBullish || lastClose >= lastEma200 * 0.99)) {
                     signal = 'BUY';
-                    reason = `Cassure haussière du VWAP (${lastClose.toFixed(5)} > ${lastVwap.toFixed(5)}) validée par EMA 20, MACD et volume`;
-                  } else if (prevClose > lastVwap && lastClose < lastVwap && isRedCandle && lastClose <= lastEma20 && lastHist <= 0 && lastRsi <= 52 && lastRsi >= 30 && hasBreakoutVol) {
+                    reason = `Cassure haussière du VWAP (${lastClose.toFixed(5)} > ${lastVwap.toFixed(5)}) validée par EMA 20/200, MACD et volume`;
+                  } else if (prevClose > lastVwap && lastClose < lastVwap && isRedCandle && lastClose <= lastEma20 && lastHist <= 0 && lastRsi <= 52 && lastRsi >= 30 && hasBreakoutVol && (closes.length < 35 || isMacroBearish || lastClose <= lastEma200 * 1.01)) {
                     signal = 'SELL';
-                    reason = `Cassure baissière du VWAP (${lastClose.toFixed(5)} < ${lastVwap.toFixed(5)}) validée par EMA 20, MACD et volume`;
+                    reason = `Cassure baissière du VWAP (${lastClose.toFixed(5)} < ${lastVwap.toFixed(5)}) validée par EMA 20/200, MACD et volume`;
                   }
                 }
               } else if (bot.strategy === 'MT5 Smart Money (SMC) & Order Block Sniper' && closes.length >= 10) {
@@ -1533,17 +1542,17 @@ export function useTradingEngine() {
                 const recentBullishOb = obs.slice(-4).find(o => o.type === 'BULLISH' && lastClose >= o.low * 0.998 && lastClose <= o.high * 1.015);
                 const recentBearishOb = obs.slice(-4).find(o => o.type === 'BEARISH' && lastClose <= o.high * 1.002 && lastClose >= o.low * 0.985);
 
-                const isSafeSmcRsiBuy = lastRsi >= 34 && lastRsi <= 66;
-                const isSafeSmcRsiSell = lastRsi <= 66 && lastRsi >= 34;
+                const isSafeSmcRsiBuy = lastRsi >= 34 && lastRsi <= 66 && (closes.length < 35 || isMacroBullish || lastClose >= lastEma200 * 0.995);
+                const isSafeSmcRsiSell = lastRsi <= 66 && lastRsi >= 34 && (closes.length < 35 || isMacroBearish || lastClose <= lastEma200 * 1.005);
 
                 if ((isBullishSweep || recentBullishFvg || recentBullishOb) && isGreenCandle && isSafeSmcRsiBuy) {
                   signal = 'BUY';
                   const setupName = recentBullishOb ? 'Order Block Acheteur' : recentBullishFvg ? 'Fair Value Gap (FVG)' : 'Balayage de Liquidité';
-                  reason = `[🏛️ MT5 Institutional SMC] Atténuation ${setupName} validée par bougie verte (RSI ${lastRsi.toFixed(1)} ↗ | ADX ${lastAdx.toFixed(0)})`;
+                  reason = `[🏛️ MT5 Institutional SMC] Atténuation ${setupName} validée par bougie verte (RSI ${lastRsi.toFixed(1)} ↗ | ADX ${lastAdx.toFixed(0)}) & Structure Haussière`;
                 } else if ((isBearishSweep || recentBearishFvg || recentBearishOb) && isRedCandle && isSafeSmcRsiSell) {
                   signal = 'SELL';
                   const setupName = recentBearishOb ? 'Order Block Vendeur' : recentBearishFvg ? 'Fair Value Gap (FVG)' : 'Balayage de Liquidité';
-                  reason = `[🏛️ MT5 Institutional SMC] Rejet ${setupName} validé par bougie rouge (RSI ${lastRsi.toFixed(1)} ↘ | ADX ${lastAdx.toFixed(0)})`;
+                  reason = `[🏛️ MT5 Institutional SMC] Rejet ${setupName} validé par bougie rouge (RSI ${lastRsi.toFixed(1)} ↘ | ADX ${lastAdx.toFixed(0)}) & Structure Baissière`;
                 }
               } else if (bot.strategy === 'MT5 Triple Confluence Pro (Multi-Timeframe)' && closes.length >= 20) {
                 const keltner = indicators.keltnerChannels;
@@ -1553,8 +1562,8 @@ export function useTradingEngine() {
                 const prevStochK = stoch && stoch.k.length > 1 ? stoch.k[stoch.k.length - 2] : stochK;
                 const prevStochD = stoch && stoch.d.length > 1 ? stoch.d[stoch.d.length - 2] : stochD;
 
-                const isTrendAlignedBuy = lastClose >= lastEma50 * 0.992 && lastClose >= (keltner?.middle[keltner.middle.length - 1] || lastClose) * 0.99;
-                const isTrendAlignedSell = lastClose <= lastEma50 * 1.008 && lastClose <= (keltner?.middle[keltner.middle.length - 1] || lastClose) * 1.01;
+                const isTrendAlignedBuy = lastClose >= lastEma50 * 0.992 && lastClose >= (keltner?.middle[keltner.middle.length - 1] || lastClose) * 0.99 && (closes.length < 35 || isMacroBullish || lastClose >= lastEma200 * 0.995);
+                const isTrendAlignedSell = lastClose <= lastEma50 * 1.008 && lastClose <= (keltner?.middle[keltner.middle.length - 1] || lastClose) * 1.01 && (closes.length < 35 || isMacroBearish || lastClose <= lastEma200 * 1.005);
 
                 const isStochOversoldCross = prevStochK <= prevStochD && stochK > stochD && stochK <= 45;
                 const isStochOverboughtCross = prevStochK >= prevStochD && stochK < stochD && stochK >= 55;
@@ -1565,10 +1574,10 @@ export function useTradingEngine() {
 
                 if (isTrendAlignedBuy && isStochOversoldCross && isGreenCandle && lastAdx >= 16 && isVolumeHealthy) {
                   signal = 'BUY';
-                  reason = `[🏛️ MT5 Triple Confluence Pro] Croisement Stoch-RSI (${stochK.toFixed(0)} > ${stochD.toFixed(0)}) aligné avec Keltner/EMA50 et ADX (${lastAdx.toFixed(0)})`;
+                  reason = `[🏛️ MT5 Triple Confluence Pro] Croisement Stoch-RSI (${stochK.toFixed(0)} > ${stochD.toFixed(0)}) aligné avec Keltner/EMA200 et ADX (${lastAdx.toFixed(0)})`;
                 } else if (isTrendAlignedSell && isStochOverboughtCross && isRedCandle && lastAdx >= 16 && isVolumeHealthy) {
                   signal = 'SELL';
-                  reason = `[🏛️ MT5 Triple Confluence Pro] Croisement Stoch-RSI (${stochK.toFixed(0)} < ${stochD.toFixed(0)}) aligné avec Keltner/EMA50 et ADX (${lastAdx.toFixed(0)})`;
+                  reason = `[🏛️ MT5 Triple Confluence Pro] Croisement Stoch-RSI (${stochK.toFixed(0)} < ${stochD.toFixed(0)}) aligné avec Keltner/EMA200 et ADX (${lastAdx.toFixed(0)})`;
                 }
               } else if (bot.strategy === 'MT5 London/NY Session Liquidity Breakout' && closes.length >= 15) {
                 const highs = fetchedCandles.map(c => c.high);
@@ -1596,13 +1605,17 @@ export function useTradingEngine() {
                 const lastEma9 = ema9[ema9.length - 1] || lastClose;
                 const lastEma20 = ema20.length > 0 ? (ema20[ema20.length - 1] || lastClose) : lastClose;
 
-                // 1. Alignement de tendance multi-périodes (Stack EMA 9/20/50)
+                // 1. Alignement de tendance multi-périodes (Stack EMA 9/20/50 + Macro EMA 200)
                 const isBullishEmaStack = lastClose >= lastEma9 && lastEma9 >= lastEma20 && lastEma20 >= lastEma50;
                 const isBearishEmaStack = lastClose <= lastEma9 && lastEma9 <= lastEma20 && lastEma20 <= lastEma50;
                 const isBullishEma = lastClose > lastEma20 && lastEma20 >= lastEma50 * 0.995;
                 const isBearishEma = lastClose < lastEma20 && lastEma20 <= lastEma50 * 1.005;
 
-                const trendAlignmentScore = isBullishEmaStack ? 30 : isBearishEmaStack ? -30 : (isBullishEma ? 16 : isBearishEma ? -16 : 0);
+                let trendAlignmentScore = isBullishEmaStack ? 30 : isBearishEmaStack ? -30 : (isBullishEma ? 16 : isBearishEma ? -16 : 0);
+                if (isMacroBullish) trendAlignmentScore += 10;
+                else if (isMacroBearish) trendAlignmentScore -= 10;
+                else if (lastClose < lastEma200 * 0.99) trendAlignmentScore -= 15;
+                else if (lastClose > lastEma200 * 1.01) trendAlignmentScore += 15;
 
                 // 2. Confluence RSI Régime-Adaptative (Ne pénalise plus le momentum haussier sain 50-68 !)
                 let rsiScore = 0;
@@ -1760,15 +1773,15 @@ export function useTradingEngine() {
                 const finalScore = (rawCouncilSynthesis * peerReviewFactor * chopDamping) / mult;
                 aiConfidenceScore = Math.abs(finalScore);
                 const risk = bot.riskProfile || 'MODERATE';
-                const reqScore = risk === 'CONSERVATIVE' ? 36 : risk === 'AGGRESSIVE' ? 22 : 28;
+                const reqScore = risk === 'CONSERVATIVE' ? 38 : risk === 'AGGRESSIVE' ? 26 : 32;
 
                 const assetLabel = currencyPairs.find(c => c.value === currentPair)?.label || currentPair;
 
-                // Validation stricte par le Chairman : au moins 2 membres sur 3 alignés + bougie courante directionnelle
-                if (finalScore > reqScore && bullishVotes >= 2 && isGreenCandle && lastClose >= prevCandle.close && lastRsi <= 72) {
+                // Validation stricte par le Chairman : au moins 2 membres sur 3 alignés + bougie courante directionnelle + alignement macro 200 EMA
+                if (finalScore > reqScore && bullishVotes >= 2 && isGreenCandle && lastClose >= prevCandle.close && lastRsi <= 72 && (closes.length < 35 || isMacroBullish || lastClose >= lastEma200 * 0.99)) {
                   signal = 'BUY';
                   reason = `[LLM Council ${bullishVotes}/3 • Synthèse Chairman: +${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion haussière validée sur ${assetLabel}.${customLog}`;
-                } else if (finalScore < -reqScore && bearishVotes >= 2 && isRedCandle && lastClose <= prevCandle.close && lastRsi >= 28) {
+                } else if (finalScore < -reqScore && bearishVotes >= 2 && isRedCandle && lastClose <= prevCandle.close && lastRsi >= 28 && (closes.length < 35 || isMacroBearish || lastClose <= lastEma200 * 1.01)) {
                   signal = 'SELL';
                   reason = `[LLM Council ${bearishVotes}/3 • Synthèse Chairman: ${finalScore.toFixed(0)}% | ADX ${lastAdx.toFixed(0)} | RSI ${lastRsi.toFixed(0)}] Impulsion baissière validée sur ${assetLabel}.${customLog}`;
                 } else {
@@ -1903,10 +1916,12 @@ export function useTradingEngine() {
 
                 // Stop-Loss calibré sur 1.8x ATR (avec plancher anti-bruit de 1.2% sur Crypto et 0.6% sur Forex)
                 // Take-Profit avec Ratio institutionnel Minimum 1:2.0 pour une espérance mathématique positive
-                const minSl = isForexOrMetal ? 0.006 : 0.012;
-                const maxSl = isForexOrMetal ? 0.015 : 0.025;
+                // Stop-Loss calibré sur 1.8x ATR (avec plancher anti-bruit de 1.4% sur Crypto et 0.7% sur Forex)
+                // Take-Profit avec Ratio institutionnel Minimum 1:2.2+ pour une espérance mathématique hautement profitable
+                const minSl = isForexOrMetal ? 0.007 : 0.014;
+                const maxSl = isForexOrMetal ? 0.016 : 0.028;
                 let slDistance = Math.min(maxSl, Math.max(minSl, atrPct * 1.8));
-                let tpDistance = Math.max(isForexOrMetal ? 0.015 : 0.026, slDistance * 2.0);
+                let tpDistance = Math.max(isForexOrMetal ? 0.018 : 0.035, slDistance * 2.25);
 
                 // Optimisation Risk/Reward par Apprentissage IA sur motif gagnant (Ratio 1:2.5)
                 if (isWinningPatternMatch) {
@@ -2138,48 +2153,70 @@ export function useTradingEngine() {
           };
 
           if (isMemeToken) {
-            // Configuration pour Meme Coins (Volatilité Élevée - Protection Rapide Anti-Dump)
-            // Palier 1 : Breakeven sécurisé dès +1.2% / +1.5% (+0.45% net garanti)
-            const beThreshold = isBoosted ? 0.012 : 0.015;
+            // Configuration pour Meme Coins (Volatilité Élevée - Prise de profit explosive)
+            // Palier 1 : Breakeven sécurisé (+1.5% net garanti) dès +4.5% / +5.0%
+            const beThreshold = isBoosted ? 0.040 : 0.048;
             if (peakGainPct >= beThreshold) {
-              ratchetLongSl(entry * 1.0045, 1);
+              ratchetLongSl(entry * 1.015, 1);
             }
-            // Palier 2 : Verrouillage de profit garanti dès +2.8% / +3.2%
-            const p2Threshold = isBoosted ? 0.028 : 0.032;
+            // Palier 2 : Verrouillage de profit garanti (+4.5% net) dès +8.5%
+            const p2Threshold = isBoosted ? 0.075 : 0.085;
             if (peakGainPct >= p2Threshold) {
-              ratchetLongSl(entry * (isBoosted ? 1.020 : 1.016), 2);
+              ratchetLongSl(entry * 1.045, 2);
             }
-            // Palier 3 : Verrouillage de profit sécurisé étendu dès +5.5% / +6.5%
-            const p3Threshold = isBoosted ? 0.055 : 0.065;
+            // Palier 3 : Verrouillage de profit sécurisé étendu (+9.0% net) dès +15.0%
+            const p3Threshold = isBoosted ? 0.130 : 0.150;
             if (peakGainPct >= p3Threshold) {
-              ratchetLongSl(entry * (isBoosted ? 1.042 : 1.038), 3);
+              ratchetLongSl(entry * 1.090, 3);
             }
-            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice) dès +8.5% / +10%
-            const p4Threshold = isBoosted ? 0.085 : 0.100;
+            // Palier 4 : Trailing Stop Runner dynamique dès +22%
+            const p4Threshold = isBoosted ? 0.190 : 0.220;
             if (peakGainPct >= p4Threshold) {
-              ratchetLongSl(peakPrice * (isBoosted ? 0.978 : 0.972), 4);
+              ratchetLongSl(peakPrice * 0.930, 4);
+            }
+          } else if (p.pair.startsWith('FX:') || p.pair === 'GOLD' || p.pair === 'SILVER' || p.pair === 'OIL') {
+            // Configuration Forex & Matières Premières (Haute précision, tendance continue)
+            // Palier 1 : Breakeven sécurisé (+0.40% net garanti) dès +1.40%
+            const beThreshold = isBoosted ? 0.012 : 0.014;
+            if (peakGainPct >= beThreshold) {
+              ratchetLongSl(entry * 1.0040, 1);
+            }
+            // Palier 2 : Verrouillage de profit (+1.20% net) dès +2.40%
+            const p2Threshold = isBoosted ? 0.020 : 0.024;
+            if (peakGainPct >= p2Threshold) {
+              ratchetLongSl(entry * 1.0120, 2);
+            }
+            // Palier 3 : Verrouillage étendu (+2.20% net) dès +3.80%
+            const p3Threshold = isBoosted ? 0.032 : 0.038;
+            if (peakGainPct >= p3Threshold) {
+              ratchetLongSl(entry * 1.0220, 3);
+            }
+            // Palier 4 : Trailing Stop Runner dès +5.0%
+            const p4Threshold = isBoosted ? 0.045 : 0.050;
+            if (peakGainPct >= p4Threshold) {
+              ratchetLongSl(peakPrice * 0.982, 4);
             }
           } else {
-            // Configuration pour Crypto / Forex standard (seuils institutionnels sains laissant respirer les tendances)
-            // Palier 1 : Breakeven sécurisé (+0.35% garanti) dès +1.20% / +1.50%
-            const beThreshold = isBoosted ? 0.012 : 0.015;
+            // Configuration Crypto Standard (SOL, BTC, ETH, etc. : seuils sains laissant respirer les tendances)
+            // Palier 1 : Breakeven sécurisé (+0.60% garanti) dès +2.20%
+            const beThreshold = isBoosted ? 0.018 : 0.022;
             if (peakGainPct >= beThreshold) {
-              ratchetLongSl(entry * 1.0035, 1);
+              ratchetLongSl(entry * 1.0060, 1);
             }
-            // Palier 2 : Verrouillage de profit garanti (+1.0% à +1.2%) dès +2.2% / +2.8%
-            const p2Threshold = isBoosted ? 0.022 : 0.028;
+            // Palier 2 : Verrouillage de profit garanti (+1.80% net) dès +3.60%
+            const p2Threshold = isBoosted ? 0.030 : 0.036;
             if (peakGainPct >= p2Threshold) {
-              ratchetLongSl(entry * (isBoosted ? 1.012 : 1.010), 2);
+              ratchetLongSl(entry * 1.0180, 2);
             }
-            // Palier 3 : Verrouillage de profit garanti étendu (+1.8% à +2.2%) dès +3.5% / +4.5%
-            const p3Threshold = isBoosted ? 0.035 : 0.045;
+            // Palier 3 : Verrouillage de profit garanti étendu (+3.50% net) dès +5.50%
+            const p3Threshold = isBoosted ? 0.048 : 0.055;
             if (peakGainPct >= p3Threshold) {
-              ratchetLongSl(entry * (isBoosted ? 1.022 : 1.018), 3);
+              ratchetLongSl(entry * 1.0350, 3);
             }
-            // Palier 4 : Trailing Stop Runner dynamique ancré sur le plus haut (peakPrice) dès +5.0% / +6.5%
-            const p4Threshold = isBoosted ? 0.050 : 0.065;
+            // Palier 4 : Trailing Stop Runner dynamique dès +7.50%
+            const p4Threshold = isBoosted ? 0.065 : 0.075;
             if (peakGainPct >= p4Threshold) {
-              ratchetLongSl(peakPrice * (isBoosted ? 0.985 : 0.980), 4);
+              ratchetLongSl(peakPrice * 0.970, 4);
             }
           }
 
@@ -2244,38 +2281,58 @@ export function useTradingEngine() {
           };
 
           if (isMemeToken) {
-            const beThreshold = isBoosted ? 0.012 : 0.015;
+            // Configuration Meme Coins SHORT (Prise de profit explosive)
+            const beThreshold = isBoosted ? 0.040 : 0.048;
             if (peakGainPct >= beThreshold) {
-              ratchetShortSl(entry * 0.9955, 1);
+              ratchetShortSl(entry * 0.985, 1);
             }
-            const p2Threshold = isBoosted ? 0.028 : 0.032;
+            const p2Threshold = isBoosted ? 0.075 : 0.085;
             if (peakGainPct >= p2Threshold) {
-              ratchetShortSl(entry * (isBoosted ? 0.980 : 0.984), 2);
+              ratchetShortSl(entry * 0.955, 2);
             }
-            const p3Threshold = isBoosted ? 0.055 : 0.065;
+            const p3Threshold = isBoosted ? 0.130 : 0.150;
             if (peakGainPct >= p3Threshold) {
-              ratchetShortSl(entry * (isBoosted ? 0.958 : 0.962), 3);
+              ratchetShortSl(entry * 0.910, 3);
             }
-            const p4Threshold = isBoosted ? 0.085 : 0.100;
+            const p4Threshold = isBoosted ? 0.190 : 0.220;
             if (peakGainPct >= p4Threshold) {
-              ratchetShortSl(troughPrice * (isBoosted ? 1.022 : 1.028), 4);
+              ratchetShortSl(troughPrice * 1.070, 4);
+            }
+          } else if (p.pair.startsWith('FX:') || p.pair === 'GOLD' || p.pair === 'SILVER' || p.pair === 'OIL') {
+            // Configuration Forex & Matières Premières SHORT (Haute précision)
+            const beThreshold = isBoosted ? 0.012 : 0.014;
+            if (peakGainPct >= beThreshold) {
+              ratchetShortSl(entry * 0.9960, 1);
+            }
+            const p2Threshold = isBoosted ? 0.020 : 0.024;
+            if (peakGainPct >= p2Threshold) {
+              ratchetShortSl(entry * 0.9880, 2);
+            }
+            const p3Threshold = isBoosted ? 0.032 : 0.038;
+            if (peakGainPct >= p3Threshold) {
+              ratchetShortSl(entry * 0.9780, 3);
+            }
+            const p4Threshold = isBoosted ? 0.045 : 0.050;
+            if (peakGainPct >= p4Threshold) {
+              ratchetShortSl(troughPrice * 1.018, 4);
             }
           } else {
-            const beThreshold = isBoosted ? 0.012 : 0.015;
+            // Configuration Crypto Standard SHORT (SOL, BTC, ETH, etc.)
+            const beThreshold = isBoosted ? 0.018 : 0.022;
             if (peakGainPct >= beThreshold) {
-              ratchetShortSl(entry * 0.9965, 1);
+              ratchetShortSl(entry * 0.9940, 1);
             }
-            const p2Threshold = isBoosted ? 0.022 : 0.028;
+            const p2Threshold = isBoosted ? 0.030 : 0.036;
             if (peakGainPct >= p2Threshold) {
-              ratchetShortSl(entry * (isBoosted ? 0.988 : 0.990), 2);
+              ratchetShortSl(entry * 0.9820, 2);
             }
-            const p3Threshold = isBoosted ? 0.035 : 0.045;
+            const p3Threshold = isBoosted ? 0.048 : 0.055;
             if (peakGainPct >= p3Threshold) {
-              ratchetShortSl(entry * (isBoosted ? 0.978 : 0.982), 3);
+              ratchetShortSl(entry * 0.9650, 3);
             }
-            const p4Threshold = isBoosted ? 0.050 : 0.065;
+            const p4Threshold = isBoosted ? 0.065 : 0.075;
             if (peakGainPct >= p4Threshold) {
-              ratchetShortSl(troughPrice * (isBoosted ? 1.015 : 1.020), 4);
+              ratchetShortSl(troughPrice * 1.030, 4);
             }
           }
 
@@ -2429,7 +2486,10 @@ export function useTradingEngine() {
         // En mode RÉEL (lev = 1) : perte max tolérée 8% (Meme) ou 4% (Crypto)
         // En mode DÉMO avec levier : perte max tolérée 25%-30% de la marge engagée (laisse respirer le Stop-Loss technique)
         const isRealSol = isRealOnChainPosition(p);
-        const maxDrawdownRatio = isRealSol ? (isMemeToken ? 0.08 : 0.04) : (isMemeToken ? 0.30 : 0.25);
+        // Protection de dernier recours (Filet de sécurité contre krach brutal, ne coupe jamais le Stop-Loss technique prématurément) :
+        // Mode Réel (1x levier on-chain) : 18% Meme, 9% Crypto
+        // Mode Démo à fort levier : 50% de la marge pour laisser opérer le Stop Loss technique 1.5%-2.8%
+        const maxDrawdownRatio = isRealSol ? (isMemeToken ? 0.18 : 0.09) : 0.50;
         const maxAllowedLoss = -(p.amount || 1) * maxDrawdownRatio;
         if (liveProfit <= maxAllowedLoss) {
           shouldClose = true;
@@ -2537,10 +2597,11 @@ export function useTradingEngine() {
     const amt = typeof p.amount === 'number' && !isNaN(p.amount) ? p.amount : 0;
     const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
     const rawProfit = pctDiff * amt * lev * (isLong ? 1 : -1);
-    // RÈGLE ANTI-PERTE STRICTE : En mode RÉEL, la perte maximale est strictement bridée à 8% du montant engagé.
-    // En mode DÉMO, la perte maximale est alignée sur le Circuit Breaker individuel (30% max de la marge engagée).
+    // Filet de sécurité contre krach violent : aligné strictement sur le Circuit Breaker individuel
     const isRealSol = posMode === 'REAL';
-    const maxLossLimit = isRealSol ? -(amt * 0.08) : -(amt * 0.30);
+    const isMemeToken = (p.pair || '').startsWith('SOL:');
+    const maxDrawdownRatio = isRealSol ? (isMemeToken ? 0.18 : 0.09) : 0.50;
+    const maxLossLimit = -(amt * maxDrawdownRatio);
     const profit = Math.max(maxLossLimit, rawProfit);
 
     let mintAddress = '';
@@ -2972,7 +3033,7 @@ export function useTradingEngine() {
     }
 
     if (p.botId) {
-      botCooldownsRef.current[p.botId] = Date.now() + 30000;
+      botCooldownsRef.current[p.botId] = Date.now() + 60000;
     }
 
     if (typeof window !== 'undefined' && posId) {
@@ -3078,7 +3139,7 @@ export function useTradingEngine() {
     const finalId = p.id || targetId;
 
     if (p.botId) {
-      botCooldownsRef.current[p.botId] = Date.now() + 30000;
+      botCooldownsRef.current[p.botId] = Date.now() + 60000;
     }
 
     const current = resolveLivePrice(p.pair, livePricesRef.current) || (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice) && p.currentPrice > 0 ? p.currentPrice : (p.entryPrice || getRealMarketBasePrice(p.pair) || 1));
@@ -3129,7 +3190,7 @@ export function useTradingEngine() {
 
     positionsToClose.forEach(p => {
       if (p.botId) {
-        botCooldownsRef.current[p.botId] = Date.now() + 30000;
+        botCooldownsRef.current[p.botId] = Date.now() + 60000;
       }
     });
 

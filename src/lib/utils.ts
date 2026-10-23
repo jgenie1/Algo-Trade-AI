@@ -20,17 +20,17 @@ export function updateLiveMarketPrice(pair: string, price: number): void {
 }
 
 const REAL_BASE_PRICES: Record<string, number> = {
-  SOL: 105.20,
+  SOL: 185.0,
   BTC: 78200.0,
   ETH: 2450.0,
-  BNB: 693.0,
-  XRP: 1.95,
+  BNB: 595.0,
+  XRP: 0.54,
   ADA: 0.28,
   DOGE: 0.095,
   LINK: 13.5,
   AVAX: 18.5,
-  EURUSD: 1.1587,
-  GBPUSD: 1.345,
+  EURUSD: 1.0850,
+  GBPUSD: 1.2980,
   USDJPY: 155.0,
   AUDUSD: 0.655,
   USDCAD: 1.395,
@@ -38,7 +38,7 @@ const REAL_BASE_PRICES: Record<string, number> = {
   EURGBP: 0.861,
   EURJPY: 179.6,
   GBPJPY: 208.5,
-  GOLD: 4504.0,
+  GOLD: 2725.0,
   SILVER: 32.5,
   OIL: 71.0
 };
@@ -71,7 +71,7 @@ export function getSolUsdRate(): number {
     const saved = parseFloat(localStorage.getItem('cmc_live_sol_price') || '0');
     if (!isNaN(saved) && saved > 0) return saved;
   }
-  return 105.20;
+  return REAL_BASE_PRICES['SOL'] || 185.0;
 }
 
 // IMPORTANT: This value must be STABLE between SSR and first client render.

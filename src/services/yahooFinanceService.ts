@@ -90,6 +90,22 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
   const cleanSymbol = pairName.replace('FX:', '').replace('-USD', '').replace('=', '').toUpperCase();
   const binanceSymbol = binanceSymbolMap[cleanSymbol];
 
+  // --- SOURCE 0 : LOCAL NEXT.JS API PROXY (ZERO CORS) ---
+  if (typeof window !== 'undefined') {
+    try {
+      const proxyRes = await fetchWithTimeout(`/api/market-candles?pair=${encodeURIComponent(cleanSymbol)}&timeframe=${encodeURIComponent(timeframe)}`, { cache: 'no-store' }, 3500);
+      if (proxyRes.ok) {
+        const data = await proxyRes.json();
+        if (data.success && Array.isArray(data.candles) && data.candles.length >= 10) {
+          const candles: Candle[] = data.candles;
+          updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
+          candleCache[cacheKey] = { candles, timestamp: Date.now() };
+          return candles;
+        }
+      }
+    } catch (e) {}
+  }
+
   // --- SOURCE 1 : BINANCE API (BOUGIES CRYPTO 100% RÉELLES ON-MARKET) ---
   if (binanceSymbol) {
     try {
