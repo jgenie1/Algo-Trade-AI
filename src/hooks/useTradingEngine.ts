@@ -2007,6 +2007,7 @@ export function useTradingEngine() {
                         if (prev.some(x => x.id === newPos.id)) return prev;
                         return [...prev, { ...newPos, txHash: res.txHash, mode: 'REAL' as const }];
                       });
+                      signalOpened = true;
 
                       // Synchronisation immédiate du solde sous-wallet
                       if (subWalletsRef.current[botSubIdx]) {

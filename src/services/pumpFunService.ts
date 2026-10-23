@@ -1352,7 +1352,7 @@ export function analyzePumpCoinWithSniperPrompt(coin: PumpCoin): PumpCoinAnalysi
   
   // Calculate Market Cap & Liquidity
   const solReserves = (coin.virtual_sol_reserves || 0) / 1e9;
-  const solPriceUsd = getRealMarketBasePrice('SOL') || 145.5; // Sol live market price from API
+  const solPriceUsd = getRealMarketBasePrice('SOL') || 185.0; // Sol live market price from API
   const marketCapUsd = coin.usd_market_cap || Math.round((coin.market_cap || 0) * solPriceUsd) || Math.round(solReserves * solPriceUsd * 2.5);
   const liquiditySol = solReserves;
   

@@ -203,8 +203,8 @@ export default function ManualOrderForm({
 
       const isMemePair = selectedPair.startsWith('SOL:');
       const isBoostedOrder = !!aiMatch.boostedReason && !aiMatch.blockedReason;
-      const defaultSlRatio = isMemePair ? (isBoostedOrder ? 0.065 : 0.075) : (isBoostedOrder ? 0.014 : 0.016);
-      const defaultTpRatio = isMemePair ? (isBoostedOrder ? 0.22 : 0.16) : (isBoostedOrder ? 0.032 : 0.026);
+      const defaultSlRatio = isMemePair ? (isBoostedOrder ? 0.065 : 0.075) : (isBoostedOrder ? 0.013 : 0.015);
+      const defaultTpRatio = isMemePair ? (isBoostedOrder ? 0.22 : 0.18) : (isBoostedOrder ? 0.038 : 0.035);
       const computedSl = (parsedSl !== undefined && !isNaN(parsedSl))
         ? parsedSl
         : (currentPrice > 0 ? (effectiveOrderType === 'BUY' ? currentPrice * (1 - defaultSlRatio) : currentPrice * (1 + defaultSlRatio)) : undefined);

@@ -55,7 +55,9 @@ export default function ActivePositionsTable({
     e.stopPropagation();
     if (!p || !p.entryPrice) return;
     const isLong = p.type === 'BUY' || (p.type as string) === 'LONG';
-    const bufferRatio = p.pair?.startsWith('SOL:') ? 0.005 : 0.003;
+    const isMeme = p.pair?.startsWith('SOL:');
+    const isForex = p.pair?.startsWith('FX:');
+    const bufferRatio = isMeme ? 0.015 : (isForex ? 0.004 : 0.006);
     const beSl = isLong ? p.entryPrice * (1 + bufferRatio) : p.entryPrice * (1 - bufferRatio);
 
     setActivePositions(prev => {
@@ -100,7 +102,9 @@ export default function ActivePositionsTable({
       setBalance(bal => bal + Math.max(0, halfAmount + halfProfit));
     }
 
-    const bufferRatio = 0.003;
+    const isMeme = p.pair?.startsWith('SOL:');
+    const isForex = p.pair?.startsWith('FX:');
+    const bufferRatio = isMeme ? 0.015 : (isForex ? 0.004 : 0.006);
     const autoBeSl = halfProfit > 0 && p.entryPrice
       ? (isLong ? Math.max(p.sl || 0, p.entryPrice * (1 + bufferRatio)) : Math.min(p.sl || Infinity, p.entryPrice * (1 - bufferRatio)))
       : p.sl;
