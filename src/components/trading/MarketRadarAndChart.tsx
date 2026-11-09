@@ -21,7 +21,9 @@ import {
   TrendingUp,
   Zap
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { calculateIndicators } from '@/services/technicalAnalysisService';
+import { fetchLiveMarketData } from '@/services/yahooFinanceService';
 
 import type { BotInstance,BotLog } from '@/types';
 
@@ -55,14 +57,104 @@ export default function MarketRadarAndChart({
     );
   };
 
-  // Compute live multi-asset metrics for radar matrix
+  // --- TELEMETRIE RADAR AUTHENTIQUE (FEATURE F5) ---
+  const [radarMetrics, setRadarMetrics] = useState<Record<string, { rsi: number | null; change24h: number | null }>>({});
+  const [, setIsRadarLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (activeTab !== 'radar') return;
+
+    let isMounted = true;
+    const fetchRadarTelemetry = async () => {
+      setIsRadarLoading(true);
+      try {
+        const nextMetrics: Record<string, { rsi: number | null; change24h: number | null }> = {};
+
+        // 1. Cotations Crypto 24h en 1 seule requête groupée Binance
+        const cryptoSymbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'LINKUSDT', 'AVAXUSDT'];
+        const cryptoKeyMap: Record<string, string> = {
+          'BTC': 'BTCUSDT', 'ETH': 'ETHUSDT', 'SOL': 'SOLUSDT', 'BNB': 'BNBUSDT',
+          'XRP': 'XRPUSDT', 'ADA': 'ADAUSDT', 'DOGE': 'DOGEUSDT', 'LINK': 'LINKUSDT', 'AVAX': 'AVAXUSDT'
+        };
+
+        try {
+          const bRes = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbols=${JSON.stringify(cryptoSymbols)}`, { cache: 'no-store' });
+          if (bRes.ok) {
+            const tickers = await bRes.json();
+            if (Array.isArray(tickers)) {
+              for (const [key, bSymbol] of Object.entries(cryptoKeyMap)) {
+                const item = tickers.find((t: any) => t.symbol === bSymbol);
+                if (item) {
+                  nextMetrics[key] = {
+                    rsi: null,
+                    change24h: !isNaN(parseFloat(item.priceChangePercent)) ? parseFloat(item.priceChangePercent) : 0
+                  };
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Échec du scan 24h ticker Binance:", e);
+        }
+
+        // 2. Calcul RSI authentique et variation Forex/Métaux via bougies réelles
+        const activePairs = currencyPairs.filter(cp => cp.value !== 'ALL');
+        for (const cp of activePairs) {
+          if (!isMounted) break;
+          try {
+            const candles = await fetchLiveMarketData(cp.value, '15');
+            if (Array.isArray(candles) && candles.length >= 15) {
+              const ind = calculateIndicators(candles, ['RSI']);
+              const rsiVal = ind.rsi && ind.rsi.length > 0 ? ind.rsi[ind.rsi.length - 1] : null;
+
+              let change24h = nextMetrics[cp.value]?.change24h ?? null;
+              if (change24h === null && candles.length >= 2) {
+                const first = candles[0].open;
+                const last = candles[candles.length - 1].close;
+                change24h = first > 0 ? parseFloat((((last - first) / first) * 100).toFixed(2)) : 0;
+              }
+
+              nextMetrics[cp.value] = {
+                rsi: rsiVal !== null ? parseFloat(rsiVal.toFixed(1)) : null,
+                change24h
+              };
+            }
+          } catch (err) {
+            // Conservation état neutre sans invention de valeur
+          }
+        }
+
+        if (isMounted) {
+          setRadarMetrics(prev => ({ ...prev, ...nextMetrics }));
+        }
+      } finally {
+        if (isMounted) setIsRadarLoading(false);
+      }
+    };
+
+    fetchRadarTelemetry();
+    const interval = setInterval(fetchRadarTelemetry, 30000); // Rafraîchissement périodique toutes les 30s
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeTab]);
+
+  // Compute live multi-asset metrics for radar matrix (100% Authentique)
   const radarList = currencyPairs.filter(cp => cp.value !== 'ALL').map(cp => {
     const price = livePrices[cp.value] || 0;
     const dir = priceDirections[cp.value] || 'flat';
 
-    const change = price > 0 ? (dir === 'up' ? 0.42 : dir === 'down' ? -0.38 : 0) : 0;
-    const rsi = price > 0 ? (dir === 'up' ? 62 : dir === 'down' ? 38 : 50) : 50;
-    const rsiStatus = rsi < 35 ? 'SURVENDU (Achat)' : rsi > 65 ? 'SURACHETÉ (Vente)' : 'NEUTRE';
+    const metrics = radarMetrics[cp.value];
+    const change = metrics?.change24h ?? null;
+    const rsi = metrics?.rsi ?? null;
+    const rsiStatus = rsi === null
+      ? 'Calcul en cours...'
+      : rsi < 35
+        ? 'SURVENDU (Achat)'
+        : rsi > 65
+          ? 'SURACHETÉ (Vente)'
+          : 'NEUTRE';
 
     const safeBots = Array.isArray(bots) ? bots : [];
     const botActiveOnPair = safeBots.some(b => b && b.status === 'RUNNING' && (b.pair === 'ALL' || b.pair === cp.value));
@@ -76,7 +168,6 @@ export default function MarketRadarAndChart({
       rsiStatus,
       botActive: botActiveOnPair
     };
-
   });
 
   return (
@@ -282,9 +373,10 @@ export default function MarketRadarAndChart({
                         <span>•</span>
                         <span className={cn(
                           "font-semibold",
-                          item.rsi < 35 ? "text-emerald-400" : item.rsi > 65 ? "text-rose-400" : "text-white/60"
+                          item.rsi !== null && item.rsi < 35 ? "text-emerald-400" :
+                          item.rsi !== null && item.rsi > 65 ? "text-rose-400" : "text-white/60"
                         )}>
-                          RSI: {item.rsi} ({item.rsiStatus})
+                          {item.rsi !== null ? `RSI: ${item.rsi} (${item.rsiStatus})` : `RSI: ${item.rsiStatus}`}
                         </span>
                       </div>
                     </div>
@@ -298,10 +390,16 @@ export default function MarketRadarAndChart({
                       </div>
                       <div className={cn(
                         "text-[10px] font-bold font-body flex items-center justify-end gap-1",
-                        item.change >= 0 ? "text-emerald-400" : "text-rose-400"
+                        item.change === null ? "text-white/40" : item.change >= 0 ? "text-emerald-400" : "text-rose-400"
                       )}>
-                        {item.change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                        {item.change >= 0 ? '+' : ''}{item.change}%
+                        {item.change === null ? (
+                          <span>—</span>
+                        ) : (
+                          <>
+                            {item.change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                            {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}%
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

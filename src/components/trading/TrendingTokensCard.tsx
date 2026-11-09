@@ -52,50 +52,40 @@ export default function TrendingTokensCard() {
         return;
       }
 
-      // Priorité 2: Binance 24h Ticker Fallback
-      const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","BNBUSDT","LINKUSDT"]', {
+      // Priorité 2: Binance 24h Ticker Fallback avec inclusion de SOLUSDT
+      const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT","LINKUSDT"]', {
         cache: 'no-store'
       });
 
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          const findSymbol = (sym: string) => data.find((d: any) => d.symbol === sym);
-          const btc = findSymbol('BTCUSDT');
-          const eth = findSymbol('ETHUSDT');
-          const bnb = findSymbol('BNBUSDT');
-          const link = findSymbol('LINKUSDT');
-
-          const updatedTokens: TokenDisplay[] = [
-            {
-              name: 'Bitcoin',
-              symbol: 'BTC',
-              iconUrl: tokenList.find(t => t.symbol === 'BTC')?.iconUrl || '',
-              price: btc ? parseFloat(btc.lastPrice) : 65000.00,
-              change24h: btc ? parseFloat(btc.priceChangePercent) : 0
-            },
-            {
-              name: 'Ethereum',
-              symbol: 'ETH',
-              iconUrl: tokenList.find(t => t.symbol === 'ETH')?.iconUrl || '',
-              price: eth ? parseFloat(eth.lastPrice) : 3400.00,
-              change24h: eth ? parseFloat(eth.priceChangePercent) : 0
-            },
-            {
-              name: 'Binance Coin',
-              symbol: 'BNB',
-              iconUrl: tokenList.find(t => t.symbol === 'BNB')?.iconUrl || '',
-              price: bnb ? parseFloat(bnb.lastPrice) : 580.00,
-              change24h: bnb ? parseFloat(bnb.priceChangePercent) : 0
-            },
-            {
-              name: 'Chainlink',
-              symbol: 'LINK',
-              iconUrl: tokenList.find(t => t.symbol === 'LINK')?.iconUrl || '',
-              price: link ? parseFloat(link.lastPrice) : 14.50,
-              change24h: link ? parseFloat(link.priceChangePercent) : 0
-            }
+          const tokenDefinitions = [
+            { name: 'Bitcoin', symbol: 'BTC', pair: 'BTCUSDT' },
+            { name: 'Ethereum', symbol: 'ETH', pair: 'ETHUSDT' },
+            { name: 'Solana', symbol: 'SOL', pair: 'SOLUSDT' },
+            { name: 'Binance Coin', symbol: 'BNB', pair: 'BNBUSDT' },
+            { name: 'Chainlink', symbol: 'LINK', pair: 'LINKUSDT' }
           ];
+
+          const updatedTokens: TokenDisplay[] = tokenDefinitions.map(def => {
+            const ticker = data.find((d: any) => d.symbol === def.pair);
+            const prevToken = tokens.find(t => t.symbol === def.symbol);
+            const price = ticker && !isNaN(parseFloat(ticker.lastPrice)) && parseFloat(ticker.lastPrice) > 0
+              ? parseFloat(ticker.lastPrice)
+              : (prevToken?.price ?? 0);
+            const change24h = ticker && !isNaN(parseFloat(ticker.priceChangePercent))
+              ? parseFloat(ticker.priceChangePercent)
+              : (prevToken?.change24h ?? 0);
+
+            return {
+              name: def.name,
+              symbol: def.symbol,
+              iconUrl: tokenList.find(t => t.symbol === def.symbol)?.iconUrl || '',
+              price,
+              change24h
+            };
+          });
 
           setTokens(updatedTokens);
           return;

@@ -16,38 +16,20 @@ export function updateLiveMarketPrice(pair: string, price: number): void {
     const cleanKey = pair.replace('FX:', '').replace('-USD', '').replace('=', '').toUpperCase();
     liveMarketPricesStore[pair] = price;
     liveMarketPricesStore[cleanKey] = price;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`market_price_${cleanKey}`, price.toString());
+      } catch (e) {}
+    }
   }
 }
 
-const REAL_BASE_PRICES: Record<string, number> = {
-  SOL: 185.0,
-  BTC: 78200.0,
-  ETH: 2450.0,
-  BNB: 595.0,
-  XRP: 0.54,
-  ADA: 0.28,
-  DOGE: 0.095,
-  LINK: 13.5,
-  AVAX: 18.5,
-  EURUSD: 1.0850,
-  GBPUSD: 1.2980,
-  USDJPY: 155.0,
-  AUDUSD: 0.655,
-  USDCAD: 1.395,
-  USDCHF: 0.885,
-  EURGBP: 0.861,
-  EURJPY: 179.6,
-  GBPJPY: 208.5,
-  GOLD: 2725.0,
-  SILVER: 32.5,
-  OIL: 71.0
-};
-
 /**
  * Returns the current live market price for a given pair from real API feeds.
+ * Returns 0 if no real price quote has been fetched yet.
  */
 export function getRealMarketBasePrice(pair: string): number {
-  if (!pair) return liveMarketPricesStore['SOL'] || liveMarketPricesStore['SOL-USD'] || REAL_BASE_PRICES['SOL'];
+  if (!pair) return liveMarketPricesStore['SOL'] || liveMarketPricesStore['SOL-USD'] || 0;
   const p = pair.toUpperCase();
   const cleanKey = p.replace('FX:', '').replace('-USD', '').replace('=', '');
 
@@ -58,20 +40,30 @@ export function getRealMarketBasePrice(pair: string): number {
     return liveMarketPricesStore[cleanKey];
   }
 
-  return REAL_BASE_PRICES[cleanKey] || REAL_BASE_PRICES[p] || 0;
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = parseFloat(localStorage.getItem(`market_price_${cleanKey}`) || '0');
+      if (!isNaN(saved) && saved > 0) return saved;
+    } catch (e) {}
+  }
+
+  return 0;
 }
 
 /**
  * Returns the live SOL/USD price from real CoinMarketCap / live API feeds.
+ * Returns 0 if no real quote has been loaded yet, enabling proper loading labels.
  */
 export function getSolUsdRate(): number {
   if (liveMarketPricesStore['SOL'] && liveMarketPricesStore['SOL'] > 0) return liveMarketPricesStore['SOL'];
   if (liveMarketPricesStore['SOL-USD'] && liveMarketPricesStore['SOL-USD'] > 0) return liveMarketPricesStore['SOL-USD'];
   if (typeof window !== 'undefined') {
-    const saved = parseFloat(localStorage.getItem('cmc_live_sol_price') || '0');
-    if (!isNaN(saved) && saved > 0) return saved;
+    try {
+      const saved = parseFloat(localStorage.getItem('cmc_live_sol_price') || localStorage.getItem('market_price_SOL') || '0');
+      if (!isNaN(saved) && saved > 0) return saved;
+    } catch (e) {}
   }
-  return REAL_BASE_PRICES['SOL'] || 185.0;
+  return 0;
 }
 
 // IMPORTANT: This value must be STABLE between SSR and first client render.

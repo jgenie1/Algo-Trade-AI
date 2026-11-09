@@ -1,6 +1,4 @@
-
-import { getRealMarketBasePrice,updateLiveMarketPrice } from '@/lib/utils';
-import { fetchCoinMarketCapQuotes } from './coinmarketcapService';
+import { updateLiveMarketPrice } from '@/lib/utils';
 
 export interface Candle {
   time: number; // timestamp in seconds
@@ -11,106 +9,190 @@ export interface Candle {
   volume: number;
 }
 
-const binanceSymbolMap: { [key: string]: string } = {
-  'BTC': 'BTCUSDT',
-  'ETH': 'ETHUSDT',
-  'SOL': 'SOLUSDT',
-  'BNB': 'BNBUSDT',
-  'XRP': 'XRPUSDT',
-  'ADA': 'ADAUSDT',
-  'DOGE': 'DOGEUSDT',
-  'LINK': 'LINKUSDT',
-  'AVAX': 'AVAXUSDT',
+export interface FetchMarketDataOptions {
+  limit?: number; // Candle count (default: 100, clamped: 5..1000)
+  range?: string; // Optional range (e.g. '5d', '1mo', '3mo', '1y')
+}
+
+const binanceSymbolMap: Record<string, string> = {
+  BTC: 'BTCUSDT',
+  ETH: 'ETHUSDT',
+  SOL: 'SOLUSDT',
+  BNB: 'BNBUSDT',
+  XRP: 'XRPUSDT',
+  ADA: 'ADAUSDT',
+  DOGE: 'DOGEUSDT',
+  LINK: 'LINKUSDT',
+  AVAX: 'AVAXUSDT',
 };
 
-const binanceIntervalMap: { [key: string]: string } = {
+const binanceIntervalMap: Record<string, string> = {
   '1': '1m',
   '5': '5m',
   '15': '15m',
   '60': '1h',
   '240': '4h',
-  'D': '1d'
+  'D': '1d',
+  '1d': '1d',
 };
 
-const candleCache: { [key: string]: { candles: Candle[]; timestamp: number } } = {};
+const YAHOO_SYMBOL_MAP: Record<string, string> = {
+  EURUSD: 'EURUSD=X',
+  GBPUSD: 'GBPUSD=X',
+  USDJPY: 'JPY=X',
+  AUDUSD: 'AUDUSD=X',
+  USDCAD: 'CAD=X',
+  USDCHF: 'CHF=X',
+  EURGBP: 'EURGBP=X',
+  EURJPY: 'EURJPY=X',
+  GBPJPY: 'GBPJPY=X',
+  GOLD: 'GC=F',
+  SILVER: 'SI=F',
+  OIL: 'CL=F',
+  BTC: 'BTC-USD',
+  ETH: 'ETH-USD',
+  SOL: 'SOL-USD',
+  BNB: 'BNB-USD',
+  XRP: 'XRP-USD',
+  ADA: 'ADA-USD',
+  DOGE: 'DOGE-USD',
+  LINK: 'LINK-USD',
+  AVAX: 'AVAX-USD',
+};
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 4000): Promise<Response> {
+interface ClientCacheEntry {
+  candles: Candle[];
+  timestamp: number;
+  ttlMs: number;
+}
+
+const candleCache: Record<string, ClientCacheEntry> = {};
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort('Requête expirée (Timeout)'), timeoutMs);
   try {
     return await fetch(url, {
       ...options,
-      signal: controller.signal
+      signal: controller.signal,
     });
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-const YAHOO_SYMBOL_MAP: Record<string, string> = {
-  'EURUSD': 'EURUSD=X',
-  'GBPUSD': 'GBPUSD=X',
-  'USDJPY': 'JPY=X',
-  'AUDUSD': 'AUDUSD=X',
-  'USDCAD': 'CAD=X',
-  'USDCHF': 'CHF=X',
-  'EURGBP': 'EURGBP=X',
-  'EURJPY': 'EURJPY=X',
-  'GBPJPY': 'GBPJPY=X',
-  'GOLD': 'GC=F',
-  'SILVER': 'SI=F',
-  'OIL': 'CL=F',
-  'BTC': 'BTC-USD',
-  'ETH': 'ETH-USD',
-  'SOL': 'SOL-USD',
-  'BNB': 'BNB-USD',
-  'XRP': 'XRP-USD',
-  'ADA': 'ADA-USD',
-  'DOGE': 'DOGE-USD',
-  'LINK': 'LINK-USD',
-  'AVAX': 'AVAX-USD'
-};
+export function resample1hTo4h(hourlyCandles: Candle[]): Candle[] {
+  if (!hourlyCandles || hourlyCandles.length === 0) return [];
+  const buckets = new Map<number, Candle[]>();
 
-/**
- * SOURCE EN DIRECT 100% RÉELLE :
- * 1. Binance API officielle (Priorité #1 pour toutes les cryptos: bougies réelles du carnet d'ordres)
- * 2. Yahoo Finance Chart API (Priorité #1 pour Forex et Métaux: bougies réelles de marché)
- * 3. CoinMarketCap Pro API (Priorité #2 pour les cotations crypto certifiées)
- * 4. ExchangeRate API & Coinbase API pour les taux Forex réels en direct
- * AUCUNE DONNÉE FACTICE OU ARTIFICIELLE N'EST GÉNÉRÉE.
- */
-export async function fetchLiveMarketData(pairName: string, timeframe: string): Promise<Candle[]> {
-  const cacheKey = `${pairName}_${timeframe}`;
-  const nowMs = Date.now();
-  
-  if (candleCache[cacheKey] && (nowMs - candleCache[cacheKey].timestamp < 5000)) {
-    return candleCache[cacheKey].candles;
+  for (const c of hourlyCandles) {
+    const bucketTime = c.time - (c.time % 14400);
+    const existing = buckets.get(bucketTime);
+    if (existing) {
+      existing.push(c);
+    } else {
+      buckets.set(bucketTime, [c]);
+    }
   }
 
-  const cleanSymbol = pairName.replace('FX:', '').replace('-USD', '').replace('=', '').toUpperCase();
-  const binanceSymbol = binanceSymbolMap[cleanSymbol];
+  const resampled: Candle[] = [];
+  const sortedBucketTimes = Array.from(buckets.keys()).sort((a, b) => a - b);
 
-  // --- SOURCE 0 : LOCAL NEXT.JS API PROXY (ZERO CORS) ---
+  for (const bTime of sortedBucketTimes) {
+    const bars = buckets.get(bTime)!;
+    if (bars.length === 0) continue;
+    bars.sort((a, b) => a.time - b.time);
+
+    const open = bars[0].open;
+    const close = bars[bars.length - 1].close;
+    let high = -Infinity;
+    let low = Infinity;
+    let volume = 0;
+
+    for (const b of bars) {
+      if (b.high > high) high = b.high;
+      if (b.low < low) low = b.low;
+      volume += b.volume || 0;
+    }
+
+    resampled.push({
+      time: bTime,
+      open,
+      high,
+      low,
+      close,
+      volume,
+    });
+  }
+
+  return resampled;
+}
+
+/**
+ * SOURCE 100% RÉELLE SANS AUCUNE DONNÉE FACTICE OU SYNTHÉTIQUE :
+ * 1. Cache client en mémoire (TTL: 15s live / 60s backtest)
+ * 2. Next.js API Proxy interne (/api/market-candles) avec cache serveur et sans restriction CORS
+ * 3. Binance API officielle directe (pour cryptomonnaies)
+ * 4. Yahoo Finance Chart API directe (pour Forex, Métaux et Indices)
+ * Principe Fail-Closed : Si aucune bougie réelle n'est accessible, lance une exception typée.
+ */
+export async function fetchLiveMarketData(
+  pairName: string,
+  timeframe: string = '15',
+  options?: FetchMarketDataOptions
+): Promise<Candle[]> {
+  const limit = Math.max(5, Math.min(options?.limit || 100, 1000));
+  const range = options?.range;
+
+  let cleanSymbol = pairName.trim().toUpperCase().replace(/^FX:/, '').replace(/\//g, '');
+  if (cleanSymbol.endsWith('=X')) cleanSymbol = cleanSymbol.slice(0, -2);
+  if (cleanSymbol.endsWith('=F')) cleanSymbol = cleanSymbol.slice(0, -2);
+  if (cleanSymbol.endsWith('-USD')) cleanSymbol = cleanSymbol.replace('-USD', '');
+  cleanSymbol = cleanSymbol.replace('=', '');
+
+  const cacheKey = `${cleanSymbol}_${timeframe}_${limit}_${range || 'auto'}`;
+  const nowMs = Date.now();
+  const cached = candleCache[cacheKey];
+
+  if (cached && nowMs - cached.timestamp < cached.ttlMs) {
+    return cached.candles.map(c => ({ ...c }));
+  }
+
+  const ttlMs = limit <= 100 ? 15000 : 60000;
+
+  // --- SOURCE 1 : LOCAL NEXT.JS API PROXY (ZERO CORS & CACHING) ---
   if (typeof window !== 'undefined') {
     try {
-      const proxyRes = await fetchWithTimeout(`/api/market-candles?pair=${encodeURIComponent(cleanSymbol)}&timeframe=${encodeURIComponent(timeframe)}`, { cache: 'no-store' }, 3500);
+      const queryParams = new URLSearchParams({
+        pair: cleanSymbol,
+        timeframe,
+        limit: limit.toString(),
+      });
+      if (range) queryParams.set('range', range);
+
+      const proxyRes = await fetchWithTimeout(`/api/market-candles?${queryParams.toString()}`, { cache: 'no-store' }, 8000);
       if (proxyRes.ok) {
         const data = await proxyRes.json();
-        if (data.success && Array.isArray(data.candles) && data.candles.length >= 10) {
+        if (data.success && Array.isArray(data.candles) && data.candles.length >= 5) {
           const candles: Candle[] = data.candles;
           updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
-          candleCache[cacheKey] = { candles, timestamp: Date.now() };
-          return candles;
+          candleCache[cacheKey] = { candles: candles.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
+          return candles.map(c => ({ ...c }));
         }
       }
     } catch (e) {}
   }
 
-  // --- SOURCE 1 : BINANCE API (BOUGIES CRYPTO 100% RÉELLES ON-MARKET) ---
+  // --- SOURCE 2 : BINANCE API DIRECTE (CRYPTO ON-MARKET) ---
+  const binanceSymbol = binanceSymbolMap[cleanSymbol];
   if (binanceSymbol) {
     try {
       const interval = binanceIntervalMap[timeframe] || '15m';
-      const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=60`, { cache: 'no-store' }, 4000);
+      const res = await fetchWithTimeout(
+        `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=${limit}`,
+        { cache: 'no-store' },
+        6000
+      );
 
       if (res.ok) {
         const rawKlines = await res.json();
@@ -121,25 +203,38 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
             high: parseFloat(k[2]),
             low: parseFloat(k[3]),
             close: parseFloat(k[4]),
-            volume: parseFloat(k[5] || '0')
+            volume: parseFloat(k[5] || '0'),
           }));
 
           if (candles.length > 0) {
             updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
           }
 
-          candleCache[cacheKey] = { candles, timestamp: Date.now() };
-          return candles;
+          candleCache[cacheKey] = { candles: candles.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
+          return candles.map(c => ({ ...c }));
         }
       }
     } catch (e) {}
   }
 
-  // --- SOURCE 2 : YAHOO FINANCE CHART API (BOUGIES FOREX ET MÉTAUX 100% RÉELLES) ---
-  const yahooTicker = YAHOO_SYMBOL_MAP[cleanSymbol] || `${cleanSymbol}=X`;
+  // --- SOURCE 3 : YAHOO FINANCE CHART API DIRECTE (FOREX & MATIÈRES PREMIÈRES) ---
+  const yahooTicker = YAHOO_SYMBOL_MAP[cleanSymbol] || (cleanSymbol.length === 6 ? `${cleanSymbol}=X` : cleanSymbol);
   try {
-    const yInterval = timeframe === '1' ? '1m' : timeframe === '5' ? '5m' : timeframe === '60' ? '1h' : '15m';
-    const yRes = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=${yInterval}&range=5d`, { cache: 'no-store' }, 4000);
+    const is4h = timeframe === '240';
+    const yInterval = is4h ? '1h' : timeframe === '1' ? '1m' : timeframe === '5' ? '5m' : timeframe === '60' ? '1h' : (timeframe === 'D' || timeframe === '1d') ? '1d' : '15m';
+    const yRange = range || (is4h ? (limit <= 100 ? '1mo' : '6mo') : timeframe === '1' ? '5d' : timeframe === '5' ? '15d' : timeframe === '15' ? '60d' : timeframe === '60' ? '3mo' : '2y');
+
+    const yRes = await fetchWithTimeout(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=${yInterval}&range=${yRange}`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          Accept: 'application/json',
+        },
+        cache: 'no-store',
+      },
+      6000
+    );
 
     if (yRes.ok) {
       const yData = await yRes.json();
@@ -148,7 +243,7 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
       const quoteObj = resultObj?.indicators?.quote?.[0];
 
       if (Array.isArray(timestamps) && quoteObj && Array.isArray(quoteObj.close) && timestamps.length > 0) {
-        const validCandles: Candle[] = [];
+        let validCandles: Candle[] = [];
         for (let i = 0; i < timestamps.length; i++) {
           const c = quoteObj.close[i];
           if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
@@ -158,124 +253,25 @@ export async function fetchLiveMarketData(pairName: string, timeframe: string): 
               high: quoteObj.high[i] ?? c,
               low: quoteObj.low[i] ?? c,
               close: c,
-              volume: quoteObj.volume?.[i] || 100
+              volume: quoteObj.volume?.[i] || 100,
             });
           }
         }
 
+        if (is4h) {
+          validCandles = resample1hTo4h(validCandles);
+        }
+
         if (validCandles.length > 0) {
-          const sliced = validCandles.slice(-60);
+          const sliced = validCandles.slice(-limit);
           updateLiveMarketPrice(cleanSymbol, sliced[sliced.length - 1].close);
-          candleCache[cacheKey] = { candles: sliced, timestamp: Date.now() };
-          return sliced;
+          candleCache[cacheKey] = { candles: sliced.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
+          return sliced.map(c => ({ ...c }));
         }
       }
     }
   } catch (e) {}
 
-  // --- SOURCE 3 : COINMARKETCAP PRO API (POUR COTATIONS CRYPTO) ---
-  if (binanceSymbolMap[cleanSymbol]) {
-    try {
-      const cmcData = await fetchCoinMarketCapQuotes([cleanSymbol]);
-      if (cmcData && cmcData[cleanSymbol] && cmcData[cleanSymbol].quote?.USD) {
-        const quote = cmcData[cleanSymbol].quote.USD;
-        const livePrice = quote.price;
-        updateLiveMarketPrice(cleanSymbol, livePrice);
-        const volume = quote.volume_24h || 10000;
-
-        const candles: Candle[] = [];
-        const nowSec = Math.floor(Date.now() / 1000);
-        const stepSec = timeframe === '1' ? 60 : timeframe === '5' ? 300 : timeframe === '60' ? 3600 : 900;
-        const baseChange = (quote.percent_change_24h || 0) / 100;
-
-        for (let i = 0; i < 60; i++) {
-          const time = nowSec - (60 - i) * stepSec;
-          const ratio = (i / 60);
-          const priceAtStep = livePrice * (1 - baseChange * (1 - ratio));
-          candles.push({
-            time,
-            open: priceAtStep,
-            high: priceAtStep * 1.0005,
-            low: priceAtStep * 0.9995,
-            close: priceAtStep,
-            volume: Math.floor(volume / 60)
-          });
-        }
-
-        candleCache[cacheKey] = { candles, timestamp: Date.now() };
-        return candles;
-      }
-    } catch (e) {}
-  }
-
-  // --- SOURCE 4 : EXCHANGERATE API & COINBASE API (POUR FOREX) ---
-  try {
-    const res = await fetchWithTimeout('https://api.exchangerate-api.com/v4/latest/USD', { cache: 'no-store' }, 4000);
-    if (res.ok) {
-      const data = await res.json();
-      const rates = data.rates || {};
-      return buildCandlesFromRates(rates, cleanSymbol, timeframe, cacheKey);
-    }
-  } catch (e) {}
-
-  try {
-    const res = await fetchWithTimeout('https://api.coinbase.com/v2/exchange-rates?currency=USD', { cache: 'no-store' }, 4000);
-    if (res.ok) {
-      const json = await res.json();
-      const rates = json?.data?.rates || {};
-      return buildCandlesFromRates(rates, cleanSymbol, timeframe, cacheKey);
-    }
-  } catch (e) {}
-
-  // Dernier recours : bougie unique réelle sur le cours connu
-  const currentLive = getRealMarketBasePrice(cleanSymbol) || 1.0;
-  const now = Math.floor(Date.now() / 1000);
-  return [{
-    time: now,
-    open: currentLive,
-    high: currentLive,
-    low: currentLive,
-    close: currentLive,
-    volume: 1000
-  }];
-}
-
-function buildCandlesFromRates(rates: Record<string, any>, cleanSymbol: string, timeframe: string, cacheKey: string): Candle[] {
-  let livePrice = getRealMarketBasePrice(cleanSymbol);
-  if (cleanSymbol === 'EURUSD' || cleanSymbol === 'EUR/USD') livePrice = rates.EUR ? (1 / parseFloat(rates.EUR)) : getRealMarketBasePrice('EURUSD');
-  else if (cleanSymbol === 'GBPUSD' || cleanSymbol === 'GBP/USD') livePrice = rates.GBP ? (1 / parseFloat(rates.GBP)) : getRealMarketBasePrice('GBPUSD');
-  else if (cleanSymbol === 'USDJPY' || cleanSymbol === 'USD/JPY') livePrice = parseFloat(rates.JPY) || getRealMarketBasePrice('USDJPY');
-  else if (cleanSymbol === 'AUDUSD' || cleanSymbol === 'AUD/USD') livePrice = rates.AUD ? (1 / parseFloat(rates.AUD)) : getRealMarketBasePrice('AUDUSD');
-  else if (cleanSymbol === 'USDCAD' || cleanSymbol === 'USD/CAD') livePrice = parseFloat(rates.CAD) || getRealMarketBasePrice('USDCAD');
-  else if (cleanSymbol === 'USDCHF' || cleanSymbol === 'USD/CHF') livePrice = parseFloat(rates.CHF) || getRealMarketBasePrice('USDCHF');
-  else if (cleanSymbol === 'EURGBP' || cleanSymbol === 'EUR/GBP') livePrice = (rates.EUR && rates.GBP) ? (parseFloat(rates.GBP) / parseFloat(rates.EUR)) : getRealMarketBasePrice('EURGBP');
-  else if (cleanSymbol === 'EURJPY' || cleanSymbol === 'EUR/JPY') livePrice = rates.EUR ? (parseFloat(rates.JPY) / parseFloat(rates.EUR)) : getRealMarketBasePrice('EURJPY');
-  else if (cleanSymbol === 'GBPJPY' || cleanSymbol === 'GBP/JPY') livePrice = rates.GBP ? (parseFloat(rates.JPY) / parseFloat(rates.GBP)) : getRealMarketBasePrice('GBPJPY');
-  else if (cleanSymbol === 'GOLD') livePrice = rates.XAU ? (1 / parseFloat(rates.XAU)) : getRealMarketBasePrice('GOLD');
-  else if (cleanSymbol === 'SILVER') livePrice = rates.XAG ? (1 / parseFloat(rates.XAG)) : getRealMarketBasePrice('SILVER');
-  else if (cleanSymbol === 'OIL') livePrice = getRealMarketBasePrice('OIL');
-
-  if (livePrice > 0) {
-    updateLiveMarketPrice(cleanSymbol, livePrice);
-  }
-
-  const candles: Candle[] = [];
-  const nowSec = Math.floor(Date.now() / 1000);
-  const stepSec = timeframe === '1' ? 60 : timeframe === '5' ? 300 : timeframe === '60' ? 3600 : 900;
-  const current = livePrice > 0 ? livePrice : 1.0;
-
-  for (let i = 0; i < 30; i++) {
-    const time = nowSec - (30 - i) * stepSec;
-    candles.push({
-      time,
-      open: current,
-      high: current * 1.0002,
-      low: current * 0.9998,
-      close: current,
-      volume: 1000
-    });
-  }
-
-  candleCache[cacheKey] = { candles, timestamp: Date.now() };
-  return candles;
+  // --- SOURCE 4 : FAIL-CLOSED EXCEPTION (AUCUNE DONNÉE FACTICE OU BOUGIE UNIQUE) ---
+  throw new Error(`[MarketDataError] Données de marché réelles indisponibles pour ${cleanSymbol} (${timeframe}). Aucune donnée synthétique autorisée.`);
 }
