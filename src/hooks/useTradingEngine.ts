@@ -2095,7 +2095,12 @@ export function useTradingEngine() {
           }
 
         } catch (e: any) {
-          addBotLogRef.current(bot.id, bot.strategy, `Erreur d'analyse: ${e.message}`, 'error');
+          const isMarketDataErr = e?.message && e.message.includes('[MarketDataError]');
+          if (isMarketDataErr) {
+            addBotLogRef.current(bot.id, bot.strategy, `Synchronisation du flux de marché réel en cours (${bot.pair.replace('FX:', '')})...`, 'info');
+          } else {
+            addBotLogRef.current(bot.id, bot.strategy, `Erreur d'analyse: ${e.message}`, 'error');
+          }
         }
       }
     };

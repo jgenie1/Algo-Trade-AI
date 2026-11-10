@@ -36,7 +36,7 @@ const binanceIntervalMap: Record<string, string> = {
   '1d': '1d',
 };
 
-const YAHOO_SYMBOL_MAP: Record<string, string> = {
+export const YAHOO_SYMBOL_MAP: Record<string, string> = {
   EURUSD: 'EURUSD=X',
   GBPUSD: 'GBPUSD=X',
   USDJPY: 'JPY=X',
@@ -67,6 +67,7 @@ interface ClientCacheEntry {
 }
 
 const candleCache: Record<string, ClientCacheEntry> = {};
+const inFlightClientRequests = new Map<string, Promise<Candle[]>>();
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController();
@@ -158,11 +159,17 @@ export async function fetchLiveMarketData(
     return cached.candles.map(c => ({ ...c }));
   }
 
+  // Deduplicate in-flight concurrent requests for the exact same asset and timeframe
+  const existingPromise = inFlightClientRequests.get(cacheKey);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
   const ttlMs = limit <= 100 ? 15000 : 60000;
 
-  // --- SOURCE 1 : LOCAL NEXT.JS API PROXY (ZERO CORS & CACHING) ---
-  if (typeof window !== 'undefined') {
-    try {
+  const fetchPromise = (async (): Promise<Candle[]> => {
+    // --- SOURCE 1 : LOCAL NEXT.JS API PROXY (ROBUST CLIENT-SIDE WITH RETRY) ---
+    if (typeof window !== 'undefined') {
       const queryParams = new URLSearchParams({
         pair: cleanSymbol,
         timeframe,
@@ -170,108 +177,142 @@ export async function fetchLiveMarketData(
       });
       if (range) queryParams.set('range', range);
 
-      const proxyRes = await fetchWithTimeout(`/api/market-candles?${queryParams.toString()}`, { cache: 'no-store' }, 8000);
-      if (proxyRes.ok) {
-        const data = await proxyRes.json();
-        if (data.success && Array.isArray(data.candles) && data.candles.length >= 5) {
-          const candles: Candle[] = data.candles;
-          updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
-          candleCache[cacheKey] = { candles: candles.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
-          return candles.map(c => ({ ...c }));
-        }
-      }
-    } catch (e) {}
-  }
-
-  // --- SOURCE 2 : BINANCE API DIRECTE (CRYPTO ON-MARKET) ---
-  const binanceSymbol = binanceSymbolMap[cleanSymbol];
-  if (binanceSymbol) {
-    try {
-      const interval = binanceIntervalMap[timeframe] || '15m';
-      const res = await fetchWithTimeout(
-        `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=${limit}`,
-        { cache: 'no-store' },
-        6000
-      );
-
-      if (res.ok) {
-        const rawKlines = await res.json();
-        if (Array.isArray(rawKlines) && rawKlines.length > 0) {
-          const candles: Candle[] = rawKlines.map((k: any) => ({
-            time: Math.floor(k[0] / 1000),
-            open: parseFloat(k[1]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            close: parseFloat(k[4]),
-            volume: parseFloat(k[5] || '0'),
-          }));
-
-          if (candles.length > 0) {
-            updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const timeout = attempt === 1 ? 9000 : 15000;
+          const proxyRes = await fetchWithTimeout(`/api/market-candles?${queryParams.toString()}`, { cache: 'no-store' }, timeout);
+          if (proxyRes.ok) {
+            const data = await proxyRes.json();
+            if (data.success && Array.isArray(data.candles) && data.candles.length >= 5) {
+              const candles: Candle[] = data.candles;
+              updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
+              candleCache[cacheKey] = { candles: candles.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
+              return candles.map(c => ({ ...c }));
+            }
           }
-
-          candleCache[cacheKey] = { candles: candles.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
-          return candles.map(c => ({ ...c }));
-        }
-      }
-    } catch (e) {}
-  }
-
-  // --- SOURCE 3 : YAHOO FINANCE CHART API DIRECTE (FOREX & MATIÈRES PREMIÈRES) ---
-  const yahooTicker = YAHOO_SYMBOL_MAP[cleanSymbol] || (cleanSymbol.length === 6 ? `${cleanSymbol}=X` : cleanSymbol);
-  try {
-    const is4h = timeframe === '240';
-    const yInterval = is4h ? '1h' : timeframe === '1' ? '1m' : timeframe === '5' ? '5m' : timeframe === '60' ? '1h' : (timeframe === 'D' || timeframe === '1d') ? '1d' : '15m';
-    const yRange = range || (is4h ? (limit <= 100 ? '1mo' : '6mo') : timeframe === '1' ? '5d' : timeframe === '5' ? '15d' : timeframe === '15' ? '60d' : timeframe === '60' ? '3mo' : '2y');
-
-    const yRes = await fetchWithTimeout(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=${yInterval}&range=${yRange}`,
-      {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
-      },
-      6000
-    );
-
-    if (yRes.ok) {
-      const yData = await yRes.json();
-      const resultObj = yData?.chart?.result?.[0];
-      const timestamps: number[] = resultObj?.timestamp || [];
-      const quoteObj = resultObj?.indicators?.quote?.[0];
-
-      if (Array.isArray(timestamps) && quoteObj && Array.isArray(quoteObj.close) && timestamps.length > 0) {
-        let validCandles: Candle[] = [];
-        for (let i = 0; i < timestamps.length; i++) {
-          const c = quoteObj.close[i];
-          if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
-            validCandles.push({
-              time: timestamps[i],
-              open: quoteObj.open[i] ?? c,
-              high: quoteObj.high[i] ?? c,
-              low: quoteObj.low[i] ?? c,
-              close: c,
-              volume: quoteObj.volume?.[i] || 100,
-            });
+        } catch (e) {
+          if (attempt === 1) {
+            await new Promise(r => setTimeout(r, 400));
           }
-        }
-
-        if (is4h) {
-          validCandles = resample1hTo4h(validCandles);
-        }
-
-        if (validCandles.length > 0) {
-          const sliced = validCandles.slice(-limit);
-          updateLiveMarketPrice(cleanSymbol, sliced[sliced.length - 1].close);
-          candleCache[cacheKey] = { candles: sliced.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
-          return sliced.map(c => ({ ...c }));
         }
       }
     }
-  } catch (e) {}
 
-  // --- SOURCE 4 : FAIL-CLOSED EXCEPTION (AUCUNE DONNÉE FACTICE OU BOUGIE UNIQUE) ---
-  throw new Error(`[MarketDataError] Données de marché réelles indisponibles pour ${cleanSymbol} (${timeframe}). Aucune donnée synthétique autorisée.`);
+    // --- SOURCE 2 : BINANCE API DIRECTE (CRYPTO ON-MARKET) ---
+    const binanceSymbol = binanceSymbolMap[cleanSymbol];
+    if (binanceSymbol) {
+      try {
+        const interval = binanceIntervalMap[timeframe] || '15m';
+        const res = await fetchWithTimeout(
+          `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=${limit}`,
+          { cache: 'no-store' },
+          7000
+        );
+
+        if (res.ok) {
+          const rawKlines = await res.json();
+          if (Array.isArray(rawKlines) && rawKlines.length > 0) {
+            const candles: Candle[] = rawKlines.map((k: any) => ({
+              time: Math.floor(k[0] / 1000),
+              open: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              low: parseFloat(k[3]),
+              close: parseFloat(k[4]),
+              volume: parseFloat(k[5] || '0'),
+            }));
+
+            if (candles.length > 0) {
+              updateLiveMarketPrice(cleanSymbol, candles[candles.length - 1].close);
+            }
+
+            candleCache[cacheKey] = { candles: candles.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
+            return candles.map(c => ({ ...c }));
+          }
+        }
+      } catch (e) {}
+    }
+
+    // --- SOURCE 3 : YAHOO FINANCE CHART API DIRECTE (SERVER-SIDE / NODE ONLY) ---
+    // Note: In browsers, Yahoo Finance blocks direct fetches with CORS; it is handled via Source 1 proxy.
+    if (typeof window === 'undefined') {
+      const candidateTickers: string[] = [];
+      if (YAHOO_SYMBOL_MAP[cleanSymbol]) {
+        candidateTickers.push(YAHOO_SYMBOL_MAP[cleanSymbol]);
+      }
+      if (cleanSymbol.length === 6 && !candidateTickers.includes(`${cleanSymbol}=X`)) {
+        candidateTickers.push(`${cleanSymbol}=X`);
+      }
+      if (!candidateTickers.includes(cleanSymbol)) {
+        candidateTickers.push(cleanSymbol);
+      }
+
+      const is4h = timeframe === '240';
+      const yInterval = is4h ? '1h' : timeframe === '1' ? '1m' : timeframe === '5' ? '5m' : timeframe === '60' ? '1h' : (timeframe === 'D' || timeframe === '1d') ? '1d' : '15m';
+      const yRange = range || (is4h ? (limit <= 100 ? '1mo' : '6mo') : timeframe === '1' ? '5d' : timeframe === '5' ? '15d' : timeframe === '15' ? '60d' : timeframe === '60' ? '3mo' : '2y');
+      const hosts = ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo.com'];
+
+      for (const host of hosts) {
+        for (const ticker of candidateTickers) {
+          try {
+            const yRes = await fetchWithTimeout(
+              `${host}/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${yInterval}&range=${yRange}`,
+              {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                  Accept: 'application/json',
+                },
+                cache: 'no-store',
+              },
+              10000
+            );
+
+            if (yRes.ok) {
+              const yData = await yRes.json();
+              const resultObj = yData?.chart?.result?.[0];
+              const timestamps: number[] = resultObj?.timestamp || [];
+              const quoteObj = resultObj?.indicators?.quote?.[0];
+
+              if (Array.isArray(timestamps) && quoteObj && Array.isArray(quoteObj.close) && timestamps.length > 0) {
+                let validCandles: Candle[] = [];
+                for (let i = 0; i < timestamps.length; i++) {
+                  const c = quoteObj.close[i];
+                  if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
+                    validCandles.push({
+                      time: timestamps[i],
+                      open: quoteObj.open[i] ?? c,
+                      high: quoteObj.high[i] ?? c,
+                      low: quoteObj.low[i] ?? c,
+                      close: c,
+                      volume: quoteObj.volume?.[i] || 100,
+                    });
+                  }
+                }
+
+                if (is4h) {
+                  validCandles = resample1hTo4h(validCandles);
+                }
+
+                if (validCandles.length > 0) {
+                  const sliced = validCandles.slice(-limit);
+                  updateLiveMarketPrice(cleanSymbol, sliced[sliced.length - 1].close);
+                  candleCache[cacheKey] = { candles: sliced.map(c => ({ ...c })), timestamp: Date.now(), ttlMs };
+                  return sliced.map(c => ({ ...c }));
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    // --- SOURCE 4 : FAIL-CLOSED EXCEPTION (AUCUNE DONNÉE FACTICE OU BOUGIE UNIQUE) ---
+    throw new Error(`[MarketDataError] Données de marché réelles indisponibles pour ${cleanSymbol} (${timeframe}). Aucune donnée synthétique autorisée.`);
+  })();
+
+  inFlightClientRequests.set(cacheKey, fetchPromise);
+  try {
+    return await fetchPromise;
+  } finally {
+    inFlightClientRequests.delete(cacheKey);
+  }
 }

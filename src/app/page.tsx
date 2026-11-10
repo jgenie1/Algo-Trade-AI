@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
 import { useAppState } from '@/context/AppContext';
 import { useTradingEngine } from '@/hooks/useTradingEngine';
-import { cn,isRealOnChainPosition } from '@/lib/utils';
+import { cn, getRealMarketBasePrice, isRealOnChainPosition } from '@/lib/utils';
 import {
   Activity,
   ArrowRight,
@@ -36,12 +36,12 @@ export default function HomePage() {
   const isReal = tradingMode === 'REAL';
 
   const popularTickers = [
-    { pair: 'BTC-USD', name: 'Bitcoin', fallback: 95400, isSol: false },
-    { pair: 'ETH-USD', name: 'Ethereum', fallback: 2750, isSol: false },
-    { pair: 'SOL-USD', name: 'Solana', fallback: 185.50, isSol: true },
-    { pair: 'FX:EURUSD', name: 'EUR / USD', fallback: 1.0845, isForex: true },
-    { pair: 'FX:GBPUSD', name: 'GBP / USD', fallback: 1.2980, isForex: true },
-    { pair: 'SOL:PUMP_PEPE', name: 'PepeSol', fallback: 0.00042, isSol: true }
+    { pair: 'BTC-USD', name: 'Bitcoin', isSol: false },
+    { pair: 'ETH-USD', name: 'Ethereum', isSol: false },
+    { pair: 'SOL-USD', name: 'Solana', isSol: true },
+    { pair: 'FX:EURUSD', name: 'EUR / USD', isForex: true },
+    { pair: 'FX:GBPUSD', name: 'GBP / USD', isForex: true },
+    { pair: 'SOL:PUMP_PEPE', name: 'PepeSol', isSol: true }
   ];
 
   const coreFeatures = [
@@ -266,12 +266,13 @@ export default function HomePage() {
           </div>
 
           {popularTickers.map((t, idx) => {
-            const livePrice = livePrices[t.pair] || t.fallback;
+            const livePrice = livePrices[t.pair] || getRealMarketBasePrice(t.pair);
             const dir = priceDirections[t.pair] || 'flat';
             const isUp = dir === 'up';
             const isDown = dir === 'down';
 
-            const formatDisplay = (val: number) => {
+            const formatDisplay = (val: number | undefined) => {
+              if (!val || val <= 0) return '...';
               if (val >= 1000) return val.toFixed(2);
               if (val >= 1) return val.toFixed(4);
               return val.toFixed(6);

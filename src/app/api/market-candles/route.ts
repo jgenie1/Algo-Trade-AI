@@ -17,6 +17,7 @@ interface CachedCandles {
 }
 
 const serverCandleCache = new Map<string, CachedCandles>();
+const inFlightServerRequests = new Map<string, Promise<Candle[] | null>>();
 
 function pruneExpiredCache() {
   const now = Date.now();
@@ -251,71 +252,89 @@ export async function GET(req: NextRequest) {
     } catch (e) {}
   }
 
-  // 3. Tier 2: Try Yahoo Finance Chart API (Forex, Commodities, Metals, Crypto Fallback)
-  const yahooTicker = YAHOO_SYMBOL_MAP[clean] || (clean.length === 6 ? `${clean}=X` : clean);
+  // 3. Tier 2: Try Yahoo Finance Chart API with Multi-Host and Candidate Symbols (Forex, Commodities, Metals, Crypto)
   const { interval: yInterval, range: yRange, needs4hResample } = resolveYahooRange(timeframe, limit, explicitRange);
 
-  try {
-    const yRes = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=${yInterval}&range=${yRange}`,
-      {
-        headers: {
-          'User-Agent': getRandomUserAgent(),
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(6000),
-      }
-    );
+  const candidateTickers: string[] = [];
+  if (YAHOO_SYMBOL_MAP[clean]) {
+    candidateTickers.push(YAHOO_SYMBOL_MAP[clean]);
+  }
+  if (clean.length === 6 && !candidateTickers.includes(`${clean}=X`)) {
+    candidateTickers.push(`${clean}=X`);
+  }
+  if (!candidateTickers.includes(clean)) {
+    candidateTickers.push(clean);
+  }
 
-    if (yRes.ok) {
-      const yData = await yRes.json();
-      const resultObj = yData?.chart?.result?.[0];
-      const timestamps: number[] = resultObj?.timestamp || [];
-      const quoteObj = resultObj?.indicators?.quote?.[0];
+  const hosts = ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo.com'];
 
-      if (Array.isArray(timestamps) && quoteObj && Array.isArray(quoteObj.close) && timestamps.length > 0) {
-        let validCandles: Candle[] = [];
-        for (let i = 0; i < timestamps.length; i++) {
-          const c = quoteObj.close[i];
-          if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
-            validCandles.push({
-              time: timestamps[i],
-              open: quoteObj.open[i] ?? c,
-              high: quoteObj.high[i] ?? c,
-              low: quoteObj.low[i] ?? c,
-              close: c,
-              volume: quoteObj.volume?.[i] || 100,
-            });
+  for (const host of hosts) {
+    for (const ticker of candidateTickers) {
+      try {
+        const yRes = await fetch(
+          `${host}/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${yInterval}&range=${yRange}`,
+          {
+            headers: {
+              'User-Agent': getRandomUserAgent(),
+              Accept: 'application/json',
+            },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10000),
+          }
+        );
+
+        if (yRes.ok) {
+          const yData = await yRes.json();
+          const resultObj = yData?.chart?.result?.[0];
+          const timestamps: number[] = resultObj?.timestamp || [];
+          const quoteObj = resultObj?.indicators?.quote?.[0];
+
+          if (Array.isArray(timestamps) && quoteObj && Array.isArray(quoteObj.close) && timestamps.length > 0) {
+            let validCandles: Candle[] = [];
+            for (let i = 0; i < timestamps.length; i++) {
+              const c = quoteObj.close[i];
+              if (c !== null && c !== undefined && !isNaN(c) && c > 0) {
+                validCandles.push({
+                  time: timestamps[i],
+                  open: quoteObj.open[i] ?? c,
+                  high: quoteObj.high[i] ?? c,
+                  low: quoteObj.low[i] ?? c,
+                  close: c,
+                  volume: quoteObj.volume?.[i] || 100,
+                });
+              }
+            }
+
+            if (needs4hResample) {
+              validCandles = resample1hTo4h(validCandles);
+            }
+
+            if (validCandles.length > 0) {
+              const sliced = validCandles.slice(-limit);
+              const ttlMs = limit <= 100 ? 20_000 : 300_000;
+              serverCandleCache.set(cacheKey, {
+                candles: sliced,
+                source: 'yahoo',
+                timestamp: now,
+                expiresAt: now + ttlMs,
+              });
+
+              return NextResponse.json({
+                success: true,
+                source: 'yahoo',
+                pair: clean,
+                timeframe,
+                count: sliced.length,
+                candles: sliced,
+              });
+            }
           }
         }
-
-        if (needs4hResample) {
-          validCandles = resample1hTo4h(validCandles);
-        }
-
-        if (validCandles.length > 0) {
-          const sliced = validCandles.slice(-limit);
-          const ttlMs = limit <= 100 ? 15_000 : 300_000;
-          serverCandleCache.set(cacheKey, {
-            candles: sliced,
-            source: 'yahoo',
-            timestamp: now,
-            expiresAt: now + ttlMs,
-          });
-
-          return NextResponse.json({
-            success: true,
-            source: 'yahoo',
-            pair: clean,
-            timeframe,
-            count: sliced.length,
-            candles: sliced,
-          });
-        }
+      } catch (e) {
+        // Try next candidate ticker or host
       }
     }
-  } catch (e) {}
+  }
 
   // 4. Tier 3: Fail-Closed (Zero Synthetic Data)
   return NextResponse.json(

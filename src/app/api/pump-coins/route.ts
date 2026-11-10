@@ -30,105 +30,6 @@ const HEADERS = {
   'Referer': 'https://pump.fun/',
 };
 
-// High quality static fallback coins when external APIs are rate limited
-const BACKUP_SOLANA_PUMP_COINS: PumpCoin[] = [
-  {
-    mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-    initialized: true,
-    name: 'Bonk',
-    symbol: 'BONK',
-    description: 'First Solana dog coin for the people. x.com/bonk_solana t.me/bonksol',
-    image_uri: 'https://arweave.net/hQiW_HFv9jW3s6qNGKlPhZmyRFuMqqTwA7mCeM0x4Bw',
-    metadata_uri: '',
-    bonding_curve: 'curve_bonk',
-    associated_bonding_curve: '',
-    creator: '63bv378z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-    created_timestamp: Date.now() - 3600000 * 24,
-    complete: false,
-    virtual_sol_reserves: 30000000000,
-    virtual_token_reserves: 1058948111542534,
-    total_supply: 1000000000000000,
-    market_cap: 58000,
-    reply_count: 45
-  },
-  {
-    mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-    initialized: true,
-    name: 'dogwifhat',
-    symbol: 'WIF',
-    description: 'Literally a dog wif a hat. x.com/dogwifcoin t.me/dogwifhat',
-    image_uri: 'https://bafkreiba2y6m5f543uicr5v2a7v7iys4c5tndzvxxtpge2s6qfl6z3u2eq.ipfs.nftstorage.link/',
-    metadata_uri: '',
-    bonding_curve: 'curve_wif',
-    associated_bonding_curve: '',
-    creator: '7Xas82z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-    created_timestamp: Date.now() - 3600000 * 18,
-    complete: false,
-    virtual_sol_reserves: 42000000000,
-    virtual_token_reserves: 21772939346811,
-    total_supply: 1000000000000000,
-    market_cap: 68000,
-    reply_count: 62
-  },
-  {
-    mint: '7vNzTaChbkYjtPyMBRFEctmtXqPSUrLkse9UUrR7pump',
-    initialized: true,
-    name: 'Harambe Coin',
-    symbol: 'HARAMBE',
-    description: 'Legendary Harambe community meme on Solana. x.com/harambesol',
-    image_uri: 'https://cdn.dexscreener.com/cms/images/7vNzTaChbkYjtPyMBRFEctmtXqPSUrLkse9UUrR7pump?size=lg',
-    metadata_uri: '',
-    bonding_curve: 'curve_harambe',
-    associated_bonding_curve: '',
-    creator: '9Yx83z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-    created_timestamp: Date.now() - 3600000 * 5,
-    complete: false,
-    virtual_sol_reserves: 33000000000,
-    virtual_token_reserves: 519930675909878,
-    total_supply: 1000000000000000,
-    market_cap: 35000,
-    reply_count: 38
-  },
-  {
-    mint: 'Hu5dmfsqV8x54aV4jEgGo1rwp5T1cBxNaiovCa2ipump',
-    initialized: true,
-    name: 'Higher Expectations',
-    symbol: 'HE',
-    description: 'Trending Pump.fun community token on Solana.',
-    image_uri: 'https://cdn.dexscreener.com/cms/images/Hu5dmfsqV8x54aV4jEgGo1rwp5T1cBxNaiovCa2ipump?size=lg',
-    metadata_uri: '',
-    bonding_curve: 'curve_he',
-    associated_bonding_curve: '',
-    creator: '3Kas92z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-    created_timestamp: Date.now() - 3600000 * 8,
-    complete: false,
-    virtual_sol_reserves: 46000000000,
-    virtual_token_reserves: 293742017879948,
-    total_supply: 1000000000000000,
-    market_cap: 72000,
-    reply_count: 85
-  },
-  {
-    mint: '2LipTEACZ6oojh7xz15RwCYycRYXZ1FmzJQemdB5pump',
-    initialized: true,
-    name: 'Gato',
-    symbol: 'GATO',
-    description: 'AI cat meme sensation on Solana. x.com/gato_solana',
-    image_uri: 'https://cdn.dexscreener.com/cms/images/2LipTEACZ6oojh7xz15RwCYycRYXZ1FmzJQemdB5pump?size=lg',
-    metadata_uri: '',
-    bonding_curve: 'curve_gato',
-    associated_bonding_curve: '',
-    creator: '5Lp28z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-    created_timestamp: Date.now() - 3600000 * 12,
-    complete: false,
-    virtual_sol_reserves: 52000000000,
-    virtual_token_reserves: 308239478363959,
-    total_supply: 1000000000000000,
-    market_cap: 82000,
-    reply_count: 110
-  }
-];
-
 export async function GET() {
   const endpoints = [
     'https://frontend-api-v3.pump.fun/coins?offset=0&limit=30&sort=created_timestamp&order=DESC',
@@ -215,5 +116,5 @@ export async function GET() {
   } catch {}
 
   // 3. High quality static fallback coins — ensures route ALWAYS returns status 200
-  return NextResponse.json({ success: true, coins: BACKUP_SOLANA_PUMP_COINS });
+  return NextResponse.json({ success: false, coins: [], error: 'Flux temps réel Solana/Pump.fun indisponible' }, { status: 404 });
 }
