@@ -1,5 +1,6 @@
 import { calculateIndicators } from './technicalAnalysisService';
 import { fetchLiveMarketData } from './yahooFinanceService';
+import { evaluateStrategySignal } from './strategyEngine';
 
 export interface BacktestOptions {
   spreadPips?: number;        // Explicit spread in pips
@@ -107,6 +108,7 @@ export async function runBacktest(
     entryPrice: number;
     entryTime: number;
     amount: number;
+    initialSl?: number;
     sl: number;
     tp: number;
     highestPrice?: number;
@@ -118,7 +120,7 @@ export async function runBacktest(
   const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'LINK', 'AVAX'].some(c => cleanPair.includes(c));
   const isGold = cleanPair.includes('GOLD') || cleanPair.includes('XAU');
 
-  for (let i = 20; i < candles.length; i++) {
+  for (let i = 50; i < candles.length; i++) {
     const c = candles[i];
     const prevC = candles[i - 1];
     const price = c.close;
@@ -130,24 +132,17 @@ export async function runBacktest(
       let exitPrice: number | null = null;
       let exitReason = '';
 
+      const riskDist = Math.abs(pos.entryPrice - (pos.initialSl || pos.sl));
+
       if (pos.type === 'BUY') {
         pos.highestPrice = Math.max(pos.highestPrice || pos.entryPrice, c.high);
-        const peakGainPct = (pos.highestPrice - pos.entryPrice) / (pos.entryPrice || 1);
+        const gain = pos.highestPrice - pos.entryPrice;
 
-        // Palier 1 : Break-Even à +2.20% avec stop garanti à +0.60%
-        if (peakGainPct >= 0.022 && pos.sl < pos.entryPrice * 1.006) {
-          pos.sl = pos.entryPrice * 1.006;
+        // Palier 1 : Break-Even dès 1.2R d'extension
+        const beBuffer = isCrypto ? 1.0015 : 1.0005;
+        if (gain >= riskDist * 1.2 && pos.sl < pos.entryPrice * beBuffer) {
+          pos.sl = pos.entryPrice * beBuffer;
           pos.trailingTier = 1;
-        }
-        // Palier 2 : Verrouillage profit +1.80% dès +3.60%
-        if (peakGainPct >= 0.036 && pos.sl < pos.entryPrice * 1.018) {
-          pos.sl = pos.entryPrice * 1.018;
-          pos.trailingTier = 2;
-        }
-        // Palier 3 : Verrouillage profit étendu +3.50% dès +5.50%
-        if (peakGainPct >= 0.055 && pos.sl < pos.entryPrice * 1.035) {
-          pos.sl = pos.entryPrice * 1.035;
-          pos.trailingTier = 3;
         }
 
         // Feature F7: Execution Slippage & Gap Fills on exit
@@ -166,22 +161,13 @@ export async function runBacktest(
         }
       } else {
         pos.lowestPrice = Math.min(pos.lowestPrice || pos.entryPrice, c.low);
-        const peakGainPct = (pos.entryPrice - pos.lowestPrice) / (pos.entryPrice || 1);
+        const gain = pos.entryPrice - pos.lowestPrice;
 
-        // Palier 1 : Break-Even à +2.20% avec stop garanti à +0.60%
-        if (peakGainPct >= 0.022 && pos.sl > pos.entryPrice * 0.994) {
-          pos.sl = pos.entryPrice * 0.994;
+        // Palier 1 : Break-Even dès 1.2R d'extension
+        const beBufferShort = isCrypto ? 0.9985 : 0.9995;
+        if (gain >= riskDist * 1.2 && pos.sl > pos.entryPrice * beBufferShort) {
+          pos.sl = pos.entryPrice * beBufferShort;
           pos.trailingTier = 1;
-        }
-        // Palier 2 : Verrouillage profit +1.80% dès +3.60%
-        if (peakGainPct >= 0.036 && pos.sl > pos.entryPrice * 0.982) {
-          pos.sl = pos.entryPrice * 0.982;
-          pos.trailingTier = 2;
-        }
-        // Palier 3 : Verrouillage profit étendu +3.50% dès +5.50%
-        if (peakGainPct >= 0.055 && pos.sl > pos.entryPrice * 0.965) {
-          pos.sl = pos.entryPrice * 0.965;
-          pos.trailingTier = 3;
         }
 
         // Feature F7: Short execution gap fills on exit
@@ -295,49 +281,17 @@ export async function runBacktest(
     // 2. Look for new entry signal if no active position
     if (!currentPosition && !maxDrawdownExceeded) {
       let signal: 'BUY' | 'SELL' | null = null;
-      const lastEma50 = ema50Series[i] || price;
-      const lastEma200 = ema200Series[i] || lastEma50;
-      const isMacroBullish = price >= lastEma200 && lastEma50 >= lastEma200 * 0.995;
-      const isMacroBearish = price <= lastEma200 && lastEma50 <= lastEma200 * 1.005;
+      let targetSl = 0;
+      let targetTp = 0;
 
-      if (strategy === 'RSI Pullback' && rsiVals[i] !== undefined) {
-        if (rsiVals[i] < 38 && price > prevC.close && isMacroBullish) signal = 'BUY';
-        else if (rsiVals[i] > 62 && price < prevC.close && isMacroBearish) signal = 'SELL';
-      } else if (strategy === 'EMA Cross' && emaVals[i] !== undefined && emaVals[i - 1] !== undefined) {
-        const fastEma = emaVals[i];
-        const prevFast = emaVals[i - 1];
-        if (prevC.close <= prevFast && price > fastEma && isMacroBullish) signal = 'BUY';
-        else if (prevC.close >= prevFast && price < fastEma && isMacroBearish) signal = 'SELL';
-      } else if (strategy === 'SuperTrend Momentum' && stDirs[i] && stDirs[i - 1]) {
-        if (stDirs[i - 1] === 'DOWN' && stDirs[i] === 'UP' && isMacroBullish) signal = 'BUY';
-        else if (stDirs[i - 1] === 'UP' && stDirs[i] === 'DOWN' && isMacroBearish) signal = 'SELL';
-      } else if (strategy === 'VWAP Breakout' && vwapVals[i] !== undefined) {
-        const vwap = vwapVals[i];
-        if (prevC.close < vwap && price > vwap && isMacroBullish) signal = 'BUY';
-        else if (prevC.close > vwap && price < vwap && isMacroBearish) signal = 'SELL';
-      } else if (strategy === 'BB Mean Reversion' && bbLower[i] && bbUpper[i]) {
-        if (price <= bbLower[i] && (price >= lastEma200 * 0.98)) signal = 'BUY';
-        else if (price >= bbUpper[i] && (price <= lastEma200 * 1.02)) signal = 'SELL';
-      } else if (strategy === 'AI Autopilot (Machine à Cash)' || strategy.includes('IA')) {
-        const rsi = rsiVals[i] || 50;
-        if (rsi >= 44 && rsi <= 68 && price > prevC.close && isMacroBullish) signal = 'BUY';
-        else if (rsi <= 56 && rsi >= 32 && price < prevC.close && isMacroBearish) signal = 'SELL';
-      } else if (strategy.includes('SMC') || strategy.includes('Smart Money')) {
-        const rsi = rsiVals[i] || 50;
-        const prevMin = Math.min(...candles.slice(Math.max(0, i - 10), i).map(x => x.low));
-        const prevMax = Math.max(...candles.slice(Math.max(0, i - 10), i).map(x => x.high));
-        if (prevC.low <= prevMin && price > prevC.open && rsi >= 34 && rsi <= 64 && isMacroBullish) signal = 'BUY';
-        else if (prevC.high >= prevMax && price < prevC.open && rsi <= 66 && rsi >= 36 && isMacroBearish) signal = 'SELL';
-      } else if (strategy.includes('Triple Confluence')) {
-        const rsi = rsiVals[i] || 50;
-        const emaFast = emaVals[i] || price;
-        if (price >= emaFast && rsi <= 48 && price > prevC.close && isMacroBullish) signal = 'BUY';
-        else if (price <= emaFast && rsi >= 52 && price < prevC.close && isMacroBearish) signal = 'SELL';
-      } else if (strategy.includes('Breakout') && strategy.includes('MT5')) {
-        const boxHigh = Math.max(...candles.slice(Math.max(0, i - 10), i).map(x => x.high));
-        const boxLow = Math.min(...candles.slice(Math.max(0, i - 10), i).map(x => x.low));
-        if (price > boxHigh && price > prevC.close && isMacroBullish) signal = 'BUY';
-        else if (price < boxLow && price < prevC.close && isMacroBearish) signal = 'SELL';
+      const windowCandles = candles.slice(0, i + 1);
+      const stratRes = evaluateStrategySignal(strategy, windowCandles, pair);
+
+      // Unified Strategy Engine integration (SMC, RSI Pullback, EMA Cross, Bollinger Breakout, AI Autopilot)
+      if (stratRes.signal !== 'NEUTRAL' && stratRes.conviction >= 0.65) {
+        signal = stratRes.signal;
+        targetSl = stratRes.stopLoss;
+        targetTp = stratRes.takeProfit;
       }
 
       if (signal) {
@@ -363,15 +317,20 @@ export async function runBacktest(
           ? ask * (1 + slippagePct)
           : bid * (1 - slippagePct);
 
-        const slDist = 0.015;
-        const tpDist = 0.035;
+        const stopDist = targetSl > 0 ? Math.abs(stratRes.entryPrice - targetSl) : price * 0.010;
+        const tpDist = targetTp > 0 ? Math.abs(targetTp - stratRes.entryPrice) : stopDist * 2.25;
+
+        const posSl = signal === 'BUY' ? executedEntryPrice - stopDist : executedEntryPrice + stopDist;
+        const posTp = signal === 'BUY' ? executedEntryPrice + tpDist : executedEntryPrice - tpDist;
+
         currentPosition = {
           type: signal,
           entryPrice: executedEntryPrice,
           entryTime: c.time,
           amount: capitalPerTrade,
-          sl: signal === 'BUY' ? executedEntryPrice * (1 - slDist) : executedEntryPrice * (1 + slDist),
-          tp: signal === 'BUY' ? executedEntryPrice * (1 + tpDist) : executedEntryPrice * (1 - tpDist),
+          initialSl: posSl,
+          sl: posSl,
+          tp: posTp,
           highestPrice: executedEntryPrice,
           lowestPrice: executedEntryPrice,
           trailingTier: 0

@@ -25,6 +25,8 @@ import {
 } from '@/services/pumpFunService';
 import { calculateIndicators } from '@/services/technicalAnalysisService';
 import { fetchLiveMarketData } from '@/services/yahooFinanceService';
+import { calculateVolatilityPositionSize, evaluateStrategySignal } from '@/services/strategyEngine';
+import { getMT5Bridge } from '@/services/mt5Service';
 import { getExplorerTxUrl } from '@/utils/explorerLinks';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
@@ -1127,12 +1129,19 @@ export function useTradingEngine() {
                   setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: 1000 } : item));
                 }
                 const allocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
-                const minRequiredDemo = Math.max(2, Math.min(25, effectiveBotCapital / 3));
+                const dynamicSizing = calculateVolatilityPositionSize({
+                  accountCapital: effectiveBotCapital,
+                  riskPercentage: 0.015,
+                  entryPrice: matchingCoin.priceSol || 0.0001,
+                  stopLossPrice: (matchingCoin.priceSol || 0.0001) * 0.98,
+                  assetClass: 'CRYPTO'
+                }) || (effectiveBotCapital * 0.25);
+                const minRequiredDemo = Math.max(2, Math.min(25, dynamicSizing));
                 if (allocatable < minRequiredDemo) {
                   addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, minimum requis : $${minRequiredDemo.toFixed(2)}, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
                   continue;
                 }
-                const targetCapital = (effectiveBotCapital / 3) * (isWinningPatternMatch ? 1.20 : 1.0);
+                const targetCapital = dynamicSizing * (isWinningPatternMatch ? 1.20 : 1.0);
                 posTradeAmount = parseFloat(Math.min(targetCapital, allocatable).toFixed(2));
                 if (posTradeAmount < minRequiredDemo) {
                   addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur $${matchingCoin.symbol} REJETÉ : Montant trop faible ($${posTradeAmount.toFixed(2)}).`, 'error');
@@ -1840,7 +1849,14 @@ export function useTradingEngine() {
 
                 if (isRealMode) {
                   const convictionMult = ((bot.strategy === 'AI Autopilot (Machine à Cash)' && aiConfidenceScore >= 35) ? 1.2 : 1.0) * learningBooster;
-                  calculatedTradeAmt = parseFloat(((bot.capital / 3) * convictionMult).toFixed(4));
+                  const dynamicRealSize = calculateVolatilityPositionSize({
+                    accountCapital: bot.capital,
+                    riskPercentage: 0.015,
+                    entryPrice: lastClose || 100,
+                    stopLossPrice: (lastClose || 100) * 0.985,
+                    assetClass: 'CRYPTO'
+                  }) || (bot.capital * 0.25);
+                  calculatedTradeAmt = parseFloat((dynamicRealSize * convictionMult).toFixed(4));
                   const botSubIdx = (bot.subWallet || 1) - 1;
                   let subWalletObj = subWalletsRef.current[botSubIdx];
                   let subWalletBal = subWalletObj?.balance || 0;
@@ -1885,14 +1901,21 @@ export function useTradingEngine() {
                     setBots(prev => prev.map(item => item.id === bot.id ? { ...item, capital: 1000 } : item));
                   }
                   const allocatable = Math.max(0, balanceRef.current - (reserveVaultRef.current || 0));
-                  const minRequiredDemo = Math.max(2, Math.min(25, effectiveBotCapital / 3));
+                  const dynamicDemoSize = calculateVolatilityPositionSize({
+                    accountCapital: effectiveBotCapital,
+                    riskPercentage: 0.015,
+                    entryPrice: lastClose || 100,
+                    stopLossPrice: (lastClose || 100) * 0.985,
+                    assetClass: cleanPair.includes('EUR') ? 'FOREX' : cleanPair.includes('GOLD') ? 'COMMODITY' : 'CRYPTO'
+                  }) || (effectiveBotCapital * 0.25);
+                  const minRequiredDemo = Math.max(2, Math.min(25, dynamicDemoSize));
                   if (allocatable < minRequiredDemo) {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Solde allocable insuffisant ($${allocatable.toFixed(2)} disponible, minimum requis : $${minRequiredDemo.toFixed(2)}, Coffre-Fort protégé : $${(reserveVaultRef.current || 0).toFixed(2)}).`, 'error');
                     continue;
                   }
-                  // En Démo : 1/3 du capital alloué au bot pour l'entrée initiale (garde 2/3 en réserve pour jusqu'à 2 renforts DCA), boosté si consensus fort OU motif gagnant
+                  // En Démo : dimensionnement adaptatif basé sur ATR / volatilité avec réserves DCA
                   const convictionMult = ((bot.strategy === 'AI Autopilot (Machine à Cash)' && aiConfidenceScore >= 35) ? 1.2 : 1.0) * learningBooster;
-                  const baseTradeAmt = (effectiveBotCapital / 3) * convictionMult;
+                  const baseTradeAmt = dynamicDemoSize * convictionMult;
                   calculatedTradeAmt = parseFloat(Math.min(baseTradeAmt, allocatable).toFixed(2));
                   if (calculatedTradeAmt < minRequiredDemo) {
                     addBotLogRef.current(bot.id, bot.strategy, `Signal ${signal} sur ${cleanPair} REJETÉ : Montant disponible insuffisant ($${calculatedTradeAmt.toFixed(2)}).`, 'error');
@@ -2042,6 +2065,19 @@ export function useTradingEngine() {
                     inFlightBotsRef.current[bot.id] = false;
                   });
                 } else if (!isRealMode) {
+                  // Route Forex & Commodities to MT5 bridge (SimulatedMT5Bridge) in DEMO mode
+                  if (isForexOrMetal || cleanPair === 'EURUSD' || cleanPair === 'GOLD') {
+                    getMT5Bridge().placeOrder({
+                      symbol: cleanPair === 'GOLD' ? 'XAUUSD' : cleanPair,
+                      type: signal === 'BUY' ? 'BUY' : 'SELL',
+                      lots: Math.max(0.01, Number((calculatedTradeAmt / 1000).toFixed(2))),
+                      price: executionPrice,
+                      stopLoss: newPos.sl,
+                      takeProfit: newPos.tp,
+                      comment: `AlgoTrade-${bot.strategy}`
+                    }).catch(() => {});
+                  }
+
                   // Virtual execution strictly in DEMO mode
                   const demoPos = { ...newPos, mode: 'DEMO' as const };
                   setActivePositions(prev => {
